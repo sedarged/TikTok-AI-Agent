@@ -141,6 +141,8 @@ export interface Artifacts {
   mp4Path?: string;
   thumbPath?: string;
   exportJsonPath?: string;
+  dryRun?: boolean;
+  dryRunReportPath?: string;
 }
 
 // Niche pack
@@ -184,6 +186,7 @@ export interface ProviderStatus {
   ready: boolean;
   message: string;
   testMode?: boolean;
+  renderDryRun?: boolean;
 }
 
 // SSE event

@@ -4,7 +4,7 @@ import { prisma } from '../db/client.js';
 import { validatePlan, autofitDurations } from '../services/plan/planValidator.js';
 import { regenerateHooks, regenerateOutline, regenerateScript } from '../services/plan/planGenerator.js';
 import { startRenderPipeline } from '../services/render/renderPipeline.js';
-import { isOpenAIConfigured, isTestMode } from '../env.js';
+import { isOpenAIConfigured, isRenderDryRun, isTestMode } from '../env.js';
 import { checkFFmpegAvailable } from '../services/ffmpeg/ffmpegUtils.js';
 
 export const planRoutes = Router();
@@ -383,16 +383,18 @@ planRoutes.post('/:planVersionId/render', async (req, res) => {
       });
     }
 
+    const renderDryRun = isRenderDryRun();
+
     // Check providers
-    if (!isOpenAIConfigured()) {
+    if (!renderDryRun && !isOpenAIConfigured()) {
       return res.status(400).json({
         error: 'Cannot render: OpenAI API key not configured',
         code: 'OPENAI_NOT_CONFIGURED',
       });
     }
 
-    const ffmpegAvailable = await checkFFmpegAvailable();
-    if (!ffmpegAvailable) {
+    const ffmpegAvailable = renderDryRun ? true : await checkFFmpegAvailable();
+    if (!renderDryRun && !ffmpegAvailable) {
       return res.status(400).json({
         error: 'Cannot render: FFmpeg not available',
         code: 'FFMPEG_NOT_AVAILABLE',

@@ -213,14 +213,16 @@ export default function PlanStudio({ status }: PlanStudioProps) {
       setError('Rendering is disabled in TEST MODE. Disable APP_TEST_MODE to render.');
       return;
     }
+
+    const renderDryRun = status?.renderDryRun === true;
     
     // Check OpenAI status
-    if (!status?.providers.openai) {
+    if (!renderDryRun && !status?.providers.openai) {
       setError('Cannot render: OpenAI API key not configured. Set OPENAI_API_KEY in .env file.');
       return;
     }
     
-    if (!status?.providers.ffmpeg) {
+    if (!renderDryRun && !status?.providers.ffmpeg) {
       setError('Cannot render: FFmpeg not available.');
       return;
     }
@@ -295,6 +297,12 @@ export default function PlanStudio({ status }: PlanStudioProps) {
               TEST MODE: rendering disabled
             </span>
           )}
+
+          {status?.renderDryRun && !status?.testMode && (
+            <span className="text-yellow-400 text-sm">
+              DRY-RUN: no MP4 will be generated
+            </span>
+          )}
           
           <button onClick={handleValidate} className="btn btn-secondary">
             Validate
@@ -307,7 +315,7 @@ export default function PlanStudio({ status }: PlanStudioProps) {
           <button
             onClick={handleApproveAndRender}
             className="btn btn-primary"
-            disabled={saving || !status?.ready || status?.testMode}
+            disabled={saving || status?.testMode || (!status?.ready && !status?.renderDryRun)}
           >
             Approve & Render
           </button>

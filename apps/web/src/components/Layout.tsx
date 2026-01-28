@@ -52,6 +52,9 @@ export default function Layout({ children, status }: LayoutProps) {
               label="FFmpeg"
               active={status?.providers.ffmpeg ?? false}
             />
+            {status?.renderDryRun && !status?.testMode && (
+              <StatusIndicator label="Dry-Run" active />
+            )}
           </div>
         </div>
       </header>

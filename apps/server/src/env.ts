@@ -32,6 +32,8 @@ export const env = {
   MUSIC_LIBRARY_DIR: process.env.MUSIC_LIBRARY_DIR || path.resolve(rootDir, 'assets', 'music'),
   ARTIFACTS_DIR: process.env.ARTIFACTS_DIR || path.resolve(rootDir, 'artifacts'),
   APP_TEST_MODE: process.env.APP_TEST_MODE === '1',
+  APP_RENDER_DRY_RUN: process.env.APP_RENDER_DRY_RUN === '1',
+  APP_DRY_RUN_FAIL_STEP: process.env.APP_DRY_RUN_FAIL_STEP || '',
   APP_VERSION: process.env.APP_VERSION || '',
 };
 
@@ -53,11 +55,16 @@ export function isTestMode(): boolean {
   return env.APP_TEST_MODE;
 }
 
+export function isRenderDryRun(): boolean {
+  return env.APP_RENDER_DRY_RUN && !env.APP_TEST_MODE;
+}
+
 export function getProviderStatus() {
   return {
     openai: isOpenAIConfigured(),
     elevenlabs: isElevenLabsConfigured(),
-    ffmpeg: !env.APP_TEST_MODE, // Will be checked at runtime
+    ffmpeg: !env.APP_TEST_MODE && !env.APP_RENDER_DRY_RUN, // Will be checked at runtime
     testMode: env.APP_TEST_MODE,
+    renderDryRun: env.APP_RENDER_DRY_RUN,
   };
 }

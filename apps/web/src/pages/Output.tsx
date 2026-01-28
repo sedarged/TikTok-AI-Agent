@@ -122,6 +122,7 @@ export default function Output({ status: _status }: OutputProps) {
   const isComplete = run.status === 'done';
   const isRunning = run.status === 'running' || run.status === 'queued';
   const isFailed = run.status === 'failed';
+  const isDryRun = artifacts.dryRun === true;
 
   return (
     <div className="space-y-6">
@@ -154,6 +155,15 @@ export default function Output({ status: _status }: OutputProps) {
       {error && (
         <div className="bg-red-900/50 border border-red-700 rounded-lg px-4 py-3">
           <p className="text-red-200">{error}</p>
+        </div>
+      )}
+
+      {isComplete && isDryRun && (
+        <div className="card bg-yellow-900/20 border-yellow-700">
+          <h3 className="font-semibold text-yellow-300 mb-2">Dry-run Render</h3>
+          <p className="text-gray-300 text-sm">
+            This run executed the render pipeline without external providers or MP4 output.
+          </p>
         </div>
       )}
 
@@ -314,6 +324,9 @@ export default function Output({ status: _status }: OutputProps) {
             )}
             {artifacts.audioDir && (
               <ArtifactItem label="Audio Files" path={artifacts.audioDir} isDir />
+            )}
+            {artifacts.dryRunReportPath && (
+              <ArtifactItem label="Dry-run Report" path={artifacts.dryRunReportPath} />
             )}
           </div>
         </div>

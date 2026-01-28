@@ -101,6 +101,8 @@ ARTIFACTS_DIR=./artifacts     # Output directory
 DATABASE_URL="file:./dev.db"  # SQLite database path
 PORT=3001                     # Server port
 APP_TEST_MODE=0               # Set to 1 to disable render + external providers
+APP_RENDER_DRY_RUN=0          # Set to 1 to run render without providers/MP4
+APP_DRY_RUN_FAIL_STEP=        # Inject failure at a render step (optional)
 APP_VERSION=                  # Optional version override for /api/health
 ```
 
@@ -118,6 +120,22 @@ When APP_TEST_MODE is enabled:
 - Rendering endpoints return 403
 - OpenAI/FFmpeg checks are skipped for status
 - Plan generation uses deterministic templates (no paid APIs)
+
+## Render Dry-Run (No API Keys, No MP4)
+
+Simulate the full render pipeline without OpenAI/FFmpeg:
+
+```bash
+export APP_TEST_MODE=0
+export APP_RENDER_DRY_RUN=1
+npm run test:render
+```
+
+Optional failure injection:
+
+```bash
+export APP_DRY_RUN_FAIL_STEP=images_generate
+```
 
 ## How to Render a 60s Facts Video
 

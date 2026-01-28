@@ -1,6 +1,6 @@
 import fs from 'fs';
 import path from 'path';
-import { env } from '../../env.js';
+import { env, isRenderDryRun } from '../../env.js';
 import { validateVideo, getMediaDuration } from '../ffmpeg/ffmpegUtils.js';
 import type { Run, Project, PlanVersion, Scene } from '@prisma/client';
 
@@ -30,6 +30,117 @@ export async function verifyArtifacts(run: RunWithDetails): Promise<Verification
   const artifacts = JSON.parse(run.artifactsJson);
   const project = run.project;
   const scenes = run.planVersion.scenes;
+  const dryRun = isRenderDryRun() || artifacts.dryRun === true;
+
+  if (dryRun) {
+    checks.push({
+      name: 'Dry-run Mode',
+      passed: true,
+      message: 'Dry-run render: no MP4 generated.',
+    });
+
+    const imagesDir = artifacts.imagesDir 
+      ? path.join(env.ARTIFACTS_DIR, artifacts.imagesDir) 
+      : null;
+    
+    if (imagesDir && fs.existsSync(imagesDir)) {
+      const imageFiles = fs.readdirSync(imagesDir).filter(f => f.startsWith('scene_'));
+      const expectedCount = scenes.length;
+      
+      checks.push({
+        name: 'Scene Image Placeholders',
+        passed: imageFiles.length >= expectedCount,
+        message: imageFiles.length >= expectedCount
+          ? `All ${expectedCount} scene placeholders present`
+          : `Missing placeholders: found ${imageFiles.length}/${expectedCount}`,
+        details: { found: imageFiles.length, expected: expectedCount },
+      });
+    } else {
+      checks.push({
+        name: 'Scene Image Placeholders',
+        passed: false,
+        message: 'Images directory not found',
+      });
+    }
+
+    const audioDir = artifacts.audioDir 
+      ? path.join(env.ARTIFACTS_DIR, artifacts.audioDir) 
+      : null;
+    const voFullPath = audioDir ? path.join(audioDir, 'vo_full.mp3') : null;
+
+    if (voFullPath && fs.existsSync(voFullPath)) {
+      checks.push({
+        name: 'Voice-over Placeholder',
+        passed: true,
+        message: 'Voice-over placeholder present',
+        details: { path: voFullPath },
+      });
+    } else {
+      checks.push({
+        name: 'Voice-over Placeholder',
+        passed: false,
+        message: 'Voice-over placeholder missing',
+      });
+    }
+
+    const captionsPath = artifacts.captionsPath 
+      ? path.join(env.ARTIFACTS_DIR, artifacts.captionsPath) 
+      : null;
+    
+    if (captionsPath && fs.existsSync(captionsPath)) {
+      checks.push({
+        name: 'Captions File',
+        passed: true,
+        message: 'Captions file present',
+        details: { path: captionsPath },
+      });
+    } else {
+      checks.push({
+        name: 'Captions File',
+        passed: false,
+        message: 'Captions file not found',
+      });
+    }
+
+    const exportPath = artifacts.exportJsonPath 
+      ? path.join(env.ARTIFACTS_DIR, artifacts.exportJsonPath) 
+      : null;
+    
+    if (exportPath && fs.existsSync(exportPath)) {
+      checks.push({
+        name: 'Export JSON',
+        passed: true,
+        message: 'Export JSON present',
+        details: { path: exportPath },
+      });
+    } else {
+      checks.push({
+        name: 'Export JSON',
+        passed: false,
+        message: 'Export JSON file not found',
+      });
+    }
+
+    checks.push({
+      name: 'Final Video File',
+      passed: true,
+      message: 'Skipped in dry-run mode',
+    });
+
+    const passed = checks.filter(c => c.passed).length;
+    const failed = checks.filter(c => !c.passed).length;
+
+    return {
+      passed: failed === 0,
+      checks,
+      summary: {
+        total: checks.length,
+        passed,
+        failed,
+        warnings: 0,
+      },
+    };
+  }
 
   // Check 1: Images directory exists with correct count
   const imagesDir = artifacts.imagesDir 

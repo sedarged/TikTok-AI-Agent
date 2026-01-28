@@ -2,7 +2,7 @@ import { prisma } from '../../db/client.js';
 import { v4 as uuid } from 'uuid';
 import path from 'path';
 import fs from 'fs';
-import { env, isTestMode } from '../../env.js';
+import { env, isRenderDryRun, isTestMode } from '../../env.js';
 import { getNichePack } from '../nichePacks.js';
 import { generateTTS, transcribeAudio, generateImage } from '../providers/openai.js';
 import { buildCaptionsFromWords, buildCaptionsFromScenes } from '../captions/captionsBuilder.js';
@@ -55,6 +55,28 @@ const STEP_WEIGHTS: Record<RunStep, number> = {
 // Active runs for cancellation
 const activeRuns = new Map<string, boolean>();
 
+function shouldFailStep(step: RunStep): boolean {
+  return isRenderDryRun() && env.APP_DRY_RUN_FAIL_STEP === step;
+}
+
+function ensureDirExists(dirPath: string) {
+  if (!fs.existsSync(dirPath)) {
+    fs.mkdirSync(dirPath, { recursive: true });
+  }
+}
+
+function writePlaceholderFile(filePath: string, contents: string) {
+  ensureDirExists(path.dirname(filePath));
+  if (!fs.existsSync(filePath)) {
+    fs.writeFileSync(filePath, contents);
+  }
+}
+
+function buildDryRunTranscription(scenes: Scene[]) {
+  const text = scenes.map((s) => s.narrationText).join(' ');
+  return { text, words: [] as Array<{ word: string; start: number; end: number }> };
+}
+
 // Start render pipeline
 export async function startRenderPipeline(planVersion: PlanWithDetails): Promise<Run> {
   if (isTestMode()) {
@@ -98,6 +120,7 @@ async function executePipeline(run: Run, planVersion: PlanWithDetails) {
   const projectId = run.projectId;
   const project = planVersion.project;
   const scenes = planVersion.scenes;
+  const dryRun = isRenderDryRun();
   
   // Create artifacts directory
   const artifactsDir = path.join(env.ARTIFACTS_DIR, projectId, runId);
@@ -108,14 +131,15 @@ async function executePipeline(run: Run, planVersion: PlanWithDetails) {
   const videoDir = path.join(artifactsDir, 'video');
   
   for (const dir of [imagesDir, audioDir, captionsDir, finalDir, videoDir]) {
-    fs.mkdirSync(dir, { recursive: true });
+    ensureDirExists(dir);
   }
 
   // Initialize artifacts
-  const artifacts: Record<string, string> = {
+  const artifacts: Record<string, string | boolean> = {
     imagesDir: path.relative(env.ARTIFACTS_DIR, imagesDir),
     audioDir: path.relative(env.ARTIFACTS_DIR, audioDir),
     captionsDir: path.relative(env.ARTIFACTS_DIR, captionsDir),
+    dryRun,
   };
 
   const resumeState = JSON.parse(run.resumeStateJson);
@@ -127,6 +151,10 @@ async function executePipeline(run: Run, planVersion: PlanWithDetails) {
 
     // Step 1: TTS Generate
     if (!completedSteps.includes('tts_generate') && isActive(runId)) {
+      if (shouldFailStep('tts_generate')) {
+        throw new Error('Dry-run failure injected at tts_generate');
+      }
+
       await updateStep(runId, 'tts_generate', 'Generating voice-over audio...');
       
       const sceneAudioPaths: string[] = [];
@@ -140,7 +168,11 @@ async function executePipeline(run: Run, planVersion: PlanWithDetails) {
         await addLog(runId, `Generating TTS for scene ${i + 1}/${scenes.length}...`);
         
         if (!fs.existsSync(audioPath)) {
-          await generateTTS(scene.narrationText, audioPath, project.voicePreset);
+          if (dryRun) {
+            writePlaceholderFile(audioPath, `[dry-run audio]\n${scene.narrationText}\n`);
+          } else {
+            await generateTTS(scene.narrationText, audioPath, project.voicePreset);
+          }
         }
         
         sceneAudioPaths.push(audioPath);
@@ -153,8 +185,16 @@ async function executePipeline(run: Run, planVersion: PlanWithDetails) {
       // Concatenate audio
       const voFullPath = path.join(audioDir, 'vo_full.mp3');
       if (sceneAudioPaths.length > 0 && !fs.existsSync(voFullPath)) {
-        await addLog(runId, 'Concatenating voice-over audio...');
-        await concatenateAudio(sceneAudioPaths, voFullPath);
+        if (dryRun) {
+          await addLog(runId, 'Creating dry-run voice-over placeholder...');
+          writePlaceholderFile(
+            voFullPath,
+            `[dry-run voice-over]\n${scenes.map(s => s.narrationText).join('\n')}\n`
+          );
+        } else {
+          await addLog(runId, 'Concatenating voice-over audio...');
+          await concatenateAudio(sceneAudioPaths, voFullPath);
+        }
       }
 
       completedSteps.push('tts_generate');
@@ -164,13 +204,19 @@ async function executePipeline(run: Run, planVersion: PlanWithDetails) {
 
     // Step 2: ASR Align
     if (!completedSteps.includes('asr_align') && isActive(runId)) {
+      if (shouldFailStep('asr_align')) {
+        throw new Error('Dry-run failure injected at asr_align');
+      }
+
       await updateStep(runId, 'asr_align', 'Transcribing audio for captions...');
       
       const voFullPath = path.join(audioDir, 'vo_full.mp3');
       const timestampsPath = path.join(captionsDir, 'timestamps.json');
       
       if (fs.existsSync(voFullPath) && !fs.existsSync(timestampsPath)) {
-        const transcription = await transcribeAudio(voFullPath);
+        const transcription = dryRun
+          ? buildDryRunTranscription(scenes)
+          : await transcribeAudio(voFullPath);
         fs.writeFileSync(timestampsPath, JSON.stringify(transcription, null, 2));
       }
 
@@ -182,6 +228,10 @@ async function executePipeline(run: Run, planVersion: PlanWithDetails) {
 
     // Step 3: Generate Images
     if (!completedSteps.includes('images_generate') && isActive(runId)) {
+      if (shouldFailStep('images_generate')) {
+        throw new Error('Dry-run failure injected at images_generate');
+      }
+
       await updateStep(runId, 'images_generate', 'Generating scene images...');
       
       const pack = getNichePack(project.nichePackId);
@@ -202,7 +252,11 @@ async function executePipeline(run: Run, planVersion: PlanWithDetails) {
             'High quality, detailed, vertical composition suitable for TikTok',
           ].filter(Boolean).join('. ');
           
-          await generateImage(fullPrompt, imagePath, '1024x1792');
+          if (dryRun) {
+            writePlaceholderFile(imagePath, `[dry-run image]\n${fullPrompt}\n`);
+          } else {
+            await generateImage(fullPrompt, imagePath, '1024x1792');
+          }
         }
         
         // Update progress
@@ -217,6 +271,10 @@ async function executePipeline(run: Run, planVersion: PlanWithDetails) {
 
     // Step 4: Build Captions
     if (!completedSteps.includes('captions_build') && isActive(runId)) {
+      if (shouldFailStep('captions_build')) {
+        throw new Error('Dry-run failure injected at captions_build');
+      }
+
       await updateStep(runId, 'captions_build', 'Building captions...');
       
       const pack = getNichePack(project.nichePackId);
@@ -262,26 +320,34 @@ async function executePipeline(run: Run, planVersion: PlanWithDetails) {
 
     // Step 5: Music Build (optional)
     if (!completedSteps.includes('music_build') && isActive(runId)) {
+      if (shouldFailStep('music_build')) {
+        throw new Error('Dry-run failure injected at music_build');
+      }
+
       await updateStep(runId, 'music_build', 'Processing background music...');
       
       const voFullPath = path.join(audioDir, 'vo_full.mp3');
       const mixedAudioPath = path.join(audioDir, 'mixed.mp3');
       
-      // Check for music files
-      let musicPath: string | null = null;
-      if (fs.existsSync(env.MUSIC_LIBRARY_DIR)) {
-        const musicFiles = fs.readdirSync(env.MUSIC_LIBRARY_DIR)
-          .filter(f => /\.(mp3|wav|m4a)$/i.test(f));
-        
-        if (musicFiles.length > 0) {
-          // Pick first music file for now
-          musicPath = path.join(env.MUSIC_LIBRARY_DIR, musicFiles[0]);
-          await addLog(runId, `Using background music: ${musicFiles[0]}`);
+      if (dryRun) {
+        writePlaceholderFile(mixedAudioPath, '[dry-run mixed audio]\n');
+      } else {
+        // Check for music files
+        let musicPath: string | null = null;
+        if (fs.existsSync(env.MUSIC_LIBRARY_DIR)) {
+          const musicFiles = fs.readdirSync(env.MUSIC_LIBRARY_DIR)
+            .filter(f => /\.(mp3|wav|m4a)$/i.test(f));
+          
+          if (musicFiles.length > 0) {
+            // Pick first music file for now
+            musicPath = path.join(env.MUSIC_LIBRARY_DIR, musicFiles[0]);
+            await addLog(runId, `Using background music: ${musicFiles[0]}`);
+          }
         }
-      }
 
-      if (!fs.existsSync(mixedAudioPath) && fs.existsSync(voFullPath)) {
-        await mixAudio(voFullPath, musicPath, mixedAudioPath);
+        if (!fs.existsSync(mixedAudioPath) && fs.existsSync(voFullPath)) {
+          await mixAudio(voFullPath, musicPath, mixedAudioPath);
+        }
       }
 
       completedSteps.push('music_build');
@@ -292,8 +358,24 @@ async function executePipeline(run: Run, planVersion: PlanWithDetails) {
 
     // Step 6: FFmpeg Render
     if (!completedSteps.includes('ffmpeg_render') && isActive(runId)) {
+      if (shouldFailStep('ffmpeg_render')) {
+        throw new Error('Dry-run failure injected at ffmpeg_render');
+      }
+
       await updateStep(runId, 'ffmpeg_render', 'Rendering video...');
       
+      if (dryRun) {
+        const reportPath = path.join(finalDir, 'dry_run_report.txt');
+        writePlaceholderFile(
+          reportPath,
+          'Dry-run render completed. No MP4 generated or FFmpeg executed.\n'
+        );
+        artifacts.dryRunReportPath = path.relative(env.ARTIFACTS_DIR, reportPath);
+        completedSteps.push('ffmpeg_render');
+        await saveResumeState(runId, { completedSteps });
+        progress += STEP_WEIGHTS.ffmpeg_render;
+        await updateProgress(runId, progress);
+      } else {
       const sceneVideoPaths: string[] = [];
       
       // Create scene videos with motion effects
@@ -344,10 +426,15 @@ async function executePipeline(run: Run, planVersion: PlanWithDetails) {
       await saveResumeState(runId, { completedSteps });
       progress += STEP_WEIGHTS.ffmpeg_render;
       await updateProgress(runId, progress);
+      }
     }
 
     // Step 7: Finalize Artifacts
     if (!completedSteps.includes('finalize_artifacts') && isActive(runId)) {
+      if (shouldFailStep('finalize_artifacts')) {
+        throw new Error('Dry-run failure injected at finalize_artifacts');
+      }
+
       await updateStep(runId, 'finalize_artifacts', 'Finalizing...');
       
       const finalVideoPath = path.join(finalDir, 'final.mp4');
@@ -355,7 +442,7 @@ async function executePipeline(run: Run, planVersion: PlanWithDetails) {
       const exportPath = path.join(finalDir, 'export.json');
       
       // Extract thumbnail
-      if (fs.existsSync(finalVideoPath) && !fs.existsSync(thumbPath)) {
+      if (!dryRun && fs.existsSync(finalVideoPath) && !fs.existsSync(thumbPath)) {
         await addLog(runId, 'Extracting thumbnail...');
         await extractThumbnail(finalVideoPath, thumbPath, 2);
       }
@@ -384,6 +471,7 @@ async function executePipeline(run: Run, planVersion: PlanWithDetails) {
           render: {
             runId,
             completedAt: new Date().toISOString(),
+            dryRun,
           },
           artifacts,
         };
@@ -391,7 +479,9 @@ async function executePipeline(run: Run, planVersion: PlanWithDetails) {
         fs.writeFileSync(exportPath, JSON.stringify(exportData, null, 2));
       }
 
-      artifacts.thumbPath = path.relative(env.ARTIFACTS_DIR, thumbPath);
+      if (!dryRun && fs.existsSync(thumbPath)) {
+        artifacts.thumbPath = path.relative(env.ARTIFACTS_DIR, thumbPath);
+      }
       artifacts.exportJsonPath = path.relative(env.ARTIFACTS_DIR, exportPath);
       
       completedSteps.push('finalize_artifacts');
