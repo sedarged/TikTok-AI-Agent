@@ -7,8 +7,8 @@ dist
 .env
 .env.local
 
-artifacts
-**/artifacts
+artifacts/**
+!artifacts/.gitkeep
 
 apps/server/dev.db
 apps/server/src/db/prisma/dev.db
