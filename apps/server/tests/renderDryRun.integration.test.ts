@@ -31,7 +31,9 @@ async function waitForRunDone(runId: string, timeoutMs: number = 5000) {
   throw new Error('Timed out waiting for dry-run completion');
 }
 
-describe('Render dry-run pipeline', () => {
+const describeIfDryRun = process.env.APP_RENDER_DRY_RUN === '1' ? describe : describe.skip;
+
+describeIfDryRun('Render dry-run pipeline', () => {
   beforeAll(async () => {
     const module = await import('../src/index.js');
     app = module.createApp();
