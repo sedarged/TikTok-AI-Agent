@@ -24,17 +24,45 @@ A full-stack web application that generates TikTok-style vertical videos end-to-
 
 ## Quick Start
 
-### 1. Prerequisites
+### Option A: GitHub Codespaces (Best for Mobile Testing)
+
+The easiest way to run this app and access it from your phone:
+
+1. **Open in Codespaces:**
+   - Go to your repo on GitHub
+   - Click **Code** → **Codespaces** → **Create codespace**
+
+2. **Setup (in Codespace terminal):**
+   ```bash
+   # Dependencies are auto-installed, just add your API key:
+   echo "OPENAI_API_KEY=sk-your-key-here" >> .env
+   
+   # Start the app
+   npm run dev
+   ```
+
+3. **Access on your phone:**
+   - Click the **Ports** tab at the bottom of Codespaces
+   - Right-click port `5173` → **Port Visibility** → **Public**
+   - Copy the URL (e.g., `https://xxx-5173.app.github.dev`)
+   - Open that URL on your phone!
+
+---
+
+### Option B: Local Installation
+
+#### 1. Prerequisites
 
 - Node.js 18+
 - FFmpeg installed on your system (or the app will use ffmpeg-static)
 - OpenAI API key
 
-### 2. Installation
+#### 2. Installation
 
 ```bash
-# Clone and enter the directory
-cd tiktok-ai
+# Clone the repository
+git clone https://github.com/sedarged/TikTok-AI-Agent.git
+cd TikTok-AI-Agent
 
 # Install dependencies
 npm install
@@ -53,7 +81,7 @@ npm run db:migrate
 npm run dev
 ```
 
-### 3. Access the App
+#### 3. Access the App
 
 - Frontend: http://localhost:5173
 - Backend: http://localhost:3001
