@@ -25,6 +25,13 @@ export function OutputPage() {
     if (!runId) return
     const r = await api<{ run: Run }>(`/run/${runId}`)
     setRun(r.run)
+    // Auto-verify once we reach terminal states.
+    if (r.run.status === 'done' || r.run.status === 'failed') {
+      try {
+        const v = await api<any>(`/run/${runId}/verify`)
+        setVerify(v)
+      } catch {}
+    }
   }
 
   useEffect(() => {
@@ -48,14 +55,7 @@ export function OutputPage() {
     }
   }, [run])
 
-  const artifacts = useMemo(() => {
-    if (!run) return {}
-    try {
-      return JSON.parse(run.artifactsJson)
-    } catch {
-      return {}
-    }
-  }, [run])
+  const isReady = Boolean(verify?.pass)
 
   async function onVerify() {
     if (!runId) return
@@ -77,7 +77,9 @@ export function OutputPage() {
           <div>
             <div className="text-sm font-semibold">Output</div>
             <div className="text-[11px] text-zinc-400">
-              {run ? `${run.status} • ${run.progress}% ${run.currentStep ? `• ${run.currentStep}` : ''}` : 'Loading…'}
+              {run
+                ? `${run.status} • ${run.progress}% ${run.currentStep ? `• ${run.currentStep}` : ''}${isReady ? ' • Ready' : ''}`
+                : 'Loading…'}
             </div>
           </div>
           {run ? (
@@ -110,7 +112,7 @@ export function OutputPage() {
           <button onClick={onVerify} className="rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm">
             Verify Artifacts
           </button>
-          {artifacts.mp4Path ? (
+          {isReady ? (
             <a
               className="rounded-lg bg-emerald-500 px-3 py-2 text-center text-sm font-semibold text-zinc-950"
               href={`/api/run/${runId}/download`}
@@ -121,14 +123,14 @@ export function OutputPage() {
             <button
               disabled
               className="rounded-lg bg-zinc-800 px-3 py-2 text-sm font-semibold text-zinc-400 opacity-70"
-              title="Blocked: MP4 not available yet."
+              title="Blocked: not verified PASS yet."
             >
               Download MP4
             </button>
           )}
         </div>
 
-        {artifacts.mp4Path ? (
+        {isReady ? (
           <video className="mt-3 w-full rounded-lg" controls src={`/api/run/${runId}/download`} />
         ) : (
           <div className="mt-3 rounded-lg border border-zinc-800 bg-zinc-950 p-3 text-xs text-zinc-400">
