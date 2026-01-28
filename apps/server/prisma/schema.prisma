@@ -1,0 +1,87 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Project {
+  id                  String    @id @default(uuid())
+  title               String
+  topic               String
+  nichePackId         String
+  language            String    @default("en")
+  targetLengthSec     Int       @default(60)
+  tempo               String    @default("normal") // slow | normal | fast
+  voicePreset         String    @default("alloy")
+  visualStylePreset   String?
+  status              String    @default("DRAFT_PLAN") // DRAFT_PLAN | PLAN_READY | APPROVED | RENDERING | DONE | FAILED
+  latestPlanVersionId String?
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+
+  planVersions PlanVersion[]
+  runs         Run[]
+}
+
+model PlanVersion {
+  id              String   @id @default(uuid())
+  projectId       String
+  project         Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  createdAt       DateTime @default(now())
+
+  hookOptionsJson String   @default("[]") // JSON array of 5 hook options
+  hookSelected    String   @default("")
+  outline         String   @default("")
+  scriptFull      String   @default("")
+  estimatesJson   String   @default("{}") // JSON { wpm, estimatedLengthSec, targetLengthSec }
+  validationJson  String   @default("{}") // JSON { errors, warnings, suggestions }
+
+  scenes Scene[]
+  runs   Run[]
+}
+
+model Scene {
+  id              String   @id @default(uuid())
+  projectId       String
+  planVersionId   String
+  planVersion     PlanVersion @relation(fields: [planVersionId], references: [id], onDelete: Cascade)
+  idx             Int
+  narrationText   String   @default("")
+  onScreenText    String   @default("")
+  visualPrompt    String   @default("")
+  negativePrompt  String   @default("")
+  effectPreset    String   @default("slow_zoom_in")
+  durationTargetSec Float  @default(5.0)
+  startTimeSec    Float    @default(0.0)
+  endTimeSec      Float    @default(5.0)
+  isLocked        Boolean  @default(false)
+  updatedAt       DateTime @updatedAt
+}
+
+model Run {
+  id              String   @id @default(uuid())
+  projectId       String
+  project         Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  planVersionId   String
+  planVersion     PlanVersion @relation(fields: [planVersionId], references: [id], onDelete: Cascade)
+  status          String   @default("queued") // queued | running | done | failed | canceled
+  progress        Int      @default(0) // 0-100
+  currentStep     String   @default("")
+  logsJson        String   @default("[]") // JSON array of log entries with timestamps
+  artifactsJson   String   @default("{}") // JSON { imagesDir, audioDir, captionsPath, mp4Path, thumbPath, exportJsonPath }
+  resumeStateJson String   @default("{}") // JSON { lastCompletedStep, completedSceneIdxs }
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
+
+model Cache {
+  id          String   @id @default(uuid())
+  kind        String   // llm | images | tts | asr
+  hashKey     String   @unique
+  resultJson  String   @default("{}")
+  payloadPath String?
+  createdAt   DateTime @default(now())
+}

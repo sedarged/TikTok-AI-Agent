@@ -1,0 +1,30 @@
+{
+  "name": "tiktok-ai",
+  "version": "1.0.0",
+  "private": true,
+  "description": "TikTok-style AI video generator",
+  "main": "apps/server/dist/index.js",
+  "workspaces": [
+    "apps/server",
+    "apps/web"
+  ],
+  "scripts": {
+    "dev": "concurrently \"npm run dev:server\" \"npm run dev:web\"",
+    "dev:server": "npm run dev --workspace=apps/server",
+    "dev:web": "npm run dev --workspace=apps/web",
+    "build": "npm run build --workspace=apps/web && npm run build --workspace=apps/server",
+    "start": "cd apps/server && node dist/index.js",
+    "db:generate": "cd apps/server && npx prisma generate",
+    "db:migrate": "cd apps/server && npx prisma migrate deploy",
+    "db:migrate:dev": "npm run db:migrate --workspace=apps/server",
+    "db:seed": "npm run db:seed --workspace=apps/server",
+    "db:studio": "npm run db:studio --workspace=apps/server",
+    "postinstall": "npm run db:generate || true"
+  },
+  "dependencies": {
+    "concurrently": "^8.2.2"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

@@ -1,0 +1,33 @@
+{
+  "name": "TikTok AI",
+  "image": "mcr.microsoft.com/devcontainers/javascript-node:20",
+  "features": {
+    "ghcr.io/devcontainers/features/common-utils:2": {}
+  },
+  "forwardPorts": [3001, 5173],
+  "portsAttributes": {
+    "3001": {
+      "label": "API Server",
+      "onAutoForward": "notify"
+    },
+    "5173": {
+      "label": "Web App",
+      "onAutoForward": "openBrowser"
+    }
+  },
+  "postCreateCommand": "npm install && npm run db:generate && npm run db:migrate",
+  "postStartCommand": "cp -n .env.example .env 2>/dev/null || true",
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "dbaeumer.vscode-eslint",
+        "esbenp.prettier-vscode",
+        "prisma.prisma",
+        "bradlc.vscode-tailwindcss"
+      ]
+    }
+  },
+  "remoteEnv": {
+    "DATABASE_URL": "file:./dev.db"
+  }
+}
