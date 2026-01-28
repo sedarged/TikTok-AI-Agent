@@ -7,7 +7,7 @@ interface OutputProps {
   status: ProviderStatus | null;
 }
 
-export default function Output({ status: _status }: OutputProps) {
+export default function Output({ status }: OutputProps) {
   const { runId } = useParams<{ runId: string }>();
   const [run, setRun] = useState<Run | null>(null);
   const [logs, setLogs] = useState<LogEntry[]>([]);
@@ -122,7 +122,7 @@ export default function Output({ status: _status }: OutputProps) {
   const isComplete = run.status === 'done';
   const isRunning = run.status === 'running' || run.status === 'queued';
   const isFailed = run.status === 'failed';
-  const isDryRun = artifacts.dryRun === true;
+  const isDryRun = artifacts.dryRun === true || status?.renderDryRun === true;
 
   return (
     <div className="space-y-6">
