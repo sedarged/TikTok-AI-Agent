@@ -1,12 +1,27 @@
 import dotenv from 'dotenv';
 import path from 'path';
 
-// Load .env from workspace root
-const rootDir = path.resolve(process.cwd(), '..', '..');
-dotenv.config({ path: path.join(rootDir, '.env') });
-// Also try loading from current directory and parent
-dotenv.config({ path: path.join(process.cwd(), '.env') });
-dotenv.config({ path: path.join(process.cwd(), '..', '..', '.env') });
+// Load .env from workspace root - try multiple locations
+const possibleEnvPaths = [
+  path.join(process.cwd(), '.env'),
+  path.join(process.cwd(), '..', '.env'),
+  path.join(process.cwd(), '..', '..', '.env'),
+];
+
+for (const envPath of possibleEnvPaths) {
+  dotenv.config({ path: envPath });
+}
+
+// Determine root directory for artifacts
+function getRootDir(): string {
+  // If we're in apps/server, go up two levels
+  if (process.cwd().includes('apps/server') || process.cwd().includes('apps\\server')) {
+    return path.resolve(process.cwd(), '..', '..');
+  }
+  return process.cwd();
+}
+
+const rootDir = getRootDir();
 
 export const env = {
   PORT: parseInt(process.env.PORT || '3001', 10),
@@ -14,8 +29,8 @@ export const env = {
   DATABASE_URL: process.env.DATABASE_URL || 'file:./dev.db',
   OPENAI_API_KEY: process.env.OPENAI_API_KEY || '',
   ELEVENLABS_API_KEY: process.env.ELEVENLABS_API_KEY || '',
-  MUSIC_LIBRARY_DIR: process.env.MUSIC_LIBRARY_DIR || path.join(rootDir, 'assets', 'music'),
-  ARTIFACTS_DIR: process.env.ARTIFACTS_DIR || path.join(rootDir, 'artifacts'),
+  MUSIC_LIBRARY_DIR: process.env.MUSIC_LIBRARY_DIR || path.resolve(rootDir, 'assets', 'music'),
+  ARTIFACTS_DIR: process.env.ARTIFACTS_DIR || path.resolve(rootDir, 'artifacts'),
 };
 
 export function isOpenAIConfigured(): boolean {
