@@ -1,5 +1,7 @@
 import express from 'express';
 import cors from 'cors';
+import path from 'path';
+import fs from 'fs';
 import { env } from './env.js';
 import { projectRoutes } from './routes/project.js';
 import { planRoutes } from './routes/plan.js';
@@ -20,6 +22,12 @@ app.use(express.json({ limit: '10mb' }));
 // Static files for artifacts
 app.use('/artifacts', express.static(env.ARTIFACTS_DIR));
 
+// Serve frontend in production
+const frontendDistPath = path.join(process.cwd(), '..', 'web', 'dist');
+if (fs.existsSync(frontendDistPath)) {
+  app.use(express.static(frontendDistPath));
+}
+
 // API Routes
 app.use('/api/status', statusRoutes);
 app.use('/api/niche-packs', nichePackRoutes);
@@ -35,10 +43,19 @@ app.get('/api/health', (req, res) => {
 });
 
 // Error handler
-app.use((err: Error, req: express.Request, res: express.Response, next: express.NextFunction) => {
+app.use((err: Error, req: express.Request, res: express.Response, _next: express.NextFunction) => {
   console.error('Server error:', err);
   res.status(500).json({ error: err.message || 'Internal server error' });
 });
+
+// SPA fallback - serve index.html for all non-API routes in production
+if (fs.existsSync(frontendDistPath)) {
+  app.get('*', (req, res) => {
+    if (!req.path.startsWith('/api') && !req.path.startsWith('/artifacts')) {
+      res.sendFile(path.join(frontendDistPath, 'index.html'));
+    }
+  });
+}
 
 app.listen(env.PORT, '0.0.0.0', () => {
   console.log(`Server running on http://localhost:${env.PORT}`);
