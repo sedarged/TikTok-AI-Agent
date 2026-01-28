@@ -2,7 +2,7 @@ import { prisma } from '../../db/client.js';
 import { v4 as uuid } from 'uuid';
 import path from 'path';
 import fs from 'fs';
-import { env } from '../../env.js';
+import { env, isTestMode } from '../../env.js';
 import { getNichePack } from '../nichePacks.js';
 import { generateTTS, transcribeAudio, generateImage } from '../providers/openai.js';
 import { buildCaptionsFromWords, buildCaptionsFromScenes } from '../captions/captionsBuilder.js';
@@ -57,6 +57,10 @@ const activeRuns = new Map<string, boolean>();
 
 // Start render pipeline
 export async function startRenderPipeline(planVersion: PlanWithDetails): Promise<Run> {
+  if (isTestMode()) {
+    throw new Error('Rendering disabled in APP_TEST_MODE');
+  }
+
   const runId = uuid();
   const projectId = planVersion.projectId;
   

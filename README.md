@@ -100,7 +100,24 @@ MUSIC_LIBRARY_DIR=./assets/music   # For background music
 ARTIFACTS_DIR=./artifacts     # Output directory
 DATABASE_URL="file:./dev.db"  # SQLite database path
 PORT=3001                     # Server port
+APP_TEST_MODE=0               # Set to 1 to disable render + external providers
+APP_VERSION=                  # Optional version override for /api/health
 ```
+
+## Test Mode (No Render)
+
+Enable deterministic plan generation and block render pipelines:
+
+```bash
+# From repo root
+export APP_TEST_MODE=1
+npm run test
+```
+
+When APP_TEST_MODE is enabled:
+- Rendering endpoints return 403
+- OpenAI/FFmpeg checks are skipped for status
+- Plan generation uses deterministic templates (no paid APIs)
 
 ## How to Render a 60s Facts Video
 
@@ -180,6 +197,9 @@ PORT=3001                     # Server port
 - `GET /api/run/:runId/verify` - Verify artifacts
 - `GET /api/run/:runId/download` - Download MP4
 - `GET /api/run/:runId/export` - Export JSON
+
+### Health
+- `GET /api/health` - Health check with mode/version/db status
 
 ## Render Pipeline Steps
 

@@ -31,20 +31,33 @@ export const env = {
   ELEVENLABS_API_KEY: process.env.ELEVENLABS_API_KEY || '',
   MUSIC_LIBRARY_DIR: process.env.MUSIC_LIBRARY_DIR || path.resolve(rootDir, 'assets', 'music'),
   ARTIFACTS_DIR: process.env.ARTIFACTS_DIR || path.resolve(rootDir, 'artifacts'),
+  APP_TEST_MODE: process.env.APP_TEST_MODE === '1',
+  APP_VERSION: process.env.APP_VERSION || '',
 };
 
 export function isOpenAIConfigured(): boolean {
+  if (env.APP_TEST_MODE) {
+    return false;
+  }
   return Boolean(env.OPENAI_API_KEY && env.OPENAI_API_KEY.trim().length > 0);
 }
 
 export function isElevenLabsConfigured(): boolean {
+  if (env.APP_TEST_MODE) {
+    return false;
+  }
   return Boolean(env.ELEVENLABS_API_KEY && env.ELEVENLABS_API_KEY.trim().length > 0);
+}
+
+export function isTestMode(): boolean {
+  return env.APP_TEST_MODE;
 }
 
 export function getProviderStatus() {
   return {
     openai: isOpenAIConfigured(),
     elevenlabs: isElevenLabsConfigured(),
-    ffmpeg: true, // Will be checked at runtime
+    ffmpeg: !env.APP_TEST_MODE, // Will be checked at runtime
+    testMode: env.APP_TEST_MODE,
   };
 }

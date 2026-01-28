@@ -1,21 +1,28 @@
 import { Router } from 'express';
-import { getProviderStatus, isOpenAIConfigured, isElevenLabsConfigured } from '../env.js';
+import { isOpenAIConfigured, isElevenLabsConfigured, isTestMode } from '../env.js';
 import { checkFFmpegAvailable } from '../services/ffmpeg/ffmpegUtils.js';
 
 export const statusRoutes = Router();
 
 statusRoutes.get('/', async (req, res) => {
   try {
-    const ffmpegAvailable = await checkFFmpegAvailable();
-    
+    const testMode = isTestMode();
+    const ffmpegAvailable = testMode ? false : await checkFFmpegAvailable();
+
+    const openaiReady = isOpenAIConfigured();
+    const ready = !testMode && openaiReady && ffmpegAvailable;
+
     res.json({
       providers: {
-        openai: isOpenAIConfigured(),
+        openai: openaiReady,
         elevenlabs: isElevenLabsConfigured(),
         ffmpeg: ffmpegAvailable,
       },
-      ready: isOpenAIConfigured() && ffmpegAvailable,
-      message: !isOpenAIConfigured() 
+      ready,
+      testMode,
+      message: testMode
+        ? 'APP_TEST_MODE enabled: rendering disabled and deterministic plan generator in use.'
+        : !openaiReady 
         ? 'OpenAI API key not configured. Set OPENAI_API_KEY in .env file.'
         : !ffmpegAvailable
         ? 'FFmpeg not available. Install ffmpeg or use ffmpeg-static.'

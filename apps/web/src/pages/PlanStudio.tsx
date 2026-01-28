@@ -208,6 +208,11 @@ export default function PlanStudio({ status }: PlanStudioProps) {
 
   const handleApproveAndRender = async () => {
     if (!planVersion?.id) return;
+
+    if (status?.testMode) {
+      setError('Rendering is disabled in TEST MODE. Disable APP_TEST_MODE to render.');
+      return;
+    }
     
     // Check OpenAI status
     if (!status?.providers.openai) {
@@ -284,6 +289,12 @@ export default function PlanStudio({ status }: PlanStudioProps) {
               Saving...
             </span>
           )}
+
+          {status?.testMode && (
+            <span className="text-yellow-400 text-sm">
+              TEST MODE: rendering disabled
+            </span>
+          )}
           
           <button onClick={handleValidate} className="btn btn-secondary">
             Validate
@@ -296,7 +307,7 @@ export default function PlanStudio({ status }: PlanStudioProps) {
           <button
             onClick={handleApproveAndRender}
             className="btn btn-primary"
-            disabled={saving || !status?.ready}
+            disabled={saving || !status?.ready || status?.testMode}
           >
             Approve & Render
           </button>

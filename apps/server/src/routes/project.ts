@@ -1,10 +1,21 @@
 import { Router } from 'express';
+import { z } from 'zod';
 import { prisma } from '../db/client.js';
 import { generatePlan } from '../services/plan/planGenerator.js';
 import { getNichePack } from '../services/nichePacks.js';
 import { v4 as uuid } from 'uuid';
 
 export const projectRoutes = Router();
+
+const createProjectSchema = z.object({
+  topic: z.string().min(1),
+  nichePackId: z.string().min(1),
+  language: z.string().min(1).optional(),
+  targetLengthSec: z.number().int().positive().optional(),
+  tempo: z.string().min(1).optional(),
+  voicePreset: z.string().min(1).optional(),
+  visualStylePreset: z.string().nullable().optional(),
+}).strict();
 
 // List all projects
 projectRoutes.get('/', async (req, res) => {
@@ -32,6 +43,14 @@ projectRoutes.get('/', async (req, res) => {
 // Create new project
 projectRoutes.post('/', async (req, res) => {
   try {
+    const parsed = createProjectSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return res.status(400).json({
+        error: 'Invalid project payload',
+        details: parsed.error.flatten(),
+      });
+    }
+
     const {
       topic,
       nichePackId,
@@ -40,7 +59,7 @@ projectRoutes.post('/', async (req, res) => {
       tempo = 'normal',
       voicePreset = 'alloy',
       visualStylePreset = null,
-    } = req.body;
+    } = parsed.data;
 
     if (!topic || !nichePackId) {
       return res.status(400).json({ error: 'Topic and nichePackId are required' });

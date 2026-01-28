@@ -183,6 +183,7 @@ export interface ProviderStatus {
   };
   ready: boolean;
   message: string;
+  testMode?: boolean;
 }
 
 // SSE event

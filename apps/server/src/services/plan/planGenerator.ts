@@ -1,7 +1,7 @@
 import { prisma } from '../../db/client.js';
 import { v4 as uuid } from 'uuid';
 import { getNichePack, getScenePacing } from '../nichePacks.js';
-import { isOpenAIConfigured } from '../../env.js';
+import { isOpenAIConfigured, isTestMode } from '../../env.js';
 import { callOpenAI } from '../providers/openai.js';
 import type { Project, Scene } from '@prisma/client';
 import type { EffectPreset, SceneData } from '../../utils/types.js';
@@ -15,6 +15,10 @@ export async function generatePlan(project: Project) {
   }
 
   const pacing = getScenePacing(pack, project.targetLengthSec);
+  const baseSceneCount = Math.round((pacing.minScenes + pacing.maxScenes) / 2);
+  const sceneCount = isTestMode()
+    ? Math.min(8, Math.max(6, baseSceneCount))
+    : baseSceneCount;
 
   // Step 1: Generate hooks
   const hookOptions = await generateHooks(project, pack);
@@ -26,7 +30,6 @@ export async function generatePlan(project: Project) {
   const outline = await generateOutline(project, hookSelected, pack);
 
   // Step 4: Generate scenes
-  const sceneCount = Math.round((pacing.minScenes + pacing.maxScenes) / 2);
   const scenesData = await generateScenes(project, hookSelected, outline, pack, sceneCount);
 
   // Step 5: Generate full script from scenes
@@ -38,7 +41,12 @@ export async function generatePlan(project: Project) {
   const estimatedLengthSec = Math.round((totalWords / wpm) * 60);
 
   // Create plan version in DB
-  const planVersionId = uuid();
+  const planSequence = isTestMode()
+    ? (await prisma.planVersion.count({ where: { projectId: project.id } })) + 1
+    : 0;
+  const planVersionId = isTestMode()
+    ? `test-${project.id}-plan-${planSequence}`
+    : uuid();
   const planVersion = await prisma.planVersion.create({
     data: {
       id: planVersionId,
@@ -63,9 +71,12 @@ export async function generatePlan(project: Project) {
   // Create scenes in DB
   let currentTime = 0;
   for (const sceneData of scenesData) {
+    const sceneId = isTestMode()
+      ? `test-${project.id}-plan-${planSequence}-scene-${sceneData.idx}`
+      : sceneData.id;
     await prisma.scene.create({
       data: {
-        id: uuid(),
+        id: sceneId,
         projectId: project.id,
         planVersionId: planVersionId,
         idx: sceneData.idx,
