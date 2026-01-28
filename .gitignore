@@ -11,6 +11,7 @@ artifacts
 **/artifacts
 
 apps/server/dev.db
+apps/server/src/db/prisma/dev.db
 
 *.log
 
