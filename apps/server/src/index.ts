@@ -3,13 +3,14 @@ import cors from 'cors';
 import path from 'path';
 import fs from 'fs';
 import { fileURLToPath } from 'url';
-import { env, isTestMode } from './env.js';
+import { env, isRenderDryRun, isTestMode } from './env.js';
 import { projectRoutes } from './routes/project.js';
 import { planRoutes } from './routes/plan.js';
 import { sceneRoutes } from './routes/scene.js';
 import { runRoutes } from './routes/run.js';
 import { statusRoutes } from './routes/status.js';
 import { nichePackRoutes } from './routes/nichePack.js';
+import { testRoutes } from './routes/test.js';
 import { ensureConnection } from './db/client.js';
 
 function getAppVersion(): string {
@@ -66,6 +67,10 @@ export function createApp() {
   app.use('/api/plan', planRoutes);
   app.use('/api/scene', sceneRoutes);
   app.use('/api/run', runRoutes);
+
+  if (isRenderDryRun() || isTestMode()) {
+    app.use('/api/test', testRoutes);
+  }
 
   // Health check
   app.get('/api/health', async (req, res) => {

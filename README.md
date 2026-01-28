@@ -135,6 +135,7 @@ npm run test:render
 Notes:
 - Dry-run renders do **not** produce MP4 files.
 - `/api/run/:id/download` returns 409 for dry-run runs.
+- In dry-run/test mode, `/api/test/dry-run-config` can adjust fail step/delay for tests.
 
 Optional failure injection:
 
