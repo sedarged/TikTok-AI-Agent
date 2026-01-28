@@ -137,6 +137,16 @@ Optional failure injection:
 export APP_DRY_RUN_FAIL_STEP=images_generate
 ```
 
+## E2E UI Smoke (Dry-Run)
+
+```bash
+# One-time browser install
+npx playwright install --with-deps
+
+# Runs the UI flow against a dry-run backend (no MP4)
+npm run test:e2e
+```
+
 ## How to Render a 60s Facts Video
 
 1. Open http://localhost:5173

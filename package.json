@@ -16,6 +16,7 @@
     "start": "cd apps/server && node dist/index.js",
     "test": "npm run test --workspace=apps/server",
     "test:render": "npm run test:render --workspace=apps/server",
+    "test:e2e": "playwright test",
     "db:generate": "cd apps/server && npx prisma generate",
     "db:migrate": "cd apps/server && npx prisma migrate deploy",
     "db:migrate:dev": "npm run db:migrate --workspace=apps/server",
@@ -28,5 +29,8 @@
   },
   "engines": {
     "node": ">=18"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.58.0"
   }
 }
