@@ -12,7 +12,7 @@
     "db:migrate:deploy": "prisma migrate deploy",
     "db:seed": "tsx src/db/seed.ts",
     "db:studio": "prisma studio",
-    "test": "APP_TEST_MODE=1 NODE_ENV=test DATABASE_URL=file:./test.db prisma migrate deploy && APP_TEST_MODE=1 NODE_ENV=test DATABASE_URL=file:./test.db vitest run",
+    "test": "APP_TEST_MODE=1 NODE_ENV=test DATABASE_URL=file:./test.db prisma generate && APP_TEST_MODE=1 NODE_ENV=test DATABASE_URL=file:./test.db prisma migrate deploy && APP_TEST_MODE=1 NODE_ENV=test DATABASE_URL=file:./test.db vitest run",
     "test:watch": "APP_TEST_MODE=1 NODE_ENV=test DATABASE_URL=file:./test.db vitest"
   },
   "dependencies": {

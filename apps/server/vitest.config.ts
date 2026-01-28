@@ -6,11 +6,7 @@ export default defineConfig({
     setupFiles: ['tests/setup.ts'],
     testTimeout: 30000,
     pool: 'threads',
-    poolOptions: {
-      threads: {
-        minThreads: 1,
-        maxThreads: 1,
-      },
-    },
+    minThreads: 1,
+    maxThreads: 1,
   },
 });
