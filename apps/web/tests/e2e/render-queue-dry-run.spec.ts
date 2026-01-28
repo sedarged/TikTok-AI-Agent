@@ -55,7 +55,7 @@ test('render queue + verify/export in dry-run', async ({ page, request }) => {
 
   await page.getByRole('button', { name: 'Verify Artifacts' }).click();
   await expect(page.getByText('Verification Results')).toBeVisible();
-  await expect(page.getByText('PASS')).toBeVisible();
+  await expect(page.getByText('PASS', { exact: true })).toBeVisible();
 
   const downloadPromise = page.waitForEvent('download');
   await page.getByRole('button', { name: 'Export JSON' }).click();
