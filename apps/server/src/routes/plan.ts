@@ -7,6 +7,8 @@ import type { PlanVersionPayload, ProjectSettings } from '../services/plan/types
 import { detectFfmpeg } from '../services/ffmpeg/bin.js';
 import { providerStatus } from '../env.js';
 import { renderEngine } from '../services/render/engine.js';
+import { getOpenAIClientOrThrow } from '../services/providers/openaiClient.js';
+import { regenerateHooksOnly, regenerateOutlineOnly, regenerateScriptOnly } from '../services/plan/openaiRegens.js';
 
 export const planRouter = Router();
 
@@ -163,6 +165,92 @@ planRouter.post('/plan/:planVersionId/approve', async (req, res) => {
   }
   const updatedProject = await prisma.project.update({ where: { id: plan.projectId }, data: { status: 'APPROVED' } });
   res.json({ project: updatedProject });
+});
+
+planRouter.post('/plan/:planVersionId/regenerate/hooks', async (req, res) => {
+  const planVersionId = req.params.planVersionId;
+  const plan = await prisma.planVersion.findUnique({ where: { id: planVersionId }, include: { project: true } });
+  if (!plan) return res.status(404).json({ error: 'PlanVersion not found.' });
+
+  const pack = await getNichePackOrThrow(plan.project.nichePackId);
+
+  if (!providerStatus.openai) {
+    return res.status(400).json({ error: 'Regenerate Hooks blocked: OPENAI_API_KEY is not configured. (Template mode cannot produce true alternate hooks.)' });
+  }
+
+  const client = getOpenAIClientOrThrow();
+  const out = await regenerateHooksOnly(client, { topic: plan.project.title, language: plan.project.language, hookRules: pack.config.hookRules });
+  const hookSelected = out.hookOptions[0];
+
+  const updated = await prisma.planVersion.update({
+    where: { id: planVersionId },
+    data: { hookOptionsJson: JSON.stringify(out.hookOptions), hookSelected }
+  });
+  res.json({ planVersion: updated });
+});
+
+planRouter.post('/plan/:planVersionId/regenerate/outline', async (req, res) => {
+  const planVersionId = req.params.planVersionId;
+  const plan = await prisma.planVersion.findUnique({ where: { id: planVersionId }, include: { project: true, scenes: { orderBy: { idx: 'asc' } } } });
+  if (!plan) return res.status(404).json({ error: 'PlanVersion not found.' });
+
+  if (!providerStatus.openai) {
+    return res.status(400).json({ error: 'Regenerate Outline blocked: OPENAI_API_KEY is not configured.' });
+  }
+
+  const client = getOpenAIClientOrThrow();
+  const out = await regenerateOutlineOnly(client, {
+    topic: plan.project.title,
+    language: plan.project.language,
+    hookSelected: plan.hookSelected,
+    sceneHeadlines: plan.scenes.map((s) => ({ idx: s.idx, onScreenText: s.onScreenText }))
+  });
+
+  const updated = await prisma.planVersion.update({ where: { id: planVersionId }, data: { outline: out.outline } });
+  res.json({ planVersion: updated });
+});
+
+planRouter.post('/plan/:planVersionId/regenerate/script', async (req, res) => {
+  const planVersionId = req.params.planVersionId;
+  const plan = await prisma.planVersion.findUnique({ where: { id: planVersionId }, include: { project: true, scenes: { orderBy: { idx: 'asc' } } } });
+  if (!plan) return res.status(404).json({ error: 'PlanVersion not found.' });
+
+  if (!providerStatus.openai) {
+    return res.status(400).json({ error: 'Regenerate Script blocked: OPENAI_API_KEY is not configured.' });
+  }
+
+  const client = getOpenAIClientOrThrow();
+  const scenes = plan.scenes.map((s) => ({
+    id: s.id,
+    idx: s.idx,
+    narrationText: s.narrationText,
+    onScreenText: s.onScreenText,
+    visualPrompt: s.visualPrompt,
+    negativePrompt: s.negativePrompt,
+    effectPreset: s.effectPreset as any,
+    durationTargetSec: s.durationTargetSec,
+    lock: s.isLocked
+  }));
+  const out = await regenerateScriptOnly(client, {
+    topic: plan.project.title,
+    language: plan.project.language,
+    targetLengthSec: plan.project.targetLengthSec,
+    tempo: plan.project.tempo,
+    hookSelected: plan.hookSelected,
+    outline: plan.outline,
+    scenes: scenes as any
+  });
+
+  // Respect locks: only update unlocked scenes.
+  for (const s of out.scenes) {
+    const existing = plan.scenes.find((x) => x.id === s.id);
+    if (!existing) continue;
+    if (existing.isLocked) continue;
+    await prisma.scene.update({ where: { id: existing.id }, data: { narrationText: s.narrationText, onScreenText: s.onScreenText } });
+  }
+
+  const updated = await prisma.planVersion.update({ where: { id: planVersionId }, data: { scriptFull: out.scriptFull } });
+  res.json({ planVersion: updated });
 });
 
 planRouter.post('/plan/:planVersionId/render', async (req, res) => {

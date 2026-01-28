@@ -14,6 +14,7 @@ import { buildMusicBed } from './music.js';
 import { generateSceneImage } from './images.js';
 import { concatSegments, extractThumbnail, renderFinalMp4, renderSceneSegment } from './ffmpegRender.js';
 import { verifyRunArtifacts } from './verify.js';
+import { getNichePackOrThrow } from '../plan/packs.js';
 
 type StepId =
   | 'tts_generate'
@@ -109,6 +110,7 @@ class RenderEngine {
     const client = getOpenAIClientOrThrow();
 
     const settings = run.project;
+    const pack = await getNichePackOrThrow(settings.nichePackId);
     const scenes = run.planVersion.scenes;
     const voice = settings.voicePreset || 'alloy';
 
@@ -165,10 +167,12 @@ class RenderEngine {
           await appendRunLog(runId, `Images: scene ${i + 1}/${scenes.length} already exists, reusing.`);
         } else {
           const prompt = [
-            `STYLE: ${settings.visualStylePreset ? settings.visualStylePreset : ''}`,
+            `STYLE_BIBLE: ${pack.config.styleBiblePrompt}`,
+            settings.visualStylePreset ? `STYLE_PRESET: ${settings.visualStylePreset}` : null,
             `TOPIC: ${settings.title}`,
             `SCENE: ${s.visualPrompt}`,
-            `NEGATIVE: ${s.negativePrompt}`
+            `NEGATIVE_GLOBAL: ${pack.config.globalNegativePrompt}`,
+            `NEGATIVE_SCENE: ${s.negativePrompt}`
           ]
             .filter(Boolean)
             .join('\n');
@@ -196,7 +200,7 @@ class RenderEngine {
         buildAssCaptions({
           timestampsJsonPath: artifacts.timestampsPath,
           outAssPath: artifacts.captionsAssPath,
-          style: { font: 'Arial Black', size: 66, outline: 6, highlightMode: 'word', safeMarginPct: 7 },
+          style: pack.config.captionStyle,
           videoWidth: 1080,
           videoHeight: 1920
         });

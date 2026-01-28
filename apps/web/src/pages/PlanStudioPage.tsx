@@ -35,19 +35,18 @@ export function PlanStudioPage() {
   const [saveStatus, setSaveStatus] = useState<'idle' | 'dirty' | 'saving' | 'saved' | 'error'>('idle')
   const saveTimer = useRef<number | null>(null)
 
+  async function refresh() {
+    if (!projectId) return
+    const d = await api<{ project: any; latestPlan: any }>(`/project/${projectId}`)
+    setProject(d.project)
+    setPlanVersion(d.latestPlan)
+    if (d.latestPlan) setPayload(planToPayload(d.latestPlan))
+  }
+
   useEffect(() => {
     if (!projectId) return
     setErr(null)
-    api<{ project: any; latestPlan: any }>(`/project/${projectId}`)
-      .then((d) => {
-        setProject(d.project)
-        setPlanVersion(d.latestPlan)
-        if (d.latestPlan) {
-          setPayload(planToPayload(d.latestPlan))
-        } else {
-          setPayload(null)
-        }
-      })
+    refresh()
       .catch((e: any) => setErr(e?.error || 'Failed to load project'))
   }, [projectId])
 
@@ -87,6 +86,48 @@ export function PlanStudioPage() {
       setPayload((p) => (p ? { ...p, validation: v.validation } : p))
     } catch (e: any) {
       setErr(e?.error || 'Validate failed')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  async function onRegenerateHooks() {
+    if (!planVersion) return
+    setBusy(true)
+    setErr(null)
+    try {
+      await api(`/plan/${planVersion.id}/regenerate/hooks`, { method: 'POST' })
+      await refresh()
+    } catch (e: any) {
+      setErr(e?.error || 'Regenerate hooks failed')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  async function onRegenerateOutline() {
+    if (!planVersion) return
+    setBusy(true)
+    setErr(null)
+    try {
+      await api(`/plan/${planVersion.id}/regenerate/outline`, { method: 'POST' })
+      await refresh()
+    } catch (e: any) {
+      setErr(e?.error || 'Regenerate outline failed')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  async function onRegenerateScript() {
+    if (!planVersion) return
+    setBusy(true)
+    setErr(null)
+    try {
+      await api(`/plan/${planVersion.id}/regenerate/script`, { method: 'POST' })
+      await refresh()
+    } catch (e: any) {
+      setErr(e?.error || 'Regenerate script failed')
     } finally {
       setBusy(false)
     }
@@ -225,7 +266,16 @@ export function PlanStudioPage() {
 
         <div className="mt-3 space-y-4">
           <section className="space-y-2">
-            <div className="text-xs font-semibold text-zinc-200">1) Hook</div>
+            <div className="flex items-center justify-between">
+              <div className="text-xs font-semibold text-zinc-200">1) Hook</div>
+              <button
+                disabled={busy}
+                onClick={onRegenerateHooks}
+                className="rounded-md border border-zinc-700 px-2 py-1 text-[11px] disabled:opacity-50"
+              >
+                Regenerate Hooks
+              </button>
+            </div>
             <select
               value={payload.hookSelected}
               onChange={(e) => {
@@ -241,10 +291,27 @@ export function PlanStudioPage() {
                 </option>
               ))}
             </select>
+            <div className="text-[11px] text-zinc-500">Hook options (5):</div>
+            <ul className="list-decimal space-y-1 pl-5 text-xs text-zinc-300">
+              {payload.hookOptions.map((h, i) => (
+                <li key={i} className={h === payload.hookSelected ? 'text-emerald-200' : ''}>
+                  {h}
+                </li>
+              ))}
+            </ul>
           </section>
 
           <section className="space-y-2">
-            <div className="text-xs font-semibold text-zinc-200">2) Outline</div>
+            <div className="flex items-center justify-between">
+              <div className="text-xs font-semibold text-zinc-200">2) Outline</div>
+              <button
+                disabled={busy}
+                onClick={onRegenerateOutline}
+                className="rounded-md border border-zinc-700 px-2 py-1 text-[11px] disabled:opacity-50"
+              >
+                Regenerate Outline
+              </button>
+            </div>
             <textarea
               value={payload.outline}
               onChange={(e) => {
@@ -260,6 +327,15 @@ export function PlanStudioPage() {
           <section className="space-y-2">
             <div className="flex items-center justify-between">
               <div className="text-xs font-semibold text-zinc-200">3) Full Script</div>
+              <button
+                disabled={busy}
+                onClick={onRegenerateScript}
+                className="rounded-md border border-zinc-700 px-2 py-1 text-[11px] disabled:opacity-50"
+              >
+                Regenerate Script
+              </button>
+            </div>
+            <div className="text-[11px] text-zinc-400">
               <div className="text-[11px] text-zinc-400">
                 est {payload.estimates.estimatedLengthSec}s vs target {payload.estimates.targetLengthSec}s (WPM {payload.estimates.wpm})
               </div>
