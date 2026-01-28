@@ -15,6 +15,7 @@ import { generateSceneImage } from './images.js';
 import { concatSegments, extractThumbnail, renderFinalMp4, renderSceneSegment } from './ffmpegRender.js';
 import { verifyRunArtifacts } from './verify.js';
 import { getNichePackOrThrow } from '../plan/packs.js';
+import { markSceneCompleted, markStepCompleted } from './resume.js';
 
 type StepId =
   | 'tts_generate'
@@ -134,6 +135,7 @@ class RenderEngine {
         }
         const p = stepBaseProgress.tts_generate + ((i + 1) / scenes.length) * 22;
         await setRunProgress(runId, p, 'tts_generate');
+        await markSceneCompleted(runId, i);
       }
 
       if (!fs.existsSync(artifacts.voFullPath)) {
@@ -142,6 +144,7 @@ class RenderEngine {
       } else {
         await appendRunLog(runId, `TTS: vo_full.wav already exists, reusing.`);
       }
+      await markStepCompleted(runId, 'tts_generate');
     }
 
     // 2) ASR align
@@ -153,6 +156,7 @@ class RenderEngine {
       } else {
         await appendRunLog(runId, `ASR: timestamps.json already exists, reusing.`);
       }
+      await markStepCompleted(runId, 'asr_align');
       await setRunProgress(runId, stepBaseProgress.images_generate, 'images_generate');
     }
 
@@ -188,7 +192,9 @@ class RenderEngine {
         }
         const p = stepBaseProgress.images_generate + ((i + 1) / scenes.length) * 26;
         await setRunProgress(runId, p, 'images_generate');
+        await markSceneCompleted(runId, i);
       }
+      await markStepCompleted(runId, 'images_generate');
     }
 
     // 4) Captions build
@@ -207,6 +213,7 @@ class RenderEngine {
       } else {
         await appendRunLog(runId, `Captions: captions.ass already exists, reusing.`);
       }
+      await markStepCompleted(runId, 'captions_build');
     }
 
     // 5) Music build (optional)
@@ -226,6 +233,7 @@ class RenderEngine {
         musicPath = musicOut;
         await appendRunLog(runId, `Music: music.wav already exists, reusing.`);
       }
+      await markStepCompleted(runId, 'music_build');
     }
 
     // 6) FFmpeg render
@@ -253,6 +261,7 @@ class RenderEngine {
         }
         const p = stepBaseProgress.ffmpeg_render + ((i + 1) / scenes.length) * 20;
         await setRunProgress(runId, p, 'ffmpeg_render');
+        await markSceneCompleted(runId, i);
       }
 
       const joinedVideo = path.join(artifacts.finalDir, 'video_joined.mp4');
@@ -276,6 +285,7 @@ class RenderEngine {
       } else {
         await appendRunLog(runId, 'FFmpeg: final.mp4 exists, reusing.');
       }
+      await markStepCompleted(runId, 'ffmpeg_render');
     }
 
     // 7) Finalize artifacts (thumb + export json)
@@ -304,6 +314,7 @@ class RenderEngine {
         };
         fs.writeFileSync(artifacts.exportJsonPath, JSON.stringify(exportPayload, null, 2));
       }
+      await markStepCompleted(runId, 'finalize_artifacts');
     }
 
     await setRunProgress(runId, 100, null);
