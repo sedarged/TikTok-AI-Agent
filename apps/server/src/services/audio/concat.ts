@@ -11,9 +11,13 @@ export async function concatWavWithFfmpeg(args: { ffmpegPath: string; inputs: st
   fs.writeFileSync(listPath, lines);
 
   await new Promise<void>((resolve, reject) => {
-    const proc = spawn(args.ffmpegPath, ['-y', '-f', 'concat', '-safe', '0', '-i', listPath, '-c', 'copy', args.outPath], {
+    const proc = spawn(
+      args.ffmpegPath,
+      ['-y', '-f', 'concat', '-safe', '0', '-i', listPath, '-vn', '-ac', '2', '-ar', '48000', '-c:a', 'pcm_s16le', args.outPath],
+      {
       stdio: ['ignore', 'ignore', 'pipe']
-    });
+      }
+    );
     let err = '';
     proc.stderr.on('data', (d) => (err += d.toString()));
     proc.on('close', (code) => {
