@@ -1,0 +1,20 @@
+{
+  "name": "tiktok-ai",
+  "version": "1.0.0",
+  "private": true,
+  "description": "TikTok AI - personal-use vertical video generator",
+  "workspaces": [
+    "apps/server",
+    "apps/web"
+  ],
+  "scripts": {
+    "dev": "concurrently -n server,web -c blue,green \"cd apps/server && npm run dev\" \"cd apps/web && npm run dev\"",
+    "db:migrate": "cd apps/server && npm run db:migrate",
+    "db:seed": "cd apps/server && npm run db:seed",
+    "build": "cd apps/server && npm run build && cd ../web && npm run build",
+    "start": "cd apps/server && npm run start"
+  },
+  "devDependencies": {
+    "concurrently": "^9.0.0"
+  }
+}

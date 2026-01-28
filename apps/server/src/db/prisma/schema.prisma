@@ -1,0 +1,121 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+enum ProjectStatus {
+  DRAFT_PLAN
+  PLAN_READY
+  APPROVED
+  RENDERING
+  DONE
+  FAILED
+}
+
+enum RunStatus {
+  queued
+  running
+  done
+  failed
+  canceled
+}
+
+model Project {
+  id                 String        @id @default(cuid())
+  title              String
+  nichePackId        String
+  language           String
+  targetLengthSec    Int
+  tempo              String
+  voicePreset        String
+  visualStylePreset  String?
+  status             ProjectStatus  @default(DRAFT_PLAN)
+  latestPlanVersionId String?
+
+  createdAt          DateTime      @default(now())
+  updatedAt          DateTime      @updatedAt
+
+  planVersions       PlanVersion[]
+  scenes             Scene[]
+  runs               Run[]
+}
+
+model PlanVersion {
+  id              String   @id @default(cuid())
+  projectId       String
+  createdAt       DateTime @default(now())
+
+  hookOptionsJson String
+  hookSelected    String
+  outline         String
+  scriptFull      String
+  estimatesJson   String
+  validationJson  String
+
+  project         Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  scenes          Scene[]
+  runs            Run[]
+}
+
+model Scene {
+  id               String   @id @default(cuid())
+  projectId        String
+  planVersionId    String
+  idx              Int
+
+  narrationText    String
+  onScreenText     String
+  visualPrompt     String
+  negativePrompt   String
+  effectPreset     String
+  durationTargetSec Float
+  startTimeSec     Float
+  endTimeSec       Float
+  isLocked         Boolean @default(false)
+  updatedAt        DateTime @updatedAt
+
+  project          Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  planVersion      PlanVersion @relation(fields: [planVersionId], references: [id], onDelete: Cascade)
+
+  @@unique([planVersionId, idx])
+}
+
+model Run {
+  id              String    @id @default(cuid())
+  projectId       String
+  planVersionId   String
+
+  status          RunStatus @default(queued)
+  progress        Int       @default(0)
+  currentStep     String?
+  logsJson        String    @default("[]")
+  artifactsJson   String    @default("{}")
+  resumeStateJson String    @default("{}")
+
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  project         Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  planVersion     PlanVersion @relation(fields: [planVersionId], references: [id], onDelete: Cascade)
+}
+
+model Cache {
+  id         String   @id @default(cuid())
+  kind       String
+  hashKey    String   @unique
+  resultJson String
+  payloadPath String?
+  createdAt  DateTime @default(now())
+}
+
+model NichePack {
+  id        String   @id
+  title     String
+  configJson String
+  updatedAt DateTime @updatedAt
+}
+
