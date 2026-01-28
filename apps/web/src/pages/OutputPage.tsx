@@ -9,6 +9,7 @@ type Run = {
   currentStep?: string | null
   logsJson: string
   artifactsJson: string
+  resumeStateJson: string
   projectId: string
   planVersionId: string
 }
@@ -19,6 +20,8 @@ export function OutputPage() {
   const [run, setRun] = useState<Run | null>(null)
   const [err, setErr] = useState<string | null>(null)
   const [verify, setVerify] = useState<any | null>(null)
+  const [resumeFromStep, setResumeFromStep] = useState<string>('tts_generate')
+  const [dupTopic, setDupTopic] = useState('')
   const pollRef = useRef<number | null>(null)
 
   async function load() {
@@ -55,7 +58,44 @@ export function OutputPage() {
     }
   }, [run])
 
+  const resumeState = useMemo(() => {
+    if (!run) return {}
+    try {
+      return JSON.parse(run.resumeStateJson || '{}')
+    } catch {
+      return {}
+    }
+  }, [run])
+
   const isReady = Boolean(verify?.pass)
+
+  async function onRetry(fromStep?: string | null) {
+    if (!runId) return
+    setErr(null)
+    try {
+      await api(`/run/${runId}/retry`, {
+        method: 'POST',
+        body: JSON.stringify(fromStep ? { resumeFromStep: fromStep } : {}),
+      })
+      await load()
+    } catch (e: any) {
+      setErr(e?.error || 'Retry failed')
+    }
+  }
+
+  async function onDuplicateProject() {
+    if (!run) return
+    setErr(null)
+    try {
+      const r = await api<{ project: any }>(`/project/${run.projectId}/duplicate`, {
+        method: 'POST',
+        body: JSON.stringify({ topic: dupTopic.trim() || undefined }),
+      })
+      nav(`/studio/${r.project.id}`)
+    } catch (e: any) {
+      setErr(e?.error || 'Duplicate failed')
+    }
+  }
 
   async function onVerify() {
     if (!runId) return
@@ -113,19 +153,24 @@ export function OutputPage() {
             Verify Artifacts
           </button>
           {isReady ? (
-            <a
-              className="rounded-lg bg-emerald-500 px-3 py-2 text-center text-sm font-semibold text-zinc-950"
-              href={`/api/run/${runId}/download`}
-            >
-              Download MP4
-            </a>
+            <div className="grid grid-cols-2 gap-2">
+              <a
+                className="rounded-lg bg-emerald-500 px-3 py-2 text-center text-sm font-semibold text-zinc-950"
+                href={`/api/run/${runId}/download`}
+              >
+                MP4
+              </a>
+              <a className="rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-center text-sm" href={`/api/run/${runId}/export`}>
+                Export JSON
+              </a>
+            </div>
           ) : (
             <button
               disabled
               className="rounded-lg bg-zinc-800 px-3 py-2 text-sm font-semibold text-zinc-400 opacity-70"
               title="Blocked: not verified PASS yet."
             >
-              Download MP4
+              Downloads
             </button>
           )}
         </div>
@@ -137,6 +182,52 @@ export function OutputPage() {
             MP4 not ready yet. This will only show “Ready” after Verification PASS.
           </div>
         )}
+
+        {run ? (
+          <div className="mt-3 rounded-lg border border-zinc-800 bg-zinc-950 p-3 text-xs text-zinc-300">
+            <div className="font-semibold text-zinc-200">Retry / Resume</div>
+            <div className="mt-1 text-zinc-400">Last completed step: {resumeState.lastCompletedStep || 'unknown'}</div>
+            <div className="mt-2 grid grid-cols-2 gap-2">
+              <button className="rounded-md border border-zinc-700 px-2 py-2 text-xs" onClick={() => onRetry(null)}>
+                Retry from start
+              </button>
+              <div className="flex gap-2">
+                <select
+                  value={resumeFromStep}
+                  onChange={(e) => setResumeFromStep(e.target.value)}
+                  className="w-full rounded-md border border-zinc-700 bg-zinc-950 px-2 py-2 text-xs"
+                >
+                  {['tts_generate', 'asr_align', 'images_generate', 'captions_build', 'music_build', 'ffmpeg_render', 'finalize_artifacts'].map((s) => (
+                    <option key={s} value={s}>
+                      {s}
+                    </option>
+                  ))}
+                </select>
+                <button className="shrink-0 rounded-md bg-emerald-500 px-2 py-2 text-xs font-semibold text-zinc-950" onClick={() => onRetry(resumeFromStep)}>
+                  Resume
+                </button>
+              </div>
+            </div>
+          </div>
+        ) : null}
+
+        {run ? (
+          <div className="mt-3 rounded-lg border border-zinc-800 bg-zinc-950 p-3 text-xs text-zinc-300">
+            <div className="font-semibold text-zinc-200">Duplicate project</div>
+            <div className="mt-1 text-zinc-400">Clones the latest plan into a new draft you can edit.</div>
+            <div className="mt-2 flex gap-2">
+              <input
+                value={dupTopic}
+                onChange={(e) => setDupTopic(e.target.value)}
+                placeholder="New topic (optional)"
+                className="w-full rounded-md border border-zinc-800 bg-zinc-900 px-2 py-2 text-xs outline-none focus:border-zinc-600"
+              />
+              <button className="rounded-md bg-zinc-200 px-3 py-2 text-xs font-semibold text-zinc-950" onClick={onDuplicateProject}>
+                Duplicate
+              </button>
+            </div>
+          </div>
+        ) : null}
       </div>
 
       <div className="rounded-xl border border-zinc-800 bg-zinc-900/40 p-4">

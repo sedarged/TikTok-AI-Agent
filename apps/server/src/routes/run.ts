@@ -102,6 +102,27 @@ runRouter.get('/run/:runId/download', async (req, res) => {
   fs.createReadStream(mp4Path).pipe(res);
 });
 
+runRouter.get('/run/:runId/export', async (req, res) => {
+  const runId = req.params.runId;
+  const run = await prisma.run.findUnique({ where: { id: runId } });
+  if (!run) {
+    res.status(404).json({ error: 'Run not found.' });
+    return;
+  }
+  let artifacts: any = {};
+  try {
+    artifacts = JSON.parse(run.artifactsJson);
+  } catch {}
+  const exportJsonPath = artifacts.exportJsonPath as string | undefined;
+  if (!exportJsonPath || !fs.existsSync(exportJsonPath)) {
+    res.status(404).json({ error: 'export.json not found for this run yet.' });
+    return;
+  }
+  res.setHeader('Content-Type', 'application/json');
+  res.setHeader('Content-Disposition', `attachment; filename="tiktok-ai_${run.projectId}_${run.id}_export.json"`);
+  fs.createReadStream(exportJsonPath).pipe(res);
+});
+
 runRouter.get('/run/:runId/verify', async (req, res) => {
   const runId = req.params.runId;
   const run = await prisma.run.findUnique({ where: { id: runId }, include: { project: true } });

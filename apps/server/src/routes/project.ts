@@ -129,6 +129,74 @@ projectRouter.get('/project/:id/runs', async (req, res) => {
   res.json({ runs });
 });
 
+projectRouter.post('/project/:id/duplicate', async (req, res) => {
+  const id = req.params.id;
+  const { topic } = (req.body ?? {}) as { topic?: string };
+  const project = await prisma.project.findUnique({ where: { id } });
+  if (!project) {
+    res.status(404).json({ error: 'Project not found.' });
+    return;
+  }
+  if (!project.latestPlanVersionId) {
+    res.status(400).json({ error: 'Duplicate blocked: project has no plan to duplicate.' });
+    return;
+  }
+
+  const plan = await prisma.planVersion.findUnique({
+    where: { id: project.latestPlanVersionId },
+    include: { scenes: { orderBy: { idx: 'asc' } } }
+  });
+  if (!plan) {
+    res.status(400).json({ error: 'Duplicate blocked: latest plan not found.' });
+    return;
+  }
+
+  const newTitle = (topic && topic.trim()) ? topic.trim() : `Copy of ${project.title}`.slice(0, 60);
+  const newProject = await prisma.project.create({
+    data: {
+      title: newTitle.slice(0, 60),
+      nichePackId: project.nichePackId,
+      language: project.language,
+      targetLengthSec: project.targetLengthSec,
+      tempo: project.tempo,
+      voicePreset: project.voicePreset,
+      visualStylePreset: project.visualStylePreset,
+      status: 'PLAN_READY'
+    }
+  });
+
+  const newPlan = await prisma.planVersion.create({
+    data: {
+      projectId: newProject.id,
+      hookOptionsJson: plan.hookOptionsJson,
+      hookSelected: plan.hookSelected,
+      outline: plan.outline,
+      scriptFull: plan.scriptFull,
+      estimatesJson: plan.estimatesJson,
+      validationJson: plan.validationJson,
+      scenes: {
+        create: plan.scenes.map((s) => ({
+          projectId: newProject.id,
+          idx: s.idx,
+          narrationText: s.narrationText,
+          onScreenText: s.onScreenText,
+          visualPrompt: s.visualPrompt,
+          negativePrompt: s.negativePrompt,
+          effectPreset: s.effectPreset,
+          durationTargetSec: s.durationTargetSec,
+          startTimeSec: s.startTimeSec,
+          endTimeSec: s.endTimeSec,
+          isLocked: s.isLocked
+        }))
+      }
+    }
+  });
+
+  await prisma.project.update({ where: { id: newProject.id }, data: { latestPlanVersionId: newPlan.id } });
+
+  res.json({ project: newProject, planVersionId: newPlan.id });
+});
+
 function requiredMissing(s: any) {
   const missing: string[] = [];
   if (!s?.topic) missing.push('topic');
