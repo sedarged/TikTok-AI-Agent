@@ -46,6 +46,10 @@ async function createProjectAndRun(request: APIRequestContext) {
   return { projectId: project.id, runId: run.id };
 }
 
+test.afterEach(async ({ request }) => {
+  await setDryRunConfig(request, { failStep: '', stepDelayMs: 0 });
+});
+
 test('dry-run failure then retry completes', async ({ page, request }) => {
   await setDryRunConfig(request, { failStep: 'images_generate', stepDelayMs: 0 });
 
@@ -54,11 +58,11 @@ test('dry-run failure then retry completes', async ({ page, request }) => {
 
   await page.goto(`/project/${projectId}/runs`);
   await expect(page.getByText('failed', { exact: true })).toBeVisible();
+
+  await setDryRunConfig(request, { failStep: '', stepDelayMs: 0 });
   await page.getByRole('button', { name: 'Retry' }).click();
 
   await waitForRunStatus(request, runId, 'done');
   await page.goto(`/run/${runId}`);
   await expect(page.getByText('Dry-run Render')).toBeVisible();
-
-  await setDryRunConfig(request, { failStep: '', stepDelayMs: 0 });
 });

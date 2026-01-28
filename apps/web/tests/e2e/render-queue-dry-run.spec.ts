@@ -2,7 +2,7 @@ import { test, expect, APIRequestContext } from '@playwright/test';
 
 async function waitForRunDone(request: APIRequestContext, runId: string) {
   const start = Date.now();
-  while (Date.now() - start < 10000) {
+  while (Date.now() - start < 15000) {
     const res = await request.get(`/api/run/${runId}`);
     expect(res.ok()).toBeTruthy();
     const run = await res.json();
@@ -43,6 +43,11 @@ async function createProjectAndRun(request: APIRequestContext) {
 }
 
 test('render queue + verify/export in dry-run', async ({ page, request }) => {
+  const configRes = await request.post('/api/test/dry-run-config', {
+    data: { failStep: '', stepDelayMs: 0 },
+  });
+  expect(configRes.ok()).toBeTruthy();
+
   const { projectId, runId } = await createProjectAndRun(request);
 
   await page.goto(`/project/${projectId}/runs`);

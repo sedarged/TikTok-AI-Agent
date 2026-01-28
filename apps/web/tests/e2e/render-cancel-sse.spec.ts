@@ -46,6 +46,10 @@ async function createProjectAndRun(request: APIRequestContext) {
   return { projectId: project.id, runId: run.id };
 }
 
+test.afterEach(async ({ request }) => {
+  await setDryRunConfig(request, { failStep: '', stepDelayMs: 0 });
+});
+
 test('dry-run cancel shows SSE log and canceled status', async ({ page, request }) => {
   await setDryRunConfig(request, { failStep: '', stepDelayMs: 300 });
 
@@ -62,6 +66,4 @@ test('dry-run cancel shows SSE log and canceled status', async ({ page, request 
   await page.goto(`/project/${projectId}/runs`);
   await expect(page.getByText('canceled', { exact: true })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Retry' })).toBeVisible();
-
-  await setDryRunConfig(request, { stepDelayMs: 0 });
 });
