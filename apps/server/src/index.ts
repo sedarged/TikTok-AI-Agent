@@ -10,9 +10,9 @@ import { nichePackRoutes } from './routes/nichePack.js';
 
 const app = express();
 
-// Middleware
+// Middleware - Allow all origins for local network access
 app.use(cors({
-  origin: ['http://localhost:5173', 'http://localhost:3000'],
+  origin: true, // Allow all origins for mobile access on local network
   credentials: true,
 }));
 app.use(express.json({ limit: '10mb' }));
@@ -40,8 +40,9 @@ app.use((err: Error, req: express.Request, res: express.Response, next: express.
   res.status(500).json({ error: err.message || 'Internal server error' });
 });
 
-app.listen(env.PORT, () => {
+app.listen(env.PORT, '0.0.0.0', () => {
   console.log(`Server running on http://localhost:${env.PORT}`);
+  console.log(`Server also available on http://0.0.0.0:${env.PORT}`);
   console.log(`Environment: ${env.NODE_ENV}`);
   console.log(`Artifacts dir: ${env.ARTIFACTS_DIR}`);
 });
