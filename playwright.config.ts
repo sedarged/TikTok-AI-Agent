@@ -12,7 +12,7 @@ export default defineConfig({
     headless: true,
   },
   webServer: {
-    command: 'APP_TEST_MODE=0 APP_RENDER_DRY_RUN=1 NODE_ENV=test DATABASE_URL=file:./e2e.db npm run dev',
+    command: 'APP_TEST_MODE=0 APP_RENDER_DRY_RUN=1 NODE_ENV=test DATABASE_URL=file:./e2e.db npm run db:migrate && APP_TEST_MODE=0 APP_RENDER_DRY_RUN=1 NODE_ENV=test DATABASE_URL=file:./e2e.db npm run dev',
     url: 'http://localhost:5173',
     reuseExistingServer: !process.env.CI,
     timeout: 120_000,
