@@ -34,6 +34,7 @@ export const env = {
   APP_TEST_MODE: process.env.APP_TEST_MODE === '1',
   APP_RENDER_DRY_RUN: process.env.APP_RENDER_DRY_RUN === '1',
   APP_DRY_RUN_FAIL_STEP: process.env.APP_DRY_RUN_FAIL_STEP || '',
+  APP_DRY_RUN_STEP_DELAY_MS: parseInt(process.env.APP_DRY_RUN_STEP_DELAY_MS || '0', 10),
   APP_VERSION: process.env.APP_VERSION || '',
 };
 
@@ -57,6 +58,16 @@ export function isTestMode(): boolean {
 
 export function isRenderDryRun(): boolean {
   return env.APP_RENDER_DRY_RUN && !env.APP_TEST_MODE;
+}
+
+export function getDryRunFailStep(): string {
+  return process.env.APP_DRY_RUN_FAIL_STEP || env.APP_DRY_RUN_FAIL_STEP;
+}
+
+export function getDryRunStepDelayMs(): number {
+  const raw = process.env.APP_DRY_RUN_STEP_DELAY_MS;
+  const parsed = raw ? parseInt(raw, 10) : env.APP_DRY_RUN_STEP_DELAY_MS;
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : 0;
 }
 
 export function getProviderStatus() {

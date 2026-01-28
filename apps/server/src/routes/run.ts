@@ -202,6 +202,13 @@ runRoutes.get('/:runId/download', async (req, res) => {
     }
 
     const artifacts = JSON.parse(run.artifactsJson);
+
+    if (artifacts.dryRun === true) {
+      return res.status(409).json({
+        error: 'No MP4 available for dry-run renders',
+        code: 'DRY_RUN_NO_MP4',
+      });
+    }
     
     if (!artifacts.mp4Path) {
       return res.status(404).json({ error: 'Video not found' });

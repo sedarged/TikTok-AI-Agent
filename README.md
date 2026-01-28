@@ -103,6 +103,7 @@ PORT=3001                     # Server port
 APP_TEST_MODE=0               # Set to 1 to disable render + external providers
 APP_RENDER_DRY_RUN=0          # Set to 1 to run render without providers/MP4
 APP_DRY_RUN_FAIL_STEP=        # Inject failure at a render step (optional)
+APP_DRY_RUN_STEP_DELAY_MS=0   # Optional delay before dry-run steps
 APP_VERSION=                  # Optional version override for /api/health
 ```
 
@@ -131,10 +132,20 @@ export APP_RENDER_DRY_RUN=1
 npm run test:render
 ```
 
+Notes:
+- Dry-run renders do **not** produce MP4 files.
+- `/api/run/:id/download` returns 409 for dry-run runs.
+
 Optional failure injection:
 
 ```bash
 export APP_DRY_RUN_FAIL_STEP=images_generate
+```
+
+Optional delay (useful for cancel/retry testing):
+
+```bash
+export APP_DRY_RUN_STEP_DELAY_MS=50
 ```
 
 ## E2E UI Smoke (Dry-Run)

@@ -2,7 +2,7 @@ import { prisma } from '../../db/client.js';
 import { v4 as uuid } from 'uuid';
 import path from 'path';
 import fs from 'fs';
-import { env, isRenderDryRun, isTestMode } from '../../env.js';
+import { env, getDryRunFailStep, getDryRunStepDelayMs, isRenderDryRun, isTestMode } from '../../env.js';
 import { getNichePack } from '../nichePacks.js';
 import { generateTTS, transcribeAudio, generateImage } from '../providers/openai.js';
 import { buildCaptionsFromWords, buildCaptionsFromScenes } from '../captions/captionsBuilder.js';
@@ -56,7 +56,25 @@ const STEP_WEIGHTS: Record<RunStep, number> = {
 const activeRuns = new Map<string, boolean>();
 
 function shouldFailStep(step: RunStep): boolean {
-  return isRenderDryRun() && env.APP_DRY_RUN_FAIL_STEP === step;
+  return isRenderDryRun() && getDryRunFailStep() === step;
+}
+
+async function delayOrCancel(step: RunStep, runId: string): Promise<boolean> {
+  if (!isRenderDryRun()) {
+    return false;
+  }
+
+  const delayMs = getDryRunStepDelayMs();
+  if (delayMs > 0) {
+    await new Promise((resolve) => setTimeout(resolve, delayMs));
+  }
+
+  if (!isActive(runId)) {
+    await addLog(runId, `Run canceled before ${step} step`, 'warn');
+    return true;
+  }
+
+  return false;
 }
 
 function ensureDirExists(dirPath: string) {
@@ -151,6 +169,10 @@ async function executePipeline(run: Run, planVersion: PlanWithDetails) {
 
     // Step 1: TTS Generate
     if (!completedSteps.includes('tts_generate') && isActive(runId)) {
+      if (await delayOrCancel('tts_generate', runId)) {
+        return;
+      }
+
       if (shouldFailStep('tts_generate')) {
         throw new Error('Dry-run failure injected at tts_generate');
       }
@@ -204,6 +226,10 @@ async function executePipeline(run: Run, planVersion: PlanWithDetails) {
 
     // Step 2: ASR Align
     if (!completedSteps.includes('asr_align') && isActive(runId)) {
+      if (await delayOrCancel('asr_align', runId)) {
+        return;
+      }
+
       if (shouldFailStep('asr_align')) {
         throw new Error('Dry-run failure injected at asr_align');
       }
@@ -228,6 +254,10 @@ async function executePipeline(run: Run, planVersion: PlanWithDetails) {
 
     // Step 3: Generate Images
     if (!completedSteps.includes('images_generate') && isActive(runId)) {
+      if (await delayOrCancel('images_generate', runId)) {
+        return;
+      }
+
       if (shouldFailStep('images_generate')) {
         throw new Error('Dry-run failure injected at images_generate');
       }
@@ -271,6 +301,10 @@ async function executePipeline(run: Run, planVersion: PlanWithDetails) {
 
     // Step 4: Build Captions
     if (!completedSteps.includes('captions_build') && isActive(runId)) {
+      if (await delayOrCancel('captions_build', runId)) {
+        return;
+      }
+
       if (shouldFailStep('captions_build')) {
         throw new Error('Dry-run failure injected at captions_build');
       }
@@ -320,6 +354,10 @@ async function executePipeline(run: Run, planVersion: PlanWithDetails) {
 
     // Step 5: Music Build (optional)
     if (!completedSteps.includes('music_build') && isActive(runId)) {
+      if (await delayOrCancel('music_build', runId)) {
+        return;
+      }
+
       if (shouldFailStep('music_build')) {
         throw new Error('Dry-run failure injected at music_build');
       }
@@ -358,6 +396,10 @@ async function executePipeline(run: Run, planVersion: PlanWithDetails) {
 
     // Step 6: FFmpeg Render
     if (!completedSteps.includes('ffmpeg_render') && isActive(runId)) {
+      if (await delayOrCancel('ffmpeg_render', runId)) {
+        return;
+      }
+
       if (shouldFailStep('ffmpeg_render')) {
         throw new Error('Dry-run failure injected at ffmpeg_render');
       }
@@ -431,6 +473,10 @@ async function executePipeline(run: Run, planVersion: PlanWithDetails) {
 
     // Step 7: Finalize Artifacts
     if (!completedSteps.includes('finalize_artifacts') && isActive(runId)) {
+      if (await delayOrCancel('finalize_artifacts', runId)) {
+        return;
+      }
+
       if (shouldFailStep('finalize_artifacts')) {
         throw new Error('Dry-run failure injected at finalize_artifacts');
       }
