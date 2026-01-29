@@ -60,12 +60,20 @@ runRoutes.get('/:runId/stream', async (req, res) => {
   });
 
   if (run) {
+    let logs = [];
+    try {
+      logs = JSON.parse(run.logsJson);
+    } catch (error) {
+      console.error('Failed to parse run logs JSON:', error);
+      logs = [];
+    }
+    
     res.write(`data: ${JSON.stringify({
       type: 'state',
       status: run.status,
       progress: run.progress,
       currentStep: run.currentStep,
-      logs: JSON.parse(run.logsJson),
+      logs,
     })}\n\n`);
   }
 
@@ -201,7 +209,13 @@ runRoutes.get('/:runId/download', async (req, res) => {
       return res.status(404).json({ error: 'Run not found' });
     }
 
-    const artifacts = JSON.parse(run.artifactsJson);
+    let artifacts;
+    try {
+      artifacts = JSON.parse(run.artifactsJson);
+    } catch (error) {
+      console.error('Failed to parse artifacts JSON:', error);
+      return res.status(500).json({ error: 'Invalid artifacts data' });
+    }
 
     if (artifacts.dryRun === true) {
       return res.status(409).json({
@@ -214,13 +228,21 @@ runRoutes.get('/:runId/download', async (req, res) => {
       return res.status(404).json({ error: 'Video not found' });
     }
 
+    // Prevent path traversal attacks - ensure file is within ARTIFACTS_DIR
     const videoPath = path.join(env.ARTIFACTS_DIR, artifacts.mp4Path);
+    const normalizedPath = path.normalize(videoPath);
+    const normalizedArtifactsDir = path.normalize(env.ARTIFACTS_DIR);
     
-    if (!fs.existsSync(videoPath)) {
+    if (!normalizedPath.startsWith(normalizedArtifactsDir)) {
+      console.error('Path traversal attempt detected:', artifacts.mp4Path);
+      return res.status(403).json({ error: 'Invalid file path' });
+    }
+    
+    if (!fs.existsSync(normalizedPath)) {
       return res.status(404).json({ error: 'Video file not found on disk' });
     }
 
-    res.download(videoPath, 'final.mp4');
+    res.download(normalizedPath, 'final.mp4');
   } catch (error) {
     console.error('Error downloading video:', error);
     res.status(500).json({ error: 'Failed to download video' });
@@ -246,7 +268,13 @@ runRoutes.get('/:runId/export', async (req, res) => {
       return res.status(404).json({ error: 'Run not found' });
     }
 
-    const artifacts = JSON.parse(run.artifactsJson);
+    let artifacts;
+    try {
+      artifacts = JSON.parse(run.artifactsJson);
+    } catch (error) {
+      console.error('Failed to parse artifacts JSON:', error);
+      return res.status(500).json({ error: 'Invalid artifacts data' });
+    }
     
     const exportData = {
       project: {

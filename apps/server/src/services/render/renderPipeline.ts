@@ -125,9 +125,40 @@ export async function startRenderPipeline(planVersion: PlanWithDetails): Promise
     data: { status: 'RENDERING' },
   });
 
-  // Start pipeline in background
+  // Start pipeline in background with proper error handling
   activeRuns.set(runId, true);
-  executePipeline(run, planVersion).catch(console.error);
+  executePipeline(run, planVersion).catch(async (error) => {
+    console.error('Pipeline execution failed:', error);
+    // Update run status to failed if not already updated
+    try {
+      const currentRun = await prisma.run.findUnique({ where: { id: runId } });
+      if (currentRun && currentRun.status === 'RENDERING') {
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+        const logs = JSON.parse(currentRun.logsJson);
+        logs.push({
+          timestamp: new Date().toISOString(),
+          message: `Pipeline failed: ${errorMessage}`,
+          level: 'error',
+        });
+        
+        await prisma.run.update({
+          where: { id: runId },
+          data: {
+            status: 'FAILED',
+            logsJson: JSON.stringify(logs),
+          },
+        });
+        
+        // Broadcast failure to SSE clients
+        broadcastRunUpdate(runId, {
+          type: 'failed',
+          error: errorMessage,
+        });
+      }
+    } catch (updateError) {
+      console.error('Failed to update run status after pipeline error:', updateError);
+    }
+  });
 
   return run;
 }
