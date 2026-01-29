@@ -86,6 +86,47 @@ npm run dev
 - Frontend: http://localhost:5173
 - Backend: http://localhost:3001
 
+### Local PC (Dry-Run only, no API keys)
+
+This runs the full render pipeline without OpenAI/FFmpeg:
+
+```bash
+cp .env.example .env
+
+# Enable dry-run render (no paid APIs)
+APP_TEST_MODE=0
+APP_RENDER_DRY_RUN=1
+
+npm install
+npm run db:generate
+npm run db:migrate
+npm run dev
+```
+
+Then open http://localhost:5173 and run the normal flow.
+
+### Local PC (Real render)
+
+```bash
+cp .env.example .env
+# Set OPENAI_API_KEY and ensure FFmpeg is available (system or ffmpeg-static)
+
+npm install
+npm run db:generate
+npm run db:migrate
+npm run dev
+```
+
+Optional smoke script:
+
+```bash
+# Dry-run smoke (safe)
+APP_RENDER_DRY_RUN=1 npm run render:smoke
+
+# Real render smoke (requires API key + FFmpeg)
+SMOKE_ALLOW_REAL=1 npm run render:smoke
+```
+
 ## Environment Variables
 
 Create a `.env` file in the project root:
@@ -100,7 +141,66 @@ MUSIC_LIBRARY_DIR=./assets/music   # For background music
 ARTIFACTS_DIR=./artifacts     # Output directory
 DATABASE_URL="file:./dev.db"  # SQLite database path
 PORT=3001                     # Server port
+APP_TEST_MODE=0               # Set to 1 to disable render + external providers
+APP_RENDER_DRY_RUN=0          # Set to 1 to run render without providers/MP4
+APP_DRY_RUN_FAIL_STEP=        # Inject failure at a render step (optional)
+APP_DRY_RUN_STEP_DELAY_MS=0   # Optional delay before dry-run steps
+APP_VERSION=                  # Optional version override for /api/health
 ```
+
+## Test Mode (No Render)
+
+Enable deterministic plan generation and block render pipelines:
+
+```bash
+# From repo root
+export APP_TEST_MODE=1
+npm run test
+```
+
+When APP_TEST_MODE is enabled:
+- Rendering endpoints return 403
+- OpenAI/FFmpeg checks are skipped for status
+- Plan generation uses deterministic templates (no paid APIs)
+
+## Render Dry-Run (No API Keys, No MP4)
+
+Simulate the full render pipeline without OpenAI/FFmpeg:
+
+```bash
+export APP_TEST_MODE=0
+export APP_RENDER_DRY_RUN=1
+npm run test:render
+```
+
+Notes:
+- Dry-run renders do **not** produce MP4 files.
+- `/api/run/:id/download` returns 409 for dry-run runs.
+- In dry-run/test mode, `/api/test/dry-run-config` can adjust fail step/delay for tests.
+
+Optional failure injection:
+
+```bash
+export APP_DRY_RUN_FAIL_STEP=images_generate
+```
+
+Optional delay (useful for cancel/retry testing):
+
+```bash
+export APP_DRY_RUN_STEP_DELAY_MS=50
+```
+
+## E2E UI Smoke (Dry-Run)
+
+```bash
+# One-time browser install
+npx playwright install --with-deps
+
+# Runs the UI flow against a dry-run backend (no MP4)
+npm run test:e2e
+```
+
+Windows/macOS note: `npx playwright install` (without `--with-deps`) is usually sufficient.
 
 ## How to Render a 60s Facts Video
 
@@ -180,6 +280,9 @@ PORT=3001                     # Server port
 - `GET /api/run/:runId/verify` - Verify artifacts
 - `GET /api/run/:runId/download` - Download MP4
 - `GET /api/run/:runId/export` - Export JSON
+
+### Health
+- `GET /api/health` - Health check with mode/version/db status
 
 ## Render Pipeline Steps
 

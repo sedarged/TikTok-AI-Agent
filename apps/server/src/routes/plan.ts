@@ -1,12 +1,31 @@
 import { Router } from 'express';
+import { z } from 'zod';
 import { prisma } from '../db/client.js';
 import { validatePlan, autofitDurations } from '../services/plan/planValidator.js';
 import { regenerateHooks, regenerateOutline, regenerateScript } from '../services/plan/planGenerator.js';
 import { startRenderPipeline } from '../services/render/renderPipeline.js';
-import { isOpenAIConfigured } from '../env.js';
+import { isOpenAIConfigured, isRenderDryRun, isTestMode } from '../env.js';
 import { checkFFmpegAvailable } from '../services/ffmpeg/ffmpegUtils.js';
 
 export const planRoutes = Router();
+
+const sceneUpdateSchema = z.object({
+  id: z.string(),
+  narrationText: z.string().optional(),
+  onScreenText: z.string().optional(),
+  visualPrompt: z.string().optional(),
+  negativePrompt: z.string().optional(),
+  effectPreset: z.string().optional(),
+  durationTargetSec: z.number().optional(),
+  isLocked: z.boolean().optional(),
+}).strict();
+
+const planUpdateSchema = z.object({
+  hookSelected: z.string().optional(),
+  outline: z.string().optional(),
+  scriptFull: z.string().optional(),
+  scenes: z.array(sceneUpdateSchema).optional(),
+}).strict();
 
 // Get plan version
 planRoutes.get('/:planVersionId', async (req, res) => {
@@ -35,7 +54,15 @@ planRoutes.get('/:planVersionId', async (req, res) => {
 // Update plan version (autosave)
 planRoutes.put('/:planVersionId', async (req, res) => {
   try {
-    const { hookSelected, outline, scriptFull, scenes } = req.body;
+    const parsed = planUpdateSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return res.status(400).json({
+        error: 'Invalid plan update payload',
+        details: parsed.error.flatten(),
+      });
+    }
+
+    const { hookSelected, outline, scriptFull, scenes } = parsed.data;
     const planVersionId = req.params.planVersionId;
 
     const planVersion = await prisma.planVersion.findUnique({
@@ -349,16 +376,25 @@ planRoutes.post('/:planVersionId/approve', async (req, res) => {
 // Start render
 planRoutes.post('/:planVersionId/render', async (req, res) => {
   try {
+    if (isTestMode()) {
+      return res.status(403).json({
+        error: 'Rendering disabled in APP_TEST_MODE',
+        code: 'RENDER_DISABLED_TEST_MODE',
+      });
+    }
+
+    const renderDryRun = isRenderDryRun();
+
     // Check providers
-    if (!isOpenAIConfigured()) {
+    if (!renderDryRun && !isOpenAIConfigured()) {
       return res.status(400).json({
         error: 'Cannot render: OpenAI API key not configured',
         code: 'OPENAI_NOT_CONFIGURED',
       });
     }
 
-    const ffmpegAvailable = await checkFFmpegAvailable();
-    if (!ffmpegAvailable) {
+    const ffmpegAvailable = renderDryRun ? true : await checkFFmpegAvailable();
+    if (!renderDryRun && !ffmpegAvailable) {
       return res.status(400).json({
         error: 'Cannot render: FFmpeg not available',
         code: 'FFMPEG_NOT_AVAILABLE',

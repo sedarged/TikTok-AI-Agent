@@ -1,8 +1,23 @@
 import { Router } from 'express';
+import { z } from 'zod';
 import { prisma } from '../db/client.js';
 import { regenerateScene } from '../services/plan/planGenerator.js';
 
 export const sceneRoutes = Router();
+
+const sceneUpdateSchema = z.object({
+  narrationText: z.string().optional(),
+  onScreenText: z.string().optional(),
+  visualPrompt: z.string().optional(),
+  negativePrompt: z.string().optional(),
+  effectPreset: z.string().optional(),
+  durationTargetSec: z.number().positive().optional(),
+  isLocked: z.boolean().optional(),
+}).strict();
+
+const sceneLockSchema = z.object({
+  locked: z.boolean(),
+}).strict();
 
 // Get single scene
 sceneRoutes.get('/:sceneId', async (req, res) => {
@@ -25,6 +40,14 @@ sceneRoutes.get('/:sceneId', async (req, res) => {
 // Update single scene
 sceneRoutes.put('/:sceneId', async (req, res) => {
   try {
+    const parsed = sceneUpdateSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return res.status(400).json({
+        error: 'Invalid scene update payload',
+        details: parsed.error.flatten(),
+      });
+    }
+
     const scene = await prisma.scene.findUnique({
       where: { id: req.params.sceneId },
     });
@@ -33,20 +56,20 @@ sceneRoutes.put('/:sceneId', async (req, res) => {
       return res.status(404).json({ error: 'Scene not found' });
     }
 
-    if (scene.isLocked && req.body.isLocked !== false) {
+    if (scene.isLocked && parsed.data.isLocked !== false) {
       return res.status(400).json({ error: 'Scene is locked. Unlock it first to make changes.' });
     }
 
     const updatedScene = await prisma.scene.update({
       where: { id: req.params.sceneId },
       data: {
-        narrationText: req.body.narrationText ?? scene.narrationText,
-        onScreenText: req.body.onScreenText ?? scene.onScreenText,
-        visualPrompt: req.body.visualPrompt ?? scene.visualPrompt,
-        negativePrompt: req.body.negativePrompt ?? scene.negativePrompt,
-        effectPreset: req.body.effectPreset ?? scene.effectPreset,
-        durationTargetSec: req.body.durationTargetSec ?? scene.durationTargetSec,
-        isLocked: req.body.isLocked ?? scene.isLocked,
+        narrationText: parsed.data.narrationText ?? scene.narrationText,
+        onScreenText: parsed.data.onScreenText ?? scene.onScreenText,
+        visualPrompt: parsed.data.visualPrompt ?? scene.visualPrompt,
+        negativePrompt: parsed.data.negativePrompt ?? scene.negativePrompt,
+        effectPreset: parsed.data.effectPreset ?? scene.effectPreset,
+        durationTargetSec: parsed.data.durationTargetSec ?? scene.durationTargetSec,
+        isLocked: parsed.data.isLocked ?? scene.isLocked,
       },
     });
 
@@ -60,7 +83,15 @@ sceneRoutes.put('/:sceneId', async (req, res) => {
 // Lock/unlock scene
 sceneRoutes.post('/:sceneId/lock', async (req, res) => {
   try {
-    const { locked } = req.body;
+    const parsed = sceneLockSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return res.status(400).json({
+        error: 'Invalid lock payload',
+        details: parsed.error.flatten(),
+      });
+    }
+
+    const { locked } = parsed.data;
     
     const scene = await prisma.scene.update({
       where: { id: req.params.sceneId },

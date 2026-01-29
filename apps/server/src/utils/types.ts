@@ -93,6 +93,8 @@ export interface Artifacts {
   mp4Path?: string;
   thumbPath?: string;
   exportJsonPath?: string;
+  dryRun?: boolean;
+  dryRunReportPath?: string;
 }
 
 // Resume state

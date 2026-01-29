@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { prisma } from '../db/client.js';
 import { retryRun, cancelRun } from '../services/render/renderPipeline.js';
 import { verifyArtifacts } from '../services/render/verifyArtifacts.js';
-import { env } from '../env.js';
+import { env, isTestMode } from '../env.js';
 import path from 'path';
 import fs from 'fs';
 
@@ -97,6 +97,13 @@ export function broadcastRunUpdate(runId: string, data: any) {
 // Retry run
 runRoutes.post('/:runId/retry', async (req, res) => {
   try {
+    if (isTestMode()) {
+      return res.status(403).json({
+        error: 'Rendering is disabled in APP_TEST_MODE',
+        code: 'RENDER_DISABLED_TEST_MODE',
+      });
+    }
+
     const { fromStep } = req.body;
     
     const run = await prisma.run.findUnique({
@@ -145,6 +152,13 @@ runRoutes.post('/:runId/cancel', async (req, res) => {
 // Verify artifacts
 runRoutes.get('/:runId/verify', async (req, res) => {
   try {
+    if (isTestMode()) {
+      return res.status(403).json({
+        error: 'Artifact verification disabled in APP_TEST_MODE',
+        code: 'VERIFY_DISABLED_TEST_MODE',
+      });
+    }
+
     const run = await prisma.run.findUnique({
       where: { id: req.params.runId },
       include: {
@@ -172,6 +186,13 @@ runRoutes.get('/:runId/verify', async (req, res) => {
 // Download final video
 runRoutes.get('/:runId/download', async (req, res) => {
   try {
+    if (isTestMode()) {
+      return res.status(403).json({
+        error: 'Downloads disabled in APP_TEST_MODE',
+        code: 'DOWNLOAD_DISABLED_TEST_MODE',
+      });
+    }
+
     const run = await prisma.run.findUnique({
       where: { id: req.params.runId },
     });
@@ -181,6 +202,13 @@ runRoutes.get('/:runId/download', async (req, res) => {
     }
 
     const artifacts = JSON.parse(run.artifactsJson);
+
+    if (artifacts.dryRun === true) {
+      return res.status(409).json({
+        error: 'No MP4 available for dry-run renders',
+        code: 'DRY_RUN_NO_MP4',
+      });
+    }
     
     if (!artifacts.mp4Path) {
       return res.status(404).json({ error: 'Video not found' });
