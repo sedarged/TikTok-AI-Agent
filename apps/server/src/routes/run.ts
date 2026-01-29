@@ -230,19 +230,20 @@ runRoutes.get('/:runId/download', async (req, res) => {
 
     // Prevent path traversal attacks - ensure file is within ARTIFACTS_DIR
     const videoPath = path.join(env.ARTIFACTS_DIR, artifacts.mp4Path);
-    const normalizedPath = path.normalize(videoPath);
-    const normalizedArtifactsDir = path.normalize(env.ARTIFACTS_DIR);
+    const resolvedPath = path.resolve(videoPath);
+    const resolvedArtifactsDir = path.resolve(env.ARTIFACTS_DIR);
     
-    if (!normalizedPath.startsWith(normalizedArtifactsDir)) {
+    // Ensure the resolved path is within artifacts directory (including path separator check)
+    if (!resolvedPath.startsWith(resolvedArtifactsDir + path.sep) && resolvedPath !== resolvedArtifactsDir) {
       console.error('Path traversal attempt detected:', artifacts.mp4Path);
       return res.status(403).json({ error: 'Invalid file path' });
     }
     
-    if (!fs.existsSync(normalizedPath)) {
+    if (!fs.existsSync(resolvedPath)) {
       return res.status(404).json({ error: 'Video file not found on disk' });
     }
 
-    res.download(normalizedPath, 'final.mp4');
+    res.download(resolvedPath, 'final.mp4');
   } catch (error) {
     console.error('Error downloading video:', error);
     res.status(500).json({ error: 'Failed to download video' });

@@ -44,12 +44,21 @@ export function createApp() {
 
   // Middleware - CORS configuration
   // In production, configure specific allowed origins via ALLOWED_ORIGINS env var
-  const allowedOrigins = process.env.ALLOWED_ORIGINS?.split(',').map(o => o.trim()) || [];
+  const allowedOrigins = process.env.ALLOWED_ORIGINS?.split(',')
+    .map(o => o.trim())
+    .filter(o => o.startsWith('http://') || o.startsWith('https://')) || [];
+  
   const isDevelopment = env.NODE_ENV === 'development' || env.NODE_ENV === 'test';
+  
+  // Warn in production if no origins configured
+  if (!isDevelopment && allowedOrigins.length === 0) {
+    console.warn('WARNING: ALLOWED_ORIGINS not configured in production. CORS will block browser requests.');
+    console.warn('Set ALLOWED_ORIGINS environment variable to enable cross-origin requests.');
+  }
   
   app.use(cors({
     origin: (origin, callback) => {
-      // Allow requests with no origin (like mobile apps, curl, Postman)
+      // Allow requests with no origin (like mobile apps, curl, Postman, same-origin)
       if (!origin) return callback(null, true);
       
       // In development/test, allow all origins for local network access
@@ -60,8 +69,8 @@ export function createApp() {
         return callback(null, true);
       }
       
-      // In production without configured origins, allow same-origin only
-      callback(new Error('Not allowed by CORS'));
+      // In production without configured origins, reject with error
+      callback(new Error('Not allowed by CORS - configure ALLOWED_ORIGINS'));
     },
     credentials: true,
   }));
