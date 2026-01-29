@@ -149,6 +149,14 @@ apps/web/              # React frontend
 - **Risk:** Silent failures, inconsistent state
 - **Fix Applied:** Added proper error handling with status updates and SSE broadcasts
 
+#### 2.4 Missing Rate Limiting ⚠️ (CodeQL Finding)
+- **File:** `apps/server/src/routes/run.ts:195` (download endpoint)
+- **Issue:** File system access routes not rate-limited
+- **Risk:** DoS attacks, resource exhaustion
+- **CVSS:** 5.0 (Medium)
+- **Recommendation:** Implement rate limiting middleware (express-rate-limit)
+- **Status:** **Documented** - Recommended for production deployments
+
 ---
 
 ### 3. MEDIUM PRIORITY ISSUES
@@ -286,7 +294,7 @@ apps/web/              # React frontend
 
 ### Short-term (1-2 weeks):
 - [ ] Implement authentication for artifact downloads
-- [ ] Add rate limiting on API endpoints
+- [ ] **Add rate limiting on API endpoints (CodeQL finding)** - Especially for file download routes
 - [ ] Add request size limits (already has 10mb)
 - [ ] Add CSRF token validation
 - [ ] Implement API key rotation mechanism
