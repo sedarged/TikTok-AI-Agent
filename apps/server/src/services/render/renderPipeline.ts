@@ -627,7 +627,39 @@ async function executePipeline(run: Run, planVersion: PlanWithDetails) {
   }
 }
 
-// Retry run from a specific step
+// Reset runs stuck in 'running' after server restart (no in-memory activeRuns)
+export async function resetStuckRuns(): Promise<void> {
+  const stuck = await prisma.run.findMany({
+    where: { status: 'running' },
+    select: { id: true, projectId: true, logsJson: true },
+  });
+  for (const run of stuck) {
+    let logs: Array<{ timestamp: string; message: string; level: string }>;
+    try {
+      logs = JSON.parse(run.logsJson);
+    } catch {
+      logs = [];
+    }
+    logs.push({
+      timestamp: new Date().toISOString(),
+      message: 'Run was in "running" state at server start; marked as failed. Use Retry to resume.',
+      level: 'warn',
+    });
+    await prisma.run.update({
+      where: { id: run.id },
+      data: { status: 'failed', logsJson: JSON.stringify(logs), currentStep: 'error' },
+    });
+    await prisma.project.update({
+      where: { id: run.projectId },
+      data: { status: 'FAILED' },
+    });
+  }
+  if (stuck.length > 0) {
+    console.warn(`Reset ${stuck.length} run(s) stuck in "running" state.`);
+  }
+}
+
+// Retry run from a specific step (atomic: only one retry can proceed per run)
 export async function retryRun(runId: string, fromStep?: string): Promise<Run> {
   const run = await prisma.run.findUnique({
     where: { id: runId },
@@ -646,35 +678,62 @@ export async function retryRun(runId: string, fromStep?: string): Promise<Run> {
   }
 
   // Reset completed steps if retrying from a specific step
-  let resumeState = JSON.parse(run.resumeStateJson);
-  
+  let resumeState: { completedSteps?: RunStep[] };
+  try {
+    resumeState = JSON.parse(run.resumeStateJson);
+  } catch {
+    resumeState = {};
+  }
   if (fromStep) {
     const stepIndex = STEPS.indexOf(fromStep as RunStep);
     if (stepIndex >= 0) {
       resumeState.completedSteps = STEPS.slice(0, stepIndex);
+    } else {
+      resumeState.completedSteps = [];
     }
   } else {
     resumeState.completedSteps = [];
   }
 
-  // Update run
-  await prisma.run.update({
-    where: { id: runId },
+  // Atomic check-and-set: only transition from failed/canceled to queued
+  const result = await prisma.run.updateMany({
+    where: {
+      id: runId,
+      status: { in: ['failed', 'canceled'] },
+    },
     data: {
       status: 'queued',
       resumeStateJson: JSON.stringify(resumeState),
     },
   });
 
+  if (result.count === 0) {
+    const current = await prisma.run.findUnique({ where: { id: runId }, select: { status: true } });
+    if (!current) throw new Error('Run not found');
+    if (current.status === 'running' || current.status === 'queued') {
+      throw new Error('Run is already in progress');
+    }
+    throw new Error('Run is not retryable from current state');
+  }
+
   const updatedRun = await prisma.run.findUnique({
     where: { id: runId },
+    include: {
+      planVersion: {
+        include: {
+          scenes: { orderBy: { idx: 'asc' } },
+          project: true,
+        },
+      },
+    },
   });
 
-  // Start pipeline again
-  activeRuns.set(runId, true);
-  executePipeline(updatedRun!, run.planVersion as PlanWithDetails).catch(console.error);
+  if (!updatedRun) throw new Error('Run not found');
 
-  return updatedRun!;
+  activeRuns.set(runId, true);
+  executePipeline(updatedRun, updatedRun.planVersion as PlanWithDetails).catch(console.error);
+
+  return updatedRun as Run;
 }
 
 // Cancel a run

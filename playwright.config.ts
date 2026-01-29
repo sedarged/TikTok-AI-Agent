@@ -1,9 +1,14 @@
+import path from 'path';
+import { fileURLToPath } from 'url';
 import { defineConfig } from '@playwright/test';
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 export default defineConfig({
   testDir: 'apps/web/tests/e2e',
   fullyParallel: false,
   timeout: 90_000,
+  retries: process.env.CI ? 1 : 0,
   expect: {
     timeout: 20_000,
   },
@@ -12,11 +17,8 @@ export default defineConfig({
     headless: true,
   },
   webServer: {
-    // Use an explicit DB file path so the migration step and the dev server
-    // (which may start with a different cwd) always point to the same SQLite DB.
-    command: 'cross-env APP_TEST_MODE=0 APP_RENDER_DRY_RUN=1 NODE_ENV=test DATABASE_URL=file:./apps/server/e2e.db npx prisma migrate deploy --schema apps/server/prisma/schema.prisma && cross-env APP_TEST_MODE=0 APP_RENDER_DRY_RUN=1 NODE_ENV=test DATABASE_URL=file:./apps/server/e2e.db npm run dev',
+    command: `node "${path.join(__dirname, 'scripts', 'e2e-server.mjs')}"`,
     url: 'http://localhost:5173',
-    // Avoid accidentally reusing a dev server from a different worktree.
     reuseExistingServer: false,
     timeout: 120_000,
   },

@@ -11,6 +11,7 @@ import { statusRoutes } from './routes/status.js';
 import { nichePackRoutes } from './routes/nichePack.js';
 import { testRoutes } from './routes/test.js';
 import { ensureConnection } from './db/client.js';
+import { resetStuckRuns } from './services/render/renderPipeline.js';
 
 function getAppVersion(): string {
   if (env.APP_VERSION) {
@@ -84,8 +85,11 @@ export function createApp() {
   }));
   app.use(express.json({ limit: '10mb' }));
 
-  // Static files for artifacts
-  app.use('/artifacts', express.static(env.ARTIFACTS_DIR));
+  // Static files for artifacts: only in dev/test so production does not expose full directory
+  const isProduction = env.NODE_ENV === 'production';
+  if (!isProduction) {
+    app.use('/artifacts', express.static(env.ARTIFACTS_DIR));
+  }
 
   // Serve frontend in production
   const frontendDistPath = path.join(getRepoRootDir(), 'apps', 'web', 'dist');
@@ -148,6 +152,7 @@ export function startServer() {
     console.log(`Environment: ${env.NODE_ENV}`);
     console.log(`Artifacts dir: ${env.ARTIFACTS_DIR}`);
     console.log(`Test mode: ${isTestMode() ? 'enabled' : 'disabled'}`);
+    resetStuckRuns().catch((err) => console.error('Failed to reset stuck runs:', err));
   });
 }
 

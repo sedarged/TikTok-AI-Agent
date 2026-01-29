@@ -11,25 +11,47 @@ import type {
 } from './types';
 
 const API_BASE = '/api';
+const DEFAULT_FETCH_TIMEOUT_MS = 30000;
+
+export type FetchApiOptions = RequestInit & {
+  timeout?: number;
+  signal?: AbortSignal;
+};
 
 async function fetchApi<T>(
   endpoint: string,
-  options: RequestInit = {}
+  options: FetchApiOptions = {}
 ): Promise<T> {
-  const response = await fetch(`${API_BASE}${endpoint}`, {
-    ...options,
-    headers: {
-      'Content-Type': 'application/json',
-      ...options.headers,
-    },
-  });
+  const { timeout = DEFAULT_FETCH_TIMEOUT_MS, signal: outerSignal, ...init } = options;
+  const controller = outerSignal ? null : new AbortController();
+  const signal = outerSignal ?? controller!.signal;
+  const timeoutId =
+    !outerSignal && timeout > 0 ? setTimeout(() => controller!.abort(), timeout) : null;
 
-  if (!response.ok) {
-    const error = await response.json().catch(() => ({ error: 'Request failed' }));
-    throw new Error(error.error || `HTTP ${response.status}`);
+  try {
+    const response = await fetch(`${API_BASE}${endpoint}`, {
+      ...init,
+      signal,
+      headers: {
+        'Content-Type': 'application/json',
+        ...init.headers,
+      },
+    });
+    if (timeoutId) clearTimeout(timeoutId);
+
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ error: 'Request failed' }));
+      throw new Error(error.error || `HTTP ${response.status}`);
+    }
+    return response.json();
+  } catch (err) {
+    if (timeoutId) clearTimeout(timeoutId);
+    if (err instanceof Error) {
+      if (err.name === 'AbortError') throw new Error('Request timeout');
+      if (err.message === 'Failed to fetch') throw new Error('Network error. Check your connection.');
+    }
+    throw err;
   }
-
-  return response.json();
 }
 
 // Status
@@ -47,12 +69,12 @@ export async function getNichePack(id: string): Promise<NichePack> {
 }
 
 // Projects
-export async function getProjects(): Promise<Project[]> {
-  return fetchApi<Project[]>('/projects');
+export async function getProjects(options?: FetchApiOptions): Promise<Project[]> {
+  return fetchApi<Project[]>('/projects', options);
 }
 
-export async function getProject(id: string): Promise<Project> {
-  return fetchApi<Project>(`/project/${id}`);
+export async function getProject(id: string, options?: FetchApiOptions): Promise<Project> {
+  return fetchApi<Project>(`/project/${id}`, options);
 }
 
 export async function createProject(data: {
@@ -89,8 +111,8 @@ export async function deleteProject(projectId: string): Promise<void> {
 }
 
 // Plan versions
-export async function getPlanVersion(planVersionId: string): Promise<PlanVersion> {
-  return fetchApi<PlanVersion>(`/plan/${planVersionId}`);
+export async function getPlanVersion(planVersionId: string, options?: FetchApiOptions): Promise<PlanVersion> {
+  return fetchApi<PlanVersion>(`/plan/${planVersionId}`, options);
 }
 
 export async function updatePlanVersion(
@@ -172,8 +194,8 @@ export async function regenerateScene(sceneId: string): Promise<Scene> {
 }
 
 // Runs
-export async function getRun(runId: string): Promise<Run> {
-  return fetchApi<Run>(`/run/${runId}`);
+export async function getRun(runId: string, options?: FetchApiOptions): Promise<Run> {
+  return fetchApi<Run>(`/run/${runId}`, options);
 }
 
 export async function retryRun(runId: string, fromStep?: string): Promise<Run> {
@@ -197,32 +219,62 @@ export async function getExportData(runId: string): Promise<Record<string, unkno
   return fetchApi<Record<string, unknown>>(`/run/${runId}/export`);
 }
 
-// SSE stream
+const SSE_MAX_RECONNECT_ATTEMPTS = 5;
+const SSE_RECONNECT_BASE_MS = 1000;
+
+// SSE stream with reconnect and backoff; single subscription per runId recommended (useEffect deps [runId] only).
 export function subscribeToRun(
   runId: string,
   onEvent: (event: SSEEvent) => void,
   onError?: (error: Error) => void
 ): () => void {
-  const eventSource = new EventSource(`${API_BASE}/run/${runId}/stream`);
+  let eventSource: EventSource | null = null;
+  let reconnectTimeout: ReturnType<typeof setTimeout> | null = null;
+  let reconnectAttempts = 0;
+  let closed = false;
 
-  eventSource.onmessage = (event) => {
-    try {
-      const data = JSON.parse(event.data) as SSEEvent;
-      onEvent(data);
-    } catch (e) {
-      console.error('Failed to parse SSE event:', e);
-    }
-  };
+  function connect() {
+    if (closed) return;
+    eventSource = new EventSource(`${API_BASE}/run/${runId}/stream`);
 
-  eventSource.onerror = (event) => {
-    console.error('SSE error:', event);
-    if (onError) {
-      onError(new Error('Connection lost'));
-    }
-    eventSource.close();
-  };
+    eventSource.onmessage = (event) => {
+      reconnectAttempts = 0;
+      try {
+        const data = JSON.parse(event.data) as SSEEvent;
+        onEvent(data);
+      } catch (e) {
+        console.error('Failed to parse SSE event:', e);
+      }
+    };
+
+    eventSource.onerror = () => {
+      eventSource?.close();
+      eventSource = null;
+      if (closed) return;
+      if (reconnectAttempts < SSE_MAX_RECONNECT_ATTEMPTS) {
+        reconnectAttempts += 1;
+        const delay = SSE_RECONNECT_BASE_MS * reconnectAttempts;
+        reconnectTimeout = setTimeout(() => {
+          reconnectTimeout = null;
+          connect();
+        }, delay);
+      } else {
+        if (onError) {
+          onError(new Error('Connection lost. Refresh the page to retry.'));
+        }
+      }
+    };
+  }
+
+  connect();
 
   return () => {
-    eventSource.close();
+    closed = true;
+    if (reconnectTimeout) {
+      clearTimeout(reconnectTimeout);
+      reconnectTimeout = null;
+    }
+    eventSource?.close();
+    eventSource = null;
   };
 }

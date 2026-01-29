@@ -11,7 +11,23 @@ export default function Projects() {
   const menuRefs = useRef<Record<string, HTMLDivElement | null>>({});
 
   useEffect(() => {
-    loadProjects();
+    const controller = new AbortController();
+    const { signal } = controller;
+
+    getProjects({ signal })
+      .then((data) => {
+        if (signal.aborted) return;
+        setProjects(data);
+      })
+      .catch((err) => {
+        if (signal.aborted) return;
+        setError(err instanceof Error ? err.message : 'Failed to load projects');
+      })
+      .finally(() => {
+        if (!signal.aborted) setLoading(false);
+      });
+
+    return () => controller.abort();
   }, []);
 
   // Close menu when clicking outside

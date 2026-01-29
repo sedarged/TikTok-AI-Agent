@@ -14,13 +14,24 @@ export default function RenderQueue() {
   useEffect(() => {
     if (!projectId) return;
 
-    getProject(projectId)
+    const controller = new AbortController();
+    const { signal } = controller;
+
+    getProject(projectId, { signal })
       .then((proj) => {
+        if (signal.aborted) return;
         setProject(proj);
         setRuns(proj.runs || []);
       })
-      .catch((err) => setError(getErrorMessage(err)))
-      .finally(() => setLoading(false));
+      .catch((err) => {
+        if (signal.aborted) return;
+        setError(getErrorMessage(err));
+      })
+      .finally(() => {
+        if (!signal.aborted) setLoading(false);
+      });
+
+    return () => controller.abort();
   }, [projectId]);
 
   const handleRetry = async (runId: string) => {
@@ -135,6 +146,7 @@ function RunCard({
     }
   }, [run.logsJson]);
 
+  // SSE subscription when run is active; reconnect in client; unsubscribe when status leaves running/queued
   useEffect(() => {
     if (run.status !== 'running' && run.status !== 'queued') return;
 

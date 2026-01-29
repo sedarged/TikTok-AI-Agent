@@ -115,4 +115,91 @@ describe('Run SSE stream', () => {
     expect(payload.type).toBe('state');
     expect(payload.status).toBe('queued');
   });
+
+  it('allows multiple SSE clients for the same run and both receive initial state', async () => {
+    const projectId = `sse-multi-${Date.now()}`;
+    const planId = `sse-multi-plan-${Date.now()}`;
+    const runId = `sse-multi-run-${Date.now()}`;
+
+    await prisma.project.create({
+      data: {
+        id: projectId,
+        title: 'SSE Multi',
+        topic: 'Multi client',
+        nichePackId: 'facts',
+        language: 'en',
+        targetLengthSec: 60,
+        tempo: 'normal',
+        voicePreset: 'alloy',
+        status: 'PLAN_READY',
+      },
+    });
+    await prisma.planVersion.create({
+      data: {
+        id: planId,
+        projectId,
+        hookOptionsJson: '[]',
+        outline: '',
+        scriptFull: '',
+        estimatesJson: '{}',
+        validationJson: '{}',
+      },
+    });
+    await prisma.run.create({
+      data: {
+        id: runId,
+        projectId,
+        planVersionId: planId,
+        status: 'running',
+        progress: 50,
+        currentStep: 'ffmpeg_render',
+        logsJson: JSON.stringify([{ timestamp: new Date().toISOString(), message: 'Step', level: 'info' }]),
+        artifactsJson: '{}',
+        resumeStateJson: '{}',
+      },
+    });
+
+    const fetchOne = (): Promise<string> =>
+      new Promise((resolve, reject) => {
+        const req = http.request(
+          `${baseUrl}/api/run/${runId}/stream`,
+          { headers: { Accept: 'text/event-stream' } },
+          (res) => {
+            if (res.statusCode === 503) {
+              reject(new Error('Unexpected 503'));
+              return;
+            }
+            let buffer = '';
+            res.setEncoding('utf8');
+            res.on('data', (chunk) => {
+              buffer += chunk;
+              if (buffer.includes('\n\n')) {
+                res.destroy();
+                resolve(buffer);
+              }
+            });
+          }
+        );
+        req.on('error', reject);
+        req.setTimeout(5000, () => {
+          req.destroy();
+          reject(new Error('Timeout'));
+        });
+        req.end();
+      });
+
+    const [buf1, buf2] = await Promise.all([fetchOne(), fetchOne()]);
+    const parsePayload = (buf: string) => {
+      const line = buf.split('\n').find((l) => l.startsWith('data: '));
+      return line ? JSON.parse(line.replace('data: ', '')) : null;
+    };
+    const p1 = parsePayload(buf1);
+    const p2 = parsePayload(buf2);
+    expect(p1).toBeTruthy();
+    expect(p2).toBeTruthy();
+    expect(p1.type).toBe('state');
+    expect(p2.type).toBe('state');
+    expect(p1.status).toBe('running');
+    expect(p2.status).toBe('running');
+  });
 });

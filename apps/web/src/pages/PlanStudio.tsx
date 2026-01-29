@@ -121,12 +121,16 @@ export default function PlanStudio({ status }: PlanStudioProps) {
   
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const toolsMenuRef = useRef<HTMLDivElement>(null);
+  const isMountedRef = useRef(true);
 
-  // Cleanup on unmount
+  // Cleanup on unmount: clear pending autosave and mark unmounted
   useEffect(() => {
+    isMountedRef.current = true;
     return () => {
+      isMountedRef.current = false;
       if (saveTimeoutRef.current) {
         clearTimeout(saveTimeoutRef.current);
+        saveTimeoutRef.current = null;
       }
     };
   }, []);
@@ -142,22 +146,26 @@ export default function PlanStudio({ status }: PlanStudioProps) {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  // Load project and plan
+  // Load project and plan (abort on unmount or projectId change)
   useEffect(() => {
     if (!projectId) return;
-    
+
+    const controller = new AbortController();
+    const { signal } = controller;
     setLoading(true);
-    getProject(projectId)
+
+    getProject(projectId, { signal })
       .then(async (proj) => {
+        if (signal.aborted) return;
         setProject(proj);
 
-        // Prefer explicit latestPlanVersionId (more robust than relying on included relations)
         const planId = proj.latestPlanVersionId || proj.planVersions?.[0]?.id;
         if (!planId) return;
 
         const pv = proj.latestPlanVersionId
-          ? await getPlanVersion(planId)
+          ? await getPlanVersion(planId, { signal })
           : (proj.planVersions?.[0] as PlanVersion);
+        if (signal.aborted) return;
 
         setPlanVersion(pv);
         setScenes(pv.scenes || []);
@@ -170,8 +178,15 @@ export default function PlanStudio({ status }: PlanStudioProps) {
           setHookOptions([]);
         }
       })
-      .catch((err) => setError(err.message))
-      .finally(() => setLoading(false));
+      .catch((err) => {
+        if (signal.aborted) return;
+        setError(err.message);
+      })
+      .finally(() => {
+        if (!signal.aborted) setLoading(false);
+      });
+
+    return () => controller.abort();
   }, [projectId]);
 
   // Autosave with debounce
@@ -185,15 +200,13 @@ export default function PlanStudio({ status }: PlanStudioProps) {
     setAutosaving(true);
     saveTimeoutRef.current = setTimeout(async () => {
       try {
-        // We already apply edits optimistically (local state). Avoid replacing whole
-        // plan/scenes from server response because it can cause focus loss while typing.
         await updatePlanVersion(planVersion.id, data);
       } catch (err) {
-        if (import.meta.env.DEV) {
+        if (isMountedRef.current && typeof import.meta !== 'undefined' && (import.meta as { env?: { DEV?: boolean } }).env?.DEV) {
           console.error('Autosave failed:', err);
         }
       } finally {
-        setAutosaving(false);
+        if (isMountedRef.current) setAutosaving(false);
       }
     }, 600);
   }, [planVersion?.id]);

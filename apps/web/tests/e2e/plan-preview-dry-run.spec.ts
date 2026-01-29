@@ -16,8 +16,13 @@ test('plan preview and dry-run render flow', async ({ page }) => {
 
   await page.getByRole('button', { name: 'Outline' }).click();
   const outlineText = `E2E outline ${Date.now()}`;
-  await page.getByPlaceholder('Enter your video outline...').fill(outlineText);
-  await page.waitForTimeout(800);
+  const outlineField = page.getByPlaceholder('Enter your video outline...');
+  const putPromise = page.waitForResponse(
+    (res) => res.url().includes('/api/plan/') && res.request().method() === 'PUT',
+    { timeout: 5000 }
+  );
+  await outlineField.fill(outlineText);
+  await putPromise;
 
   await page.reload();
   await page.waitForURL(/\/project\/.*\/plan/);

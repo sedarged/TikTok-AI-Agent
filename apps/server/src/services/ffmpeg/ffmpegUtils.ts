@@ -1,14 +1,39 @@
-import { exec, spawn } from 'child_process';
-import { promisify } from 'util';
+import { spawn } from 'child_process';
 import path from 'path';
 import fs from 'fs';
 
-// Configure exec with timeout (5 minutes default)
-const execAsync = promisify(exec);
-const EXEC_TIMEOUT_MS = 300000; // 5 minutes
-
 let ffmpegPath: string | null = null;
 let ffprobePath: string | null = null;
+
+/** Run ffprobe with args (no shell); returns stdout. */
+async function runFfprobe(args: string[], timeoutMs: number = 30000): Promise<string> {
+  const ffprobe = await getFFprobePath();
+  return new Promise((resolve, reject) => {
+    let stdout = '';
+    let stderr = '';
+    const proc = spawn(ffprobe, args, { stdio: ['ignore', 'pipe', 'pipe'] });
+    const timer = setTimeout(() => {
+      proc.kill('SIGKILL');
+      reject(new Error('ffprobe timeout'));
+    }, timeoutMs);
+    proc.stdout?.on('data', (d) => { stdout += d.toString(); });
+    proc.stderr?.on('data', (d) => { stderr += d.toString(); });
+    proc.on('close', (code) => {
+      clearTimeout(timer);
+      if (code === 0) resolve(stdout.trim());
+      else reject(new Error(`ffprobe exited ${code}: ${stderr.slice(-500)}`));
+    });
+    proc.on('error', (err) => {
+      clearTimeout(timer);
+      reject(err);
+    });
+  });
+}
+
+/** Escape path for FFmpeg concat list line: file 'path' — single quotes in path escaped. */
+function escapeConcatPath(filePath: string): string {
+  return filePath.replace(/'/g, "'\\''");
+}
 
 // Check if FFmpeg is available
 export async function checkFFmpegAvailable(): Promise<boolean> {
@@ -18,6 +43,23 @@ export async function checkFFmpegAvailable(): Promise<boolean> {
   } catch {
     return false;
   }
+}
+
+// Run a command with args (no shell); rejects on non-zero exit or error.
+function runCommand(cmd: string, args: string[], timeoutMs: number): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const proc = spawn(cmd, args, { stdio: 'ignore' });
+    const timer = setTimeout(() => {
+      proc.kill('SIGKILL');
+      reject(new Error('timeout'));
+    }, timeoutMs);
+    proc.on('close', (code) => {
+      clearTimeout(timer);
+      if (code === 0) resolve();
+      else reject(new Error(`exit ${code}`));
+    });
+    proc.on('error', reject);
+  });
 }
 
 // Get FFmpeg path (prefer ffmpeg-static, fallback to system)
@@ -36,9 +78,9 @@ export async function getFFmpegPath(): Promise<string> {
     // ffmpeg-static not installed
   }
 
-  // Try system ffmpeg
+  // Try system ffmpeg (spawn, no shell)
   try {
-    await execAsync('ffmpeg -version', { timeout: 10000 });
+    await runCommand('ffmpeg', ['-version'], 10000);
     ffmpegPath = 'ffmpeg';
     return ffmpegPath;
   } catch {
@@ -50,9 +92,9 @@ export async function getFFmpegPath(): Promise<string> {
 export async function getFFprobePath(): Promise<string> {
   if (ffprobePath) return ffprobePath;
 
-  // Try system ffprobe first (works with ffmpeg-static too usually)
+  // Try system ffprobe first (spawn, no shell)
   try {
-    await execAsync('ffprobe -version', { timeout: 10000 });
+    await runCommand('ffprobe', ['-version'], 10000);
     ffprobePath = 'ffprobe';
     return ffprobePath;
   } catch {
@@ -105,24 +147,20 @@ export async function runFFmpeg(args: string[]): Promise<void> {
   });
 }
 
-// Get media duration using ffprobe
+// Get media duration using ffprobe (spawn with args, no path interpolation)
 export async function getMediaDuration(filePath: string): Promise<number> {
-  const ffprobe = await getFFprobePath();
-  
-  const { stdout } = await execAsync(
-    `${ffprobe} -v quiet -show_entries format=duration -of csv=p=0 "${filePath}"`,
-    { timeout: 30000 } // 30 seconds timeout
+  const stdout = await runFfprobe(
+    ['-v', 'quiet', '-show_entries', 'format=duration', '-of', 'csv=p=0', filePath],
+    30000
   );
-  
-  const duration = parseFloat(stdout.trim());
+  const duration = parseFloat(stdout);
   if (isNaN(duration)) {
     throw new Error(`Could not get duration for ${filePath}`);
   }
-  
   return duration;
 }
 
-// Validate video file
+// Validate video file (spawn with args, no path interpolation)
 export async function validateVideo(videoPath: string): Promise<{
   valid: boolean;
   duration?: number;
@@ -135,17 +173,13 @@ export async function validateVideo(videoPath: string): Promise<{
   }
 
   try {
-    const ffprobe = await getFFprobePath();
-    
-    const { stdout } = await execAsync(
-      `${ffprobe} -v quiet -show_entries format=duration:stream=width,height -of json "${videoPath}"`,
-      { timeout: 30000 } // 30 seconds timeout
+    const stdout = await runFfprobe(
+      ['-v', 'quiet', '-show_entries', 'format=duration:stream=width,height', '-of', 'json', videoPath],
+      30000
     );
-    
-    const data = JSON.parse(stdout);
+    const data = JSON.parse(stdout) as { format?: { duration?: string }; streams?: Array<{ width?: number; height?: number }> };
     const duration = parseFloat(data.format?.duration || '0');
-    const videoStream = data.streams?.find((s: { width?: number; height?: number }) => s.width && s.height);
-    
+    const videoStream = data.streams?.find((s) => s.width && s.height);
     return {
       valid: duration > 0,
       duration,
@@ -153,20 +187,20 @@ export async function validateVideo(videoPath: string): Promise<{
       height: videoStream?.height,
     };
   } catch (error) {
-    return { 
-      valid: false, 
-      error: error instanceof Error ? error.message : 'Validation failed' 
+    return {
+      valid: false,
+      error: error instanceof Error ? error.message : 'Validation failed',
     };
   }
 }
 
-// Concatenate audio files
+// Concatenate audio files (paths escaped for concat demuxer)
 export async function concatenateAudio(
   inputFiles: string[],
   outputPath: string
 ): Promise<void> {
   const listFile = outputPath + '.list.txt';
-  const listContent = inputFiles.map(f => `file '${f}'`).join('\n');
+  const listContent = inputFiles.map((f) => `file '${escapeConcatPath(f)}'`).join('\n');
   fs.writeFileSync(listFile, listContent);
 
   try {
@@ -268,9 +302,9 @@ export async function concatenateVideos(
     return;
   }
 
-  // Create concat file
+  // Create concat file (paths escaped for concat demuxer)
   const listFile = outputPath + '.list.txt';
-  const listContent = inputFiles.map(f => `file '${f}'`).join('\n');
+  const listContent = inputFiles.map((f) => `file '${escapeConcatPath(f)}'`).join('\n');
   fs.writeFileSync(listFile, listContent);
 
   try {

@@ -26,8 +26,12 @@ export default function Output({ status }: OutputProps) {
   useEffect(() => {
     if (!runId) return;
 
-    getRun(runId)
+    const controller = new AbortController();
+    const { signal } = controller;
+
+    getRun(runId, { signal })
       .then((data) => {
+        if (signal.aborted) return;
         setRun(data);
         try {
           setLogs(JSON.parse(data.logsJson || '[]'));
@@ -35,13 +39,20 @@ export default function Output({ status }: OutputProps) {
           setLogs([]);
         }
       })
-      .catch((err) => setError(getErrorMessage(err)))
-      .finally(() => setLoading(false));
+      .catch((err) => {
+        if (signal.aborted) return;
+        setError(getErrorMessage(err));
+      })
+      .finally(() => {
+        if (!signal.aborted) setLoading(false);
+      });
+
+    return () => controller.abort();
   }, [runId]);
 
-  // Subscribe to SSE for running jobs
+  // Subscribe to SSE once per runId (reconnect with backoff in client); single subscription avoids duplicate streams
   useEffect(() => {
-    if (!runId || !run || (run.status !== 'running' && run.status !== 'queued')) return;
+    if (!runId) return;
 
     const unsubscribe = subscribeToRun(
       runId,
@@ -54,7 +65,6 @@ export default function Output({ status }: OutputProps) {
           setLogs((prev) => [...prev, event.log!]);
         } else if (event.type === 'done') {
           setRun((prev) => prev ? { ...prev, status: 'done', progress: 100 } : null);
-          // Refresh to get artifacts
           getRun(runId).then(setRun);
         } else if (event.type === 'failed') {
           setRun((prev) => prev ? { ...prev, status: 'failed' } : null);
@@ -64,11 +74,12 @@ export default function Output({ status }: OutputProps) {
           if (event.currentStep) setRun((prev) => prev ? { ...prev, currentStep: event.currentStep! } : null);
           if (event.logs) setLogs(event.logs);
         }
-      }
+      },
+      (err) => setError(getErrorMessage(err))
     );
 
     return () => unsubscribe();
-  }, [runId, run?.status]);
+  }, [runId]);
 
   // Close more menu when clicking outside
   useEffect(() => {
@@ -208,15 +219,15 @@ export default function Output({ status }: OutputProps) {
         </div>
       )}
 
-      {/* Video Player */}
-      {isComplete && artifacts.mp4Path && (
+      {/* Video Player (use API artifact URL so it works when /artifacts static is disabled in prod) */}
+      {isComplete && artifacts.mp4Path && runId && (
         <div className="card p-0 overflow-hidden">
           <div className="aspect-[9/16] max-h-[600px] bg-black flex items-center justify-center mx-auto">
             <video
               controls
               className="max-h-full max-w-full"
-              src={`/artifacts/${artifacts.mp4Path}`}
-              poster={artifacts.thumbPath ? `/artifacts/${artifacts.thumbPath}` : undefined}
+              src={`/api/run/${runId}/artifact?path=${encodeURIComponent(artifacts.mp4Path)}`}
+              poster={artifacts.thumbPath ? `/api/run/${runId}/artifact?path=${encodeURIComponent(artifacts.thumbPath)}` : undefined}
             >
               Your browser does not support the video tag.
             </video>
@@ -428,26 +439,27 @@ export default function Output({ status }: OutputProps) {
           {(!artifactsLong || showArtifactsExpanded) && (
             <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
               {artifacts.mp4Path && (
-                <ArtifactItem label="Final Video" path={artifacts.mp4Path} />
+                <ArtifactItem runId={runId!} label="Final Video" path={artifacts.mp4Path} />
               )}
               {artifacts.thumbPath && (
                 <ArtifactItem
+                  runId={runId!}
                   label="Thumbnail"
                   path={artifacts.thumbPath}
                   isImage
                 />
               )}
               {artifacts.captionsPath && (
-                <ArtifactItem label="Captions" path={artifacts.captionsPath} />
+                <ArtifactItem runId={runId!} label="Captions" path={artifacts.captionsPath} />
               )}
               {artifacts.imagesDir && (
-                <ArtifactItem label="Scene Images" path={artifacts.imagesDir} isDir />
+                <ArtifactItem runId={runId!} label="Scene Images" path={artifacts.imagesDir} isDir />
               )}
               {artifacts.audioDir && (
-                <ArtifactItem label="Audio Files" path={artifacts.audioDir} isDir />
+                <ArtifactItem runId={runId!} label="Audio Files" path={artifacts.audioDir} isDir />
               )}
               {artifacts.dryRunReportPath && (
-                <ArtifactItem label="Dry-run Report" path={artifacts.dryRunReportPath} />
+                <ArtifactItem runId={runId!} label="Dry-run Report" path={artifacts.dryRunReportPath} />
               )}
             </div>
           )}
@@ -509,21 +521,24 @@ export default function Output({ status }: OutputProps) {
 }
 
 function ArtifactItem({
+  runId,
   label,
   path,
   isImage,
   isDir,
 }: {
+  runId: string;
   label: string;
   path: string;
   isImage?: boolean;
   isDir?: boolean;
 }) {
+  const artifactUrl = `/api/run/${runId}/artifact?path=${encodeURIComponent(path)}`;
   return (
     <div className="bg-gray-800 rounded-lg p-3">
       {isImage && (
         <img
-          src={`/artifacts/${path}`}
+          src={artifactUrl}
           alt={label}
           className="w-full h-24 object-cover rounded mb-2"
         />

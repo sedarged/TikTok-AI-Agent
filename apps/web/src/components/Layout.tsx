@@ -27,23 +27,23 @@ function Breadcrumb() {
       return;
     }
 
-    let cancelled = false;
-    getRun(params.runId)
+    const controller = new AbortController();
+    const { signal } = controller;
+
+    getRun(params.runId, { signal })
       .then((run) => {
-        if (cancelled) return;
+        if (signal.aborted) return;
         setRunProject({
           projectId: run.projectId,
           title: run.project?.title,
         });
       })
       .catch(() => {
-        if (!cancelled) setRunProject(null);
+        if (!signal.aborted) setRunProject(null);
       });
 
-    return () => {
-      cancelled = true;
-    };
-  }, [params.runId, pathParts[0]]);
+    return () => controller.abort();
+  }, [params.runId, location.pathname]);
 
   if (pathParts[0] === 'projects') {
     breadcrumbs.push({ label: 'Projects', path: '/projects' });
