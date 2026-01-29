@@ -8,12 +8,12 @@ import { v4 as uuid } from 'uuid';
 export const projectRoutes = Router();
 
 const createProjectSchema = z.object({
-  topic: z.string().min(1),
+  topic: z.string().min(1).max(500),
   nichePackId: z.string().min(1),
-  language: z.string().min(1).optional(),
-  targetLengthSec: z.number().int().positive().optional(),
-  tempo: z.string().min(1).optional(),
-  voicePreset: z.string().min(1).optional(),
+  language: z.string().min(1).max(10).optional(),
+  targetLengthSec: z.number().int().positive().max(600).optional(),
+  tempo: z.enum(['slow', 'normal', 'fast']).optional(),
+  voicePreset: z.string().min(1).max(50).optional(),
   visualStylePreset: z.string().nullable().optional(),
 }).strict();
 

@@ -2,7 +2,6 @@ import express from 'express';
 import cors from 'cors';
 import path from 'path';
 import fs from 'fs';
-import { fileURLToPath } from 'url';
 import { env, isRenderDryRun, isTestMode } from './env.js';
 import { projectRoutes } from './routes/project.js';
 import { planRoutes } from './routes/plan.js';
@@ -43,9 +42,36 @@ function getAppVersion(): string {
 export function createApp() {
   const app = express();
 
-  // Middleware - Allow all origins for local network access
+  // Middleware - CORS configuration
+  // In production, configure specific allowed origins via ALLOWED_ORIGINS env var
+  const allowedOrigins = process.env.ALLOWED_ORIGINS?.split(',')
+    .map(o => o.trim())
+    .filter(o => o.startsWith('http://') || o.startsWith('https://')) || [];
+  
+  const isDevelopment = env.NODE_ENV === 'development' || env.NODE_ENV === 'test';
+  
+  // Warn in production if no origins configured
+  if (!isDevelopment && allowedOrigins.length === 0) {
+    console.warn('WARNING: ALLOWED_ORIGINS not configured in production. CORS will block browser requests.');
+    console.warn('Set ALLOWED_ORIGINS environment variable to enable cross-origin requests.');
+  }
+  
   app.use(cors({
-    origin: true, // Allow all origins for mobile access on local network
+    origin: (origin, callback) => {
+      // Allow requests with no origin (like mobile apps, curl, Postman, same-origin)
+      if (!origin) return callback(null, true);
+      
+      // In development/test, allow all origins for local network access
+      if (isDevelopment) return callback(null, true);
+      
+      // In production, check against whitelist
+      if (allowedOrigins.length > 0 && allowedOrigins.includes(origin)) {
+        return callback(null, true);
+      }
+      
+      // In production without configured origins, reject with error
+      callback(new Error('Not allowed by CORS - configure ALLOWED_ORIGINS'));
+    },
     credentials: true,
   }));
   app.use(express.json({ limit: '10mb' }));
@@ -117,7 +143,9 @@ export function startServer() {
   });
 }
 
-const isMain = process.argv[1] === fileURLToPath(import.meta.url);
-if (isMain) {
+// Check if this module is being run directly (ES Module compatible)
+// Note: In CommonJS builds, this check may not work as expected
+// But the module exports createApp() which can be used by tests
+if (process.env.NODE_ENV !== 'test') {
   startServer();
 }

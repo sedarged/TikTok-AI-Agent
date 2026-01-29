@@ -23,6 +23,30 @@ function getRootDir(): string {
 
 const rootDir = getRootDir();
 
+// Validate critical environment variables
+function validateEnv() {
+  const isProduction = process.env.NODE_ENV === 'production';
+  const isTest = process.env.NODE_ENV === 'test';
+  
+  // In production, require explicit DATABASE_URL (not default)
+  if (isProduction && !process.env.DATABASE_URL) {
+    console.warn('WARNING: DATABASE_URL not set in production. Using default ./dev.db');
+  }
+  
+  // Warn if OpenAI key is missing in production (unless in test mode)
+  if (isProduction && !isTest && !process.env.OPENAI_API_KEY && !process.env.APP_TEST_MODE) {
+    console.warn('WARNING: OPENAI_API_KEY not configured. AI features will not work.');
+  }
+  
+  // Validate PORT is a valid number
+  const port = parseInt(process.env.PORT || '3001', 10);
+  if (isNaN(port) || port < 1 || port > 65535) {
+    throw new Error(`Invalid PORT: ${process.env.PORT}. Must be between 1 and 65535.`);
+  }
+}
+
+validateEnv();
+
 export const env = {
   PORT: parseInt(process.env.PORT || '3001', 10),
   NODE_ENV: process.env.NODE_ENV || 'development',

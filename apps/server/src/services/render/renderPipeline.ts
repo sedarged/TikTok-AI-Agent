@@ -125,9 +125,48 @@ export async function startRenderPipeline(planVersion: PlanWithDetails): Promise
     data: { status: 'RENDERING' },
   });
 
-  // Start pipeline in background
+  // Start pipeline in background with proper error handling
   activeRuns.set(runId, true);
-  executePipeline(run, planVersion).catch(console.error);
+  executePipeline(run, planVersion).catch(async (error) => {
+    console.error('Pipeline execution failed:', error);
+    // Update run status to failed if not already updated
+    try {
+      const currentRun = await prisma.run.findUnique({ where: { id: runId } });
+      if (currentRun && currentRun.status === 'RENDERING') {
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+        
+        let logs;
+        try {
+          logs = JSON.parse(currentRun.logsJson);
+        } catch (parseError) {
+          console.error('Failed to parse logsJson in error handler:', parseError);
+          logs = [];
+        }
+        
+        logs.push({
+          timestamp: new Date().toISOString(),
+          message: `Pipeline failed: ${errorMessage}`,
+          level: 'error',
+        });
+        
+        await prisma.run.update({
+          where: { id: runId },
+          data: {
+            status: 'FAILED',
+            logsJson: JSON.stringify(logs),
+          },
+        });
+        
+        // Broadcast failure to SSE clients
+        broadcastRunUpdate(runId, {
+          type: 'failed',
+          error: errorMessage,
+        });
+      }
+    } catch (updateError) {
+      console.error('Failed to update run status after pipeline error:', updateError);
+    }
+  });
 
   return run;
 }
@@ -160,7 +199,14 @@ async function executePipeline(run: Run, planVersion: PlanWithDetails) {
     dryRun,
   };
 
-  const resumeState = JSON.parse(run.resumeStateJson);
+  let resumeState;
+  try {
+    resumeState = JSON.parse(run.resumeStateJson);
+  } catch (error) {
+    console.error('Failed to parse resumeStateJson, starting fresh:', error);
+    resumeState = { completedSteps: [], completedSceneIdxs: [] };
+  }
+  
   let completedSteps = resumeState.completedSteps || [];
   let progress = 0;
 
@@ -683,7 +729,14 @@ async function addLog(runId: string, message: string, level: 'info' | 'warn' | '
   
   if (!run) return;
   
-  const logs = JSON.parse(run.logsJson);
+  let logs;
+  try {
+    logs = JSON.parse(run.logsJson);
+  } catch (error) {
+    console.error('Failed to parse logsJson, starting fresh:', error);
+    logs = [];
+  }
+  
   logs.push({
     timestamp: new Date().toISOString(),
     message,
@@ -705,7 +758,14 @@ async function saveResumeState(runId: string, state: any) {
   
   if (!run) return;
   
-  const currentState = JSON.parse(run.resumeStateJson);
+  let currentState;
+  try {
+    currentState = JSON.parse(run.resumeStateJson);
+  } catch (error) {
+    console.error('Failed to parse resumeStateJson, starting fresh:', error);
+    currentState = {};
+  }
+  
   const newState = { ...currentState, ...state };
   
   await prisma.run.update({

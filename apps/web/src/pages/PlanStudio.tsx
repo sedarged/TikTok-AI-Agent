@@ -38,6 +38,15 @@ export default function PlanStudio({ status }: PlanStudioProps) {
   
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      if (saveTimeoutRef.current) {
+        clearTimeout(saveTimeoutRef.current);
+      }
+    };
+  }, []);
+
   // Load project and plan
   useEffect(() => {
     if (!projectId) return;
