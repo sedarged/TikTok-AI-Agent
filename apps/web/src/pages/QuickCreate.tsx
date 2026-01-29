@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { getNichePacks, createProject, generatePlan } from '../api/client';
 import type { NichePack, ProviderStatus } from '../api/types';
 import { VOICE_PRESETS } from '../api/types';
+import { getErrorMessage } from '../utils/errors';
 
 interface QuickCreateProps {
   status: ProviderStatus | null;
@@ -34,6 +35,7 @@ export default function QuickCreate({ status }: QuickCreateProps) {
   const [nichePacks, setNichePacks] = useState<NichePack[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [showOptions, setShowOptions] = useState(false);
 
   const [formData, setFormData] = useState({
     topic: '',
@@ -47,7 +49,7 @@ export default function QuickCreate({ status }: QuickCreateProps) {
   useEffect(() => {
     getNichePacks()
       .then(setNichePacks)
-      .catch((err) => setError(err.message));
+      .catch((err) => setError(getErrorMessage(err)));
   }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -116,9 +118,22 @@ export default function QuickCreate({ status }: QuickCreateProps) {
                 onClick={() => setFormData({ ...formData, nichePackId: pack.id })}
                 className={`px-3 py-2 rounded-lg text-sm font-medium transition-all ${
                   formData.nichePackId === pack.id
-                    ? 'bg-green-600 text-white'
-                    : 'bg-gray-800 text-gray-300 hover:bg-gray-700'
+                    ? 'text-white'
+                    : 'text-gray-300'
                 }`}
+                style={{
+                  background: formData.nichePackId === pack.id ? 'var(--color-primary)' : 'var(--color-surface)',
+                }}
+                onMouseEnter={(e) => {
+                  if (formData.nichePackId !== pack.id) {
+                    e.currentTarget.style.background = 'var(--color-surface-2)';
+                  }
+                }}
+                onMouseLeave={(e) => {
+                  if (formData.nichePackId !== pack.id) {
+                    e.currentTarget.style.background = 'var(--color-surface)';
+                  }
+                }}
                 disabled={loading}
               >
                 {pack.name}
@@ -127,92 +142,144 @@ export default function QuickCreate({ status }: QuickCreateProps) {
           </div>
         </div>
 
-        {/* Row: Language + Target Length */}
-        <div className="grid grid-cols-2 gap-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-300 mb-2">
-              Language
-            </label>
-            <select
-              className="select"
-              value={formData.language}
-              onChange={(e) => setFormData({ ...formData, language: e.target.value })}
-              disabled={loading}
-            >
-              {LANGUAGES.map((lang) => (
-                <option key={lang.value} value={lang.value}>
-                  {lang.label}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-300 mb-2">
-              Target Length
-            </label>
-            <div className="flex gap-2">
-              {TARGET_LENGTHS.map((len) => (
-                <button
-                  key={len.value}
-                  type="button"
-                  onClick={() => setFormData({ ...formData, targetLengthSec: len.value })}
-                  className={`flex-1 px-3 py-2 rounded-lg text-sm font-medium transition-all ${
-                    formData.targetLengthSec === len.value
-                      ? 'bg-green-600 text-white'
-                      : 'bg-gray-800 text-gray-300 hover:bg-gray-700'
-                  }`}
-                  disabled={loading}
-                >
-                  {len.label}
-                </button>
-              ))}
-            </div>
+        {/* Target Length */}
+        <div>
+          <label className="block text-sm font-medium text-gray-300 mb-2">
+            Target Length
+          </label>
+          <div className="flex gap-2">
+            {TARGET_LENGTHS.map((len) => (
+              <button
+                key={len.value}
+                type="button"
+                onClick={() => setFormData({ ...formData, targetLengthSec: len.value })}
+                className={`flex-1 px-3 py-2 rounded-lg text-sm font-medium transition-all ${
+                  formData.targetLengthSec === len.value
+                    ? 'text-white'
+                    : ''
+                }`}
+                style={{
+                  background: formData.targetLengthSec === len.value ? 'var(--color-primary)' : 'var(--color-surface)',
+                  color: formData.targetLengthSec === len.value ? 'white' : 'var(--color-text-muted)',
+                }}
+                onMouseEnter={(e) => {
+                  if (formData.targetLengthSec !== len.value) {
+                    e.currentTarget.style.background = 'var(--color-surface-2)';
+                  }
+                }}
+                onMouseLeave={(e) => {
+                  if (formData.targetLengthSec !== len.value) {
+                    e.currentTarget.style.background = 'var(--color-surface)';
+                  }
+                }}
+                disabled={loading}
+              >
+                {len.label}
+              </button>
+            ))}
           </div>
         </div>
 
-        {/* Row: Tempo + Voice */}
-        <div className="grid grid-cols-2 gap-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-300 mb-2">
-              Tempo
-            </label>
-            <div className="flex gap-2">
-              {TEMPOS.map((tempo) => (
-                <button
-                  key={tempo.value}
-                  type="button"
-                  onClick={() => setFormData({ ...formData, tempo: tempo.value })}
-                  className={`flex-1 px-3 py-2 rounded-lg text-sm font-medium transition-all ${
-                    formData.tempo === tempo.value
-                      ? 'bg-green-600 text-white'
-                      : 'bg-gray-800 text-gray-300 hover:bg-gray-700'
-                  }`}
-                  disabled={loading}
-                >
-                  {tempo.label}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-300 mb-2">
-              Voice
-            </label>
-            <select
-              className="select"
-              value={formData.voicePreset}
-              onChange={(e) => setFormData({ ...formData, voicePreset: e.target.value })}
-              disabled={loading}
+        {/* Options (Collapsible) */}
+        <div className="card">
+          <button
+            type="button"
+            onClick={() => setShowOptions(!showOptions)}
+            className="w-full flex items-center justify-between text-left"
+          >
+            <span className="text-sm font-medium" style={{ color: 'var(--color-text)' }}>
+              Options
+            </span>
+            <svg
+              className={`w-5 h-5 transition-transform ${showOptions ? 'rotate-180' : ''}`}
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+              style={{ color: 'var(--color-text-muted)' }}
             >
-              {VOICE_PRESETS.map((voice) => (
-                <option key={voice} value={voice}>
-                  {voice.charAt(0).toUpperCase() + voice.slice(1)}
-                </option>
-              ))}
-            </select>
-          </div>
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+            </svg>
+          </button>
+          
+          {showOptions && (
+            <div className="mt-4 space-y-4 pt-4 border-t" style={{ borderColor: 'var(--color-border)' }}>
+              {/* Row: Language + Tempo + Voice */}
+              <div className="grid grid-cols-3 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-300 mb-2">
+                    Language
+                  </label>
+                  <select
+                    className="select"
+                    value={formData.language}
+                    onChange={(e) => setFormData({ ...formData, language: e.target.value })}
+                    disabled={loading}
+                  >
+                    {LANGUAGES.map((lang) => (
+                      <option key={lang.value} value={lang.value}>
+                        {lang.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-300 mb-2">
+                    Tempo
+                  </label>
+                  <div className="flex gap-2">
+                    {TEMPOS.map((tempo) => (
+                      <button
+                        key={tempo.value}
+                        type="button"
+                        onClick={() => setFormData({ ...formData, tempo: tempo.value })}
+                        className={`flex-1 px-3 py-2 rounded-lg text-sm font-medium transition-all ${
+                          formData.tempo === tempo.value
+                            ? 'text-white'
+                            : ''
+                        }`}
+                        style={{
+                          background: formData.tempo === tempo.value ? 'var(--color-primary)' : 'var(--color-surface)',
+                          color: formData.tempo === tempo.value ? 'white' : 'var(--color-text-muted)',
+                        }}
+                        onMouseEnter={(e) => {
+                          if (formData.tempo !== tempo.value) {
+                            e.currentTarget.style.background = 'var(--color-surface-2)';
+                          }
+                        }}
+                        onMouseLeave={(e) => {
+                          if (formData.tempo !== tempo.value) {
+                            e.currentTarget.style.background = 'var(--color-surface)';
+                          }
+                        }}
+                        disabled={loading}
+                      >
+                        {tempo.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-300 mb-2">
+                    Voice
+                  </label>
+                  <select
+                    className="select"
+                    value={formData.voicePreset}
+                    onChange={(e) => setFormData({ ...formData, voicePreset: e.target.value })}
+                    disabled={loading}
+                  >
+                    {VOICE_PRESETS.map((voice) => (
+                      <option key={voice} value={voice}>
+                        {voice.charAt(0).toUpperCase() + voice.slice(1)}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Error */}
@@ -226,7 +293,7 @@ export default function QuickCreate({ status }: QuickCreateProps) {
         <button
           type="submit"
           disabled={loading || !canGenerate}
-          className="btn btn-primary w-full py-3 text-lg"
+          className="btn btn-primary w-full sm:w-auto py-3 text-lg"
         >
           {loading ? (
             <span className="flex items-center justify-center gap-2">
@@ -239,8 +306,8 @@ export default function QuickCreate({ status }: QuickCreateProps) {
         </button>
 
         {!status?.providers.openai && (
-          <p className="text-center text-yellow-400 text-sm">
-            OpenAI not configured. Using template mode.
+          <p className="text-center text-sm" style={{ color: 'var(--color-text-muted)' }}>
+            Tryb szablonu (bez API)
           </p>
         )}
       </form>

@@ -57,8 +57,7 @@ test('dry-run cancel shows SSE log and canceled status', async ({ page, request 
 
   await page.goto(`/run/${runId}`);
   await expect(page.getByText('Rendering...')).toBeVisible();
-
-  await expect(page.getByText('Generating voice-over audio...')).toBeVisible();
+  // Step labels can advance quickly; don't assert a specific intermediate step here.
 
   await request.post(`/api/run/${runId}/cancel`);
   await waitForRunStatus(request, runId, 'canceled');

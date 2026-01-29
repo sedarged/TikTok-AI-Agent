@@ -55,7 +55,7 @@ The easiest way to run this app and access it from your phone:
 
 - Node.js 18+
 - FFmpeg installed on your system (or the app will use ffmpeg-static)
-- OpenAI API key
+- OpenAI API key (required for real AI generation; dry-run works without it)
 
 #### 2. Installation
 
@@ -85,6 +85,12 @@ npm run dev
 
 - Frontend: http://localhost:5173
 - Backend: http://localhost:3001
+
+### Production notes (env vars)
+
+- **DATABASE_URL**: set this explicitly for production deployments (SQLite file or PostgreSQL). Do not rely on the default.
+- **ALLOWED_ORIGINS**: must be set in production, otherwise browser requests will be blocked by CORS.
+- **OPENAI_API_KEY**: required for AI features; if missing you can still use template mode and/or dry-run render.
 
 ### Local PC (Dry-Run only, no API keys)
 

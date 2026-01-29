@@ -1,7 +1,8 @@
-import { useState, useEffect } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useState, useEffect, useRef } from 'react';
+import { useParams, Link, useNavigate } from 'react-router-dom';
 import { getRun, verifyRun, getExportData, duplicateProject, subscribeToRun } from '../api/client';
 import type { Run, VerificationResult, Artifacts, LogEntry, ProviderStatus, SSEEvent } from '../api/types';
+import { getErrorMessage } from '../utils/errors';
 
 interface OutputProps {
   status: ProviderStatus | null;
@@ -9,12 +10,18 @@ interface OutputProps {
 
 export default function Output({ status }: OutputProps) {
   const { runId } = useParams<{ runId: string }>();
+  const navigate = useNavigate();
   const [run, setRun] = useState<Run | null>(null);
   const [logs, setLogs] = useState<LogEntry[]>([]);
   const [verification, setVerification] = useState<VerificationResult | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [verifying, setVerifying] = useState(false);
+  const [showRenderLog, setShowRenderLog] = useState(false);
+  const [showMoreMenu, setShowMoreMenu] = useState(false);
+  const [showVerificationExpanded, setShowVerificationExpanded] = useState(false);
+  const [showArtifactsExpanded, setShowArtifactsExpanded] = useState(false);
+  const moreMenuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (!runId) return;
@@ -28,7 +35,7 @@ export default function Output({ status }: OutputProps) {
           setLogs([]);
         }
       })
-      .catch((err) => setError(err.message))
+      .catch((err) => setError(getErrorMessage(err)))
       .finally(() => setLoading(false));
   }, [runId]);
 
@@ -63,6 +70,17 @@ export default function Output({ status }: OutputProps) {
     return () => unsubscribe();
   }, [runId, run?.status]);
 
+  // Close more menu when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (moreMenuRef.current && !moreMenuRef.current.contains(event.target as Node)) {
+        setShowMoreMenu(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
   const handleVerify = async () => {
     if (!runId) return;
     setVerifying(true);
@@ -96,7 +114,7 @@ export default function Output({ status }: OutputProps) {
     if (!run?.projectId) return;
     try {
       const newProject = await duplicateProject(run.projectId);
-      window.location.href = `/project/${newProject.id}/plan`;
+      navigate(`/project/${newProject.id}/plan`);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to duplicate project');
     }
@@ -105,7 +123,10 @@ export default function Output({ status }: OutputProps) {
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
-        <div className="w-10 h-10 border-4 border-green-500 border-t-transparent rounded-full animate-spin" />
+        <div
+          className="w-10 h-10 border-4 border-t-transparent rounded-full animate-spin"
+          style={{ borderColor: 'var(--color-primary)', borderTopColor: 'transparent' }}
+        />
       </div>
     );
   }
@@ -123,6 +144,10 @@ export default function Output({ status }: OutputProps) {
   const isRunning = run.status === 'running' || run.status === 'queued';
   const isFailed = run.status === 'failed';
   const isDryRun = artifacts.dryRun === true || status?.renderDryRun === true;
+
+  const verificationLong = verification && verification.checks.length > 5;
+  const artifactKeys = isComplete ? ['mp4Path', 'thumbPath', 'captionsPath', 'imagesDir', 'audioDir', 'dryRunReportPath'].filter((k) => (artifacts as Record<string, unknown>)[k]) : [];
+  const artifactsLong = artifactKeys.length > 5;
 
   return (
     <div className="space-y-6">
@@ -174,10 +199,10 @@ export default function Output({ status }: OutputProps) {
             <span>{run.currentStep || 'Starting...'}</span>
             <span>{run.progress}%</span>
           </div>
-          <div className="w-full bg-gray-700 rounded-full h-3">
+          <div className="w-full rounded-full h-3" style={{ background: 'var(--color-surface-2)' }}>
             <div
-              className="bg-green-500 h-3 rounded-full transition-all duration-300"
-              style={{ width: `${run.progress}%` }}
+              className="h-3 rounded-full transition-all duration-300"
+              style={{ width: `${run.progress}%`, background: 'var(--color-primary)' }}
             />
           </div>
         </div>
@@ -220,38 +245,92 @@ export default function Output({ status }: OutputProps) {
         <div className="card">
           <h3 className="font-semibold mb-4">Actions</h3>
           <div className="flex flex-wrap gap-3">
-            {artifacts.mp4Path && (
+            {/* Primary Action */}
+            {artifacts.mp4Path ? (
               <a
                 href={`/api/run/${runId}/download`}
                 download
-                className="btn btn-primary"
+                className="btn btn-primary glow-primary w-full sm:w-auto"
               >
                 Download MP4
               </a>
+            ) : (
+              <button className="btn btn-primary glow-primary w-full sm:w-auto" disabled>
+                View artifacts
+              </button>
             )}
             
-            <button onClick={handleExport} className="btn btn-secondary">
-              Export JSON
-            </button>
-            
-            <button onClick={handleDuplicate} className="btn btn-secondary">
-              Duplicate Project
-            </button>
-            
-            <button
-              onClick={handleVerify}
-              className="btn btn-secondary"
-              disabled={verifying}
-            >
-              {verifying ? 'Verifying...' : 'Verify Artifacts'}
-            </button>
-            
-            <Link
-              to={`/project/${run.projectId}/plan`}
-              className="btn btn-secondary"
-            >
-              Edit Plan
-            </Link>
+            {/* More Menu */}
+            <div className="relative" ref={moreMenuRef}>
+              <button
+                onClick={() => setShowMoreMenu(!showMoreMenu)}
+                className="btn btn-secondary flex items-center gap-1"
+              >
+                <span>More</span>
+                <svg
+                  className={`w-4 h-4 transition-transform ${showMoreMenu ? 'rotate-180' : ''}`}
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                </svg>
+              </button>
+              
+              {showMoreMenu && (
+                <div className="absolute left-0 mt-2 w-48 rounded-lg shadow-lg z-10 border" style={{ background: 'var(--color-surface)', borderColor: 'var(--color-border)' }}>
+                  <div className="py-1">
+                    <button
+                      onClick={() => {
+                        handleExport();
+                        setShowMoreMenu(false);
+                      }}
+                      className="block w-full text-left px-4 py-2 text-sm hover:bg-opacity-50 transition-colors"
+                      style={{ color: 'var(--color-text)' }}
+                      onMouseEnter={(e) => e.currentTarget.style.background = 'var(--color-surface-2)'}
+                      onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
+                    >
+                      Export JSON
+                    </button>
+                    <button
+                      onClick={() => {
+                        handleDuplicate();
+                        setShowMoreMenu(false);
+                      }}
+                      className="block w-full text-left px-4 py-2 text-sm hover:bg-opacity-50 transition-colors"
+                      style={{ color: 'var(--color-text)' }}
+                      onMouseEnter={(e) => e.currentTarget.style.background = 'var(--color-surface-2)'}
+                      onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
+                    >
+                      Duplicate Project
+                    </button>
+                    <button
+                      onClick={() => {
+                        handleVerify();
+                        setShowMoreMenu(false);
+                      }}
+                      className="block w-full text-left px-4 py-2 text-sm hover:bg-opacity-50 transition-colors"
+                      style={{ color: 'var(--color-text)' }}
+                      onMouseEnter={(e) => e.currentTarget.style.background = 'var(--color-surface-2)'}
+                      onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
+                      disabled={verifying}
+                    >
+                      {verifying ? 'Verifying...' : 'Verify Artifacts'}
+                    </button>
+                    <Link
+                      to={`/project/${run.projectId}/plan`}
+                      className="block w-full text-left px-4 py-2 text-sm hover:bg-opacity-50 transition-colors"
+                      style={{ color: 'var(--color-text)' }}
+                      onMouseEnter={(e) => e.currentTarget.style.background = 'var(--color-surface-2)'}
+                      onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
+                      onClick={() => setShowMoreMenu(false)}
+                    >
+                      Edit Plan
+                    </Link>
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
         </div>
       )}
@@ -270,95 +349,160 @@ export default function Output({ status }: OutputProps) {
             </span>
           </div>
 
-          <div className="space-y-2">
-            {verification.checks.map((check, i) => (
-              <div
-                key={i}
-                className={`flex items-center gap-3 p-2 rounded ${
-                  check.passed ? 'bg-green-900/20' : 'bg-red-900/20'
-                }`}
-              >
-                <span
-                  className={`w-5 h-5 rounded-full flex items-center justify-center text-xs ${
-                    check.passed
-                      ? 'bg-green-600 text-white'
-                      : 'bg-red-600 text-white'
-                  }`}
-                >
-                  {check.passed ? '✓' : '✗'}
-                </span>
-                <div className="flex-1">
-                  <span className="font-medium">{check.name}</span>
-                  <p className="text-sm text-gray-400">{check.message}</p>
-                </div>
-              </div>
-            ))}
-          </div>
-
-          <div className="mt-4 pt-4 border-t border-gray-700 text-sm text-gray-400">
+          <div className="text-sm mb-4" style={{ color: 'var(--color-text-muted)' }}>
             {verification.summary.passed}/{verification.summary.total} checks passed
           </div>
+
+          {verificationLong && (
+            <button
+              type="button"
+              onClick={() => setShowVerificationExpanded(!showVerificationExpanded)}
+              className="flex items-center gap-2 text-sm mb-4"
+              style={{ color: 'var(--color-primary)' }}
+            >
+              <svg
+                className={`w-4 h-4 transition-transform ${showVerificationExpanded ? 'rotate-180' : ''}`}
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+              </svg>
+              {showVerificationExpanded ? 'Ukryj szczegóły' : `Pokaż szczegóły (${verification.checks.length} checks)`}
+            </button>
+          )}
+
+          {(!verificationLong || showVerificationExpanded) && (
+            <div className="space-y-2">
+              {verification.checks.map((check, i) => (
+                <div
+                  key={i}
+                  className={`flex items-center gap-3 p-2 rounded ${
+                    check.passed ? 'bg-green-900/20' : 'bg-red-900/20'
+                  }`}
+                >
+                  <span
+                    className={`w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold ${
+                      check.passed
+                        ? 'bg-green-600 text-white'
+                        : 'bg-red-600 text-white'
+                    }`}
+                  >
+                    {check.passed ? 'P' : 'F'}
+                  </span>
+                  <div className="flex-1">
+                    <span className="font-medium">{check.name}</span>
+                    <p className="text-sm text-gray-400">{check.message}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       )}
 
       {/* Artifacts */}
       {isComplete && Object.keys(artifacts).length > 0 && (
         <div className="card">
-          <h3 className="font-semibold mb-4">Artifacts</h3>
-          <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-            {artifacts.mp4Path && (
-              <ArtifactItem label="Final Video" path={artifacts.mp4Path} />
-            )}
-            {artifacts.thumbPath && (
-              <ArtifactItem
-                label="Thumbnail"
-                path={artifacts.thumbPath}
-                isImage
-              />
-            )}
-            {artifacts.captionsPath && (
-              <ArtifactItem label="Captions" path={artifacts.captionsPath} />
-            )}
-            {artifacts.imagesDir && (
-              <ArtifactItem label="Scene Images" path={artifacts.imagesDir} isDir />
-            )}
-            {artifacts.audioDir && (
-              <ArtifactItem label="Audio Files" path={artifacts.audioDir} isDir />
-            )}
-            {artifacts.dryRunReportPath && (
-              <ArtifactItem label="Dry-run Report" path={artifacts.dryRunReportPath} />
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="font-semibold">Artifacts</h3>
+            {artifactsLong && (
+              <button
+                type="button"
+                onClick={() => setShowArtifactsExpanded(!showArtifactsExpanded)}
+                className="flex items-center gap-2 text-sm"
+                style={{ color: 'var(--color-primary)' }}
+              >
+                <svg
+                  className={`w-4 h-4 transition-transform ${showArtifactsExpanded ? 'rotate-180' : ''}`}
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                </svg>
+                {showArtifactsExpanded ? 'Ukryj' : `Pokaż więcej (${artifactKeys.length})`}
+              </button>
             )}
           </div>
+          {(!artifactsLong || showArtifactsExpanded) && (
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+              {artifacts.mp4Path && (
+                <ArtifactItem label="Final Video" path={artifacts.mp4Path} />
+              )}
+              {artifacts.thumbPath && (
+                <ArtifactItem
+                  label="Thumbnail"
+                  path={artifacts.thumbPath}
+                  isImage
+                />
+              )}
+              {artifacts.captionsPath && (
+                <ArtifactItem label="Captions" path={artifacts.captionsPath} />
+              )}
+              {artifacts.imagesDir && (
+                <ArtifactItem label="Scene Images" path={artifacts.imagesDir} isDir />
+              )}
+              {artifacts.audioDir && (
+                <ArtifactItem label="Audio Files" path={artifacts.audioDir} isDir />
+              )}
+              {artifacts.dryRunReportPath && (
+                <ArtifactItem label="Dry-run Report" path={artifacts.dryRunReportPath} />
+              )}
+            </div>
+          )}
         </div>
       )}
 
       {/* Logs */}
       <div className="card">
-        <h3 className="font-semibold mb-4">Render Log</h3>
-        <div className="bg-gray-950 rounded-lg p-4 max-h-64 overflow-y-auto">
-          <div className="space-y-1 font-mono text-xs">
-            {logs.map((log, i) => (
-              <div
-                key={i}
-                className={`${
-                  log.level === 'error'
-                    ? 'text-red-400'
-                    : log.level === 'warn'
-                    ? 'text-yellow-400'
-                    : 'text-gray-400'
-                }`}
-              >
-                <span className="text-gray-600">
-                  {new Date(log.timestamp).toLocaleTimeString()}
-                </span>{' '}
-                {log.message}
-              </div>
-            ))}
-            {logs.length === 0 && (
-              <p className="text-gray-600">No logs available</p>
-            )}
+        <button
+          onClick={() => setShowRenderLog(!showRenderLog)}
+          className="flex items-center gap-2 mb-4"
+        >
+          <h3 className="font-semibold">Render Log</h3>
+          <svg
+            className={`w-4 h-4 transition-transform ${showRenderLog ? 'rotate-180' : ''}`}
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+            style={{ color: 'var(--color-text-muted)' }}
+          >
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+          </svg>
+          {logs.length > 0 && !showRenderLog && (
+            <span className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
+              ({logs.length})
+            </span>
+          )}
+        </button>
+        
+        {showRenderLog && (
+          <div className="rounded-lg p-4 max-h-64 overflow-y-auto" style={{ background: 'var(--color-bg)' }}>
+            <div className="space-y-1 font-mono text-xs">
+              {logs.map((log, i) => (
+                <div
+                  key={i}
+                  style={{
+                    color: log.level === 'error'
+                      ? 'var(--color-danger)'
+                      : log.level === 'warn'
+                      ? 'var(--color-warning)'
+                      : 'var(--color-text-muted)',
+                  }}
+                >
+                  <span style={{ color: 'var(--color-text-muted)' }}>
+                    {new Date(log.timestamp).toLocaleTimeString()}
+                  </span>{' '}
+                  {log.message}
+                </div>
+              ))}
+              {logs.length === 0 && (
+                <p style={{ color: 'var(--color-text-muted)' }}>No logs available</p>
+              )}
+            </div>
           </div>
-        </div>
+        )}
       </div>
     </div>
   );

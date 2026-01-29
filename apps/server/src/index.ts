@@ -39,6 +39,14 @@ function getAppVersion(): string {
   return 'unknown';
 }
 
+function getRepoRootDir(): string {
+  // If we're executed from apps/server, go up two levels to repo root
+  if (process.cwd().includes('apps/server') || process.cwd().includes('apps\\server')) {
+    return path.resolve(process.cwd(), '..', '..');
+  }
+  return process.cwd();
+}
+
 export function createApp() {
   const app = express();
 
@@ -80,7 +88,7 @@ export function createApp() {
   app.use('/artifacts', express.static(env.ARTIFACTS_DIR));
 
   // Serve frontend in production
-  const frontendDistPath = path.join(process.cwd(), '..', 'web', 'dist');
+  const frontendDistPath = path.join(getRepoRootDir(), 'apps', 'web', 'dist');
   if (fs.existsSync(frontendDistPath)) {
     app.use(express.static(frontendDistPath));
   }

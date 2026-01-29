@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { getProject, retryRun, cancelRun, subscribeToRun } from '../api/client';
 import type { Project, Run, LogEntry, SSEEvent } from '../api/types';
+import { getErrorMessage } from '../utils/errors';
 
 export default function RenderQueue() {
   const { projectId } = useParams<{ projectId: string }>();
@@ -18,7 +19,7 @@ export default function RenderQueue() {
         setProject(proj);
         setRuns(proj.runs || []);
       })
-      .catch((err) => setError(err.message))
+      .catch((err) => setError(getErrorMessage(err)))
       .finally(() => setLoading(false));
   }, [projectId]);
 
@@ -56,7 +57,7 @@ export default function RenderQueue() {
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
-        <div className="w-10 h-10 border-4 border-green-500 border-t-transparent rounded-full animate-spin" />
+        <div className="w-10 h-10 border-4 border-t-transparent rounded-full animate-spin" style={{ borderColor: 'var(--color-primary)', borderTopColor: 'transparent' }} />
       </div>
     );
   }
@@ -76,7 +77,7 @@ export default function RenderQueue() {
           <h1 className="text-2xl font-bold">Render Queue</h1>
           <p className="text-gray-400">{project.title}</p>
         </div>
-        <Link to={`/project/${projectId}/plan`} className="btn btn-secondary">
+        <Link to={`/project/${projectId}/plan`} className="btn btn-secondary w-full sm:w-auto">
           Back to Plan
         </Link>
       </div>
@@ -90,7 +91,7 @@ export default function RenderQueue() {
       {runs.length === 0 ? (
         <div className="card text-center py-12">
           <p className="text-gray-400 mb-4">No render runs yet</p>
-          <Link to={`/project/${projectId}/plan`} className="btn btn-primary">
+          <Link to={`/project/${projectId}/plan`} className="btn btn-primary w-full sm:w-auto">
             Go to Plan Studio
           </Link>
         </div>
@@ -124,6 +125,7 @@ function RunCard({
 }) {
   const [currentRun, setCurrentRun] = useState(run);
   const [logs, setLogs] = useState<LogEntry[]>([]);
+  const [showLogs, setShowLogs] = useState(false);
 
   useEffect(() => {
     try {
@@ -175,7 +177,7 @@ function RunCard({
 
         <div className="flex items-center gap-2">
           {currentRun.status === 'done' && (
-            <Link to={`/run/${run.id}`} className="btn btn-primary text-sm">
+            <Link to={`/run/${run.id}`} className="btn btn-primary text-sm w-full sm:w-auto">
               View Output
             </Link>
           )}
@@ -201,39 +203,64 @@ function RunCard({
             <span>{currentRun.currentStep || 'Starting...'}</span>
             <span>{currentRun.progress}%</span>
           </div>
-          <div className="w-full bg-gray-700 rounded-full h-2">
+          <div className="w-full rounded-full h-2" style={{ background: 'var(--color-surface-2)' }}>
             <div
-              className="bg-green-500 h-2 rounded-full transition-all duration-300"
-              style={{ width: `${currentRun.progress}%` }}
+              className="h-2 rounded-full transition-all duration-300"
+              style={{ width: `${currentRun.progress}%`, background: 'var(--color-primary)' }}
             />
           </div>
         </div>
       )}
 
       {/* Logs */}
-      <div className="bg-gray-950 rounded-lg p-3 max-h-48 overflow-y-auto">
-        <div className="space-y-1 font-mono text-xs">
-          {logs.slice(-20).map((log, i) => (
-            <div
-              key={i}
-              className={`${
-                log.level === 'error'
-                  ? 'text-red-400'
-                  : log.level === 'warn'
-                  ? 'text-yellow-400'
-                  : 'text-gray-400'
-              }`}
-            >
-              <span className="text-gray-600">
-                {new Date(log.timestamp).toLocaleTimeString()}
-              </span>{' '}
-              {log.message}
-            </div>
-          ))}
-          {logs.length === 0 && (
-            <p className="text-gray-600">No logs yet...</p>
+      <div>
+        <button
+          onClick={() => setShowLogs(!showLogs)}
+          className="flex items-center gap-2 text-sm mb-2"
+          style={{ color: 'var(--color-text-muted)' }}
+        >
+          <svg
+            className={`w-4 h-4 transition-transform ${showLogs ? 'rotate-180' : ''}`}
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+          </svg>
+          {showLogs ? 'Ukryj logi' : 'Pokaż logi'}
+          {logs.length > 0 && (
+            <span className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
+              ({logs.length})
+            </span>
           )}
-        </div>
+        </button>
+        
+        {showLogs && (
+          <div className="rounded-lg p-3 max-h-48 overflow-y-auto" style={{ background: 'var(--color-bg)' }}>
+            <div className="space-y-1 font-mono text-xs">
+              {logs.slice(-20).map((log, i) => (
+                <div
+                  key={i}
+                  style={{
+                    color: log.level === 'error' 
+                      ? 'var(--color-danger)' 
+                      : log.level === 'warn' 
+                      ? 'var(--color-warning)' 
+                      : 'var(--color-text-muted)',
+                  }}
+                >
+                  <span style={{ color: 'var(--color-text-muted)' }}>
+                    {new Date(log.timestamp).toLocaleTimeString()}
+                  </span>{' '}
+                  {log.message}
+                </div>
+              ))}
+              {logs.length === 0 && (
+                <p style={{ color: 'var(--color-text-muted)' }}>No logs yet...</p>
+              )}
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

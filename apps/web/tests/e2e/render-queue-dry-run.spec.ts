@@ -58,11 +58,14 @@ test('render queue + verify/export in dry-run', async ({ page, request }) => {
   await page.goto(`/run/${runId}`);
   await expect(page.getByText('Dry-run Render')).toBeVisible();
 
+  // Verify/Export actions live under the More menu
+  await page.getByRole('button', { name: 'More' }).click();
   await page.getByRole('button', { name: 'Verify Artifacts' }).click();
   await expect(page.getByText('Verification Results')).toBeVisible();
   await expect(page.getByText('PASS', { exact: true })).toBeVisible();
 
   const downloadPromise = page.waitForEvent('download');
+  await page.getByRole('button', { name: 'More' }).click();
   await page.getByRole('button', { name: 'Export JSON' }).click();
   const download = await downloadPromise;
   expect(download.suggestedFilename()).toContain(runId);
