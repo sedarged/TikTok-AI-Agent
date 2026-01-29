@@ -14,7 +14,8 @@
     "db:studio": "prisma studio",
     "test": "APP_TEST_MODE=1 NODE_ENV=test DATABASE_URL=file:./test.db prisma generate && APP_TEST_MODE=1 NODE_ENV=test DATABASE_URL=file:./test.db prisma migrate deploy && APP_TEST_MODE=1 NODE_ENV=test DATABASE_URL=file:./test.db vitest run",
     "test:watch": "APP_TEST_MODE=1 NODE_ENV=test DATABASE_URL=file:./test.db vitest",
-    "test:render": "APP_TEST_MODE=0 APP_RENDER_DRY_RUN=1 NODE_ENV=test DATABASE_URL=file:./test-render.db prisma generate && APP_TEST_MODE=0 APP_RENDER_DRY_RUN=1 NODE_ENV=test DATABASE_URL=file:./test-render.db prisma migrate deploy && APP_TEST_MODE=0 APP_RENDER_DRY_RUN=1 NODE_ENV=test DATABASE_URL=file:./test-render.db vitest run tests/renderDryRun.integration.test.ts"
+    "test:render": "APP_TEST_MODE=0 APP_RENDER_DRY_RUN=1 NODE_ENV=test DATABASE_URL=file:./test-render.db prisma generate && APP_TEST_MODE=0 APP_RENDER_DRY_RUN=1 NODE_ENV=test DATABASE_URL=file:./test-render.db prisma migrate deploy && APP_TEST_MODE=0 APP_RENDER_DRY_RUN=1 NODE_ENV=test DATABASE_URL=file:./test-render.db vitest run tests/renderDryRun.integration.test.ts",
+    "render:smoke": "tsx scripts/renderSmoke.ts"
   },
   "dependencies": {
     "@prisma/client": "^5.10.0",

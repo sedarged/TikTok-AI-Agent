@@ -17,6 +17,7 @@
     "test": "npm run test --workspace=apps/server",
     "test:render": "npm run test:render --workspace=apps/server",
     "test:e2e": "playwright test",
+    "render:smoke": "npm run render:smoke --workspace=apps/server",
     "db:generate": "cd apps/server && npx prisma generate",
     "db:migrate": "cd apps/server && npx prisma migrate deploy",
     "db:migrate:dev": "npm run db:migrate --workspace=apps/server",

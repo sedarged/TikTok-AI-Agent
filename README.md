@@ -86,6 +86,47 @@ npm run dev
 - Frontend: http://localhost:5173
 - Backend: http://localhost:3001
 
+### Local PC (Dry-Run only, no API keys)
+
+This runs the full render pipeline without OpenAI/FFmpeg:
+
+```bash
+cp .env.example .env
+
+# Enable dry-run render (no paid APIs)
+APP_TEST_MODE=0
+APP_RENDER_DRY_RUN=1
+
+npm install
+npm run db:generate
+npm run db:migrate
+npm run dev
+```
+
+Then open http://localhost:5173 and run the normal flow.
+
+### Local PC (Real render)
+
+```bash
+cp .env.example .env
+# Set OPENAI_API_KEY and ensure FFmpeg is available (system or ffmpeg-static)
+
+npm install
+npm run db:generate
+npm run db:migrate
+npm run dev
+```
+
+Optional smoke script:
+
+```bash
+# Dry-run smoke (safe)
+APP_RENDER_DRY_RUN=1 npm run render:smoke
+
+# Real render smoke (requires API key + FFmpeg)
+SMOKE_ALLOW_REAL=1 npm run render:smoke
+```
+
 ## Environment Variables
 
 Create a `.env` file in the project root:
@@ -158,6 +199,8 @@ npx playwright install --with-deps
 # Runs the UI flow against a dry-run backend (no MP4)
 npm run test:e2e
 ```
+
+Windows/macOS note: `npx playwright install` (without `--with-deps`) is usually sufficient.
 
 ## How to Render a 60s Facts Video
 
