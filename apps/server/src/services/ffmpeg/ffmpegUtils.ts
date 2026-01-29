@@ -3,7 +3,9 @@ import { promisify } from 'util';
 import path from 'path';
 import fs from 'fs';
 
+// Configure exec with timeout (5 minutes default)
 const execAsync = promisify(exec);
+const EXEC_TIMEOUT_MS = 300000; // 5 minutes
 
 let ffmpegPath: string | null = null;
 let ffprobePath: string | null = null;
@@ -36,7 +38,7 @@ export async function getFFmpegPath(): Promise<string> {
 
   // Try system ffmpeg
   try {
-    await execAsync('ffmpeg -version');
+    await execAsync('ffmpeg -version', { timeout: 10000 });
     ffmpegPath = 'ffmpeg';
     return ffmpegPath;
   } catch {
@@ -50,7 +52,7 @@ export async function getFFprobePath(): Promise<string> {
 
   // Try system ffprobe first (works with ffmpeg-static too usually)
   try {
-    await execAsync('ffprobe -version');
+    await execAsync('ffprobe -version', { timeout: 10000 });
     ffprobePath = 'ffprobe';
     return ffprobePath;
   } catch {
@@ -108,7 +110,8 @@ export async function getMediaDuration(filePath: string): Promise<number> {
   const ffprobe = await getFFprobePath();
   
   const { stdout } = await execAsync(
-    `${ffprobe} -v quiet -show_entries format=duration -of csv=p=0 "${filePath}"`
+    `${ffprobe} -v quiet -show_entries format=duration -of csv=p=0 "${filePath}"`,
+    { timeout: 30000 } // 30 seconds timeout
   );
   
   const duration = parseFloat(stdout.trim());
@@ -135,7 +138,8 @@ export async function validateVideo(videoPath: string): Promise<{
     const ffprobe = await getFFprobePath();
     
     const { stdout } = await execAsync(
-      `${ffprobe} -v quiet -show_entries format=duration:stream=width,height -of json "${videoPath}"`
+      `${ffprobe} -v quiet -show_entries format=duration:stream=width,height -of json "${videoPath}"`,
+      { timeout: 30000 } // 30 seconds timeout
     );
     
     const data = JSON.parse(stdout);
