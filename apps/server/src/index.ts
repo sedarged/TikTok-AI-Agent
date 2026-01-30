@@ -1,6 +1,7 @@
 import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
+import rateLimit from 'express-rate-limit';
 import path from 'path';
 import fs from 'fs';
 import { env, isRenderDryRun, isTestMode } from './env.js';
@@ -18,6 +19,7 @@ import { scriptTemplatesRoutes } from './routes/scriptTemplates.js';
 import { testRoutes } from './routes/test.js';
 import { ensureConnection } from './db/client.js';
 import { resetStuckRuns } from './services/render/renderPipeline.js';
+import { logError, logWarn, logInfo, logDebug } from './utils/logger.js';
 
 function getAppVersion(): string {
   if (env.APP_VERSION) {
@@ -37,8 +39,8 @@ function getAppVersion(): string {
         if (parsed.version) {
           return parsed.version;
         }
-      } catch {
-        // ignore
+      } catch (error) {
+        logDebug('Failed to parse package.json for version', { error, path: pkgPath });
       }
     }
   }
@@ -68,17 +70,39 @@ export function createApp() {
 
   // Warn in production if no origins configured
   if (!isDevelopment && allowedOrigins.length === 0) {
-    console.warn(
-      'WARNING: ALLOWED_ORIGINS not configured in production. CORS will block browser requests.'
+    logWarn(
+      'ALLOWED_ORIGINS not configured in production. CORS will block browser requests. Set ALLOWED_ORIGINS environment variable to enable cross-origin requests.'
     );
-    console.warn('Set ALLOWED_ORIGINS environment variable to enable cross-origin requests.');
   }
 
+  // Helmet - Security headers
   app.use(
     helmet({
-      contentSecurityPolicy: false,
+      contentSecurityPolicy: isDevelopment
+        ? false
+        : {
+            directives: {
+              defaultSrc: ["'self'"],
+              scriptSrc: ["'self'", "'unsafe-inline'"],
+              styleSrc: ["'self'", "'unsafe-inline'"],
+              imgSrc: ["'self'", 'data:', 'https:'],
+              connectSrc: ["'self'"],
+            },
+          },
     })
   );
+
+  // Rate limiting - protect API endpoints
+  const apiLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000, // 15 minutes
+    max: isDevelopment ? 1000 : 100, // More permissive in development
+    message: { error: 'Too many requests, please try again later.' },
+    standardHeaders: true,
+    legacyHeaders: false,
+    skip: (_req) => isTestMode(), // Skip rate limiting in tests
+  });
+
+  app.use('/api/', apiLimiter);
   app.use(
     cors({
       origin: (origin, callback) => {
@@ -150,7 +174,7 @@ export function createApp() {
   // Error handler
   app.use(
     (err: Error, req: express.Request, res: express.Response, _next: express.NextFunction) => {
-      console.error('Server error:', err);
+      logError('Server error', err, { path: req.path, method: req.method });
       res.status(500).json({ error: err.message || 'Internal server error' });
     }
   );
@@ -170,12 +194,14 @@ export function createApp() {
 export function startServer() {
   const app = createApp();
   return app.listen(env.PORT, '0.0.0.0', () => {
-    console.log(`Server running on http://localhost:${env.PORT}`);
-    console.log(`Server also available on http://0.0.0.0:${env.PORT}`);
-    console.log(`Environment: ${env.NODE_ENV}`);
-    console.log(`Artifacts dir: ${env.ARTIFACTS_DIR}`);
-    console.log(`Test mode: ${isTestMode() ? 'enabled' : 'disabled'}`);
-    resetStuckRuns().catch((err) => console.error('Failed to reset stuck runs:', err));
+    logInfo(`Server running on http://localhost:${env.PORT}`, {
+      port: env.PORT,
+      environment: env.NODE_ENV,
+      artifactsDir: env.ARTIFACTS_DIR,
+      testMode: isTestMode(),
+    });
+    logInfo(`Server also available on http://0.0.0.0:${env.PORT}`);
+    resetStuckRuns().catch((err) => logError('Failed to reset stuck runs', err));
   });
 }
 

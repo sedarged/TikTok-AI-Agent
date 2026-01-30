@@ -3,6 +3,7 @@
  */
 import { callOpenAI } from '../providers/openai.js';
 import { getNichePack } from '../nichePacks.js';
+import { logError } from '../../utils/logger.js';
 
 export async function getTopicSuggestions(
   nichePackId: string,
@@ -15,7 +16,15 @@ export async function getTopicSuggestions(
 
   const raw = await callOpenAI(prompt, 'json', 'gpt-4o-mini');
   const trimmed = raw.trim();
-  const parsed = JSON.parse(trimmed) as unknown;
+
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(trimmed);
+  } catch (error) {
+    logError('Failed to parse JSON response from OpenAI', error);
+    throw new Error('Invalid JSON response from AI');
+  }
+
   if (!Array.isArray(parsed)) {
     throw new Error('Expected JSON array of topic strings');
   }
