@@ -62,6 +62,28 @@ The easiest way to run this app and access it from your phone:
 
 #### 2. Installation
 
+**Quick Setup (Recommended):**
+
+```bash
+# Clone the repository
+git clone https://github.com/sedarged/TikTok-AI-Agent.git
+cd TikTok-AI-Agent
+
+# Run setup script (Linux/Mac)
+./setup.sh
+
+# Or on Windows
+setup.bat
+
+# Edit .env and add your OpenAI API key (or use dry-run mode)
+# OPENAI_API_KEY=sk-...
+
+# Start development servers
+npm run dev
+```
+
+**Manual Setup:**
+
 ```bash
 # Clone the repository
 git clone https://github.com/sedarged/TikTok-AI-Agent.git
@@ -76,9 +98,10 @@ cp .env.example .env
 # Edit .env and add your OpenAI API key
 # OPENAI_API_KEY=sk-...
 
-# Generate Prisma client and run migrations
-npm run db:generate
-npm run db:migrate
+# Setup database (from apps/server directory)
+cd apps/server
+DATABASE_URL="file:./dev.db" npx prisma migrate deploy
+cd ../..
 
 # Start development servers
 npm run dev
