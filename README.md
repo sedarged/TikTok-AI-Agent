@@ -56,7 +56,7 @@ The easiest way to run this app and access it from your phone:
 
 #### 1. Prerequisites
 
-- Node.js 18+
+- Node.js 20.19+ (required for Vite 7)
 - FFmpeg installed on your system (or the app will use ffmpeg-static)
 - OpenAI API key (required for real AI generation; dry-run works without it)
 
