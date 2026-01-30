@@ -15,7 +15,15 @@ export async function getTopicSuggestions(
 
   const raw = await callOpenAI(prompt, 'json', 'gpt-4o-mini');
   const trimmed = raw.trim();
-  const parsed = JSON.parse(trimmed) as unknown;
+
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(trimmed);
+  } catch (error) {
+    console.error('Failed to parse JSON response from OpenAI:', error);
+    throw new Error('Invalid JSON response from AI');
+  }
+
   if (!Array.isArray(parsed)) {
     throw new Error('Expected JSON array of topic strings');
   }

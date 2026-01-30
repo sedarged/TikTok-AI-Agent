@@ -1,6 +1,7 @@
 import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
+import rateLimit from 'express-rate-limit';
 import path from 'path';
 import fs from 'fs';
 import { env, isRenderDryRun, isTestMode } from './env.js';
@@ -74,11 +75,34 @@ export function createApp() {
     console.warn('Set ALLOWED_ORIGINS environment variable to enable cross-origin requests.');
   }
 
+  // Helmet - Security headers
   app.use(
     helmet({
-      contentSecurityPolicy: false,
+      contentSecurityPolicy: isDevelopment
+        ? false
+        : {
+            directives: {
+              defaultSrc: ["'self'"],
+              scriptSrc: ["'self'", "'unsafe-inline'"],
+              styleSrc: ["'self'", "'unsafe-inline'"],
+              imgSrc: ["'self'", 'data:', 'https:'],
+              connectSrc: ["'self'"],
+            },
+          },
     })
   );
+
+  // Rate limiting - protect API endpoints
+  const apiLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000, // 15 minutes
+    max: isDevelopment ? 1000 : 100, // More permissive in development
+    message: { error: 'Too many requests, please try again later.' },
+    standardHeaders: true,
+    legacyHeaders: false,
+    skip: (_req) => isTestMode(), // Skip rate limiting in tests
+  });
+
+  app.use('/api/', apiLimiter);
   app.use(
     cors({
       origin: (origin, callback) => {

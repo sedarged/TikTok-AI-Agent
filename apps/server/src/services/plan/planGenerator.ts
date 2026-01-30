@@ -148,7 +148,15 @@ Return ONLY a JSON array with exactly 5 hook strings, no other text:
 
   try {
     const response = await callOpenAI(prompt, 'json');
-    const hooks = JSON.parse(response);
+
+    let hooks: unknown;
+    try {
+      hooks = JSON.parse(response);
+    } catch (error) {
+      console.error('Failed to parse hooks JSON:', error);
+      return generateTemplateHooks(project.topic, pack);
+    }
+
     if (Array.isArray(hooks) && hooks.length >= 5) {
       return hooks.slice(0, 5);
     }
@@ -258,7 +266,14 @@ Requirements:
 
   try {
     const response = await callOpenAI(prompt, 'json');
-    const scenes = JSON.parse(response);
+
+    let scenes: unknown;
+    try {
+      scenes = JSON.parse(response);
+    } catch (error) {
+      console.error('Failed to parse scenes JSON:', error);
+      throw new Error('Invalid JSON response for scenes');
+    }
 
     if (Array.isArray(scenes) && scenes.length > 0) {
       return (scenes as OpenAISceneRaw[]).map((s, i) => {
@@ -338,7 +353,14 @@ Keep scene count the same. Make the script flow naturally.`;
 
   try {
     const response = await callOpenAI(prompt, 'json');
-    const updates = JSON.parse(response);
+
+    let updates: unknown;
+    try {
+      updates = JSON.parse(response);
+    } catch (error) {
+      console.error('Failed to parse script updates JSON:', error);
+      throw new Error('Invalid JSON response for script updates');
+    }
 
     if (Array.isArray(updates)) {
       const raw = updates as ScriptUpdateRaw[];
@@ -407,7 +429,23 @@ Return JSON:
 
   try {
     const response = await callOpenAI(prompt, 'json');
-    const result = JSON.parse(response);
+
+    let result: { narrationText?: string; onScreenText?: string; visualPrompt?: string };
+    try {
+      result = JSON.parse(response) as {
+        narrationText?: string;
+        onScreenText?: string;
+        visualPrompt?: string;
+      };
+    } catch (error) {
+      console.error('Failed to parse scene regeneration JSON:', error);
+      return {
+        narrationText: scene.narrationText,
+        onScreenText: scene.onScreenText,
+        visualPrompt: scene.visualPrompt,
+        negativePrompt: scene.negativePrompt,
+      };
+    }
 
     return {
       narrationText: result.narrationText || scene.narrationText,
