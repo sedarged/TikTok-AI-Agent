@@ -13,7 +13,7 @@ const e2eDbPath = path.join(root, 'apps', 'server', 'e2e.db');
 
 process.env.APP_TEST_MODE = '0';
 process.env.APP_RENDER_DRY_RUN = '1';
-process.env.NODE_ENV = 'test';
+process.env.NODE_ENV = 'e2e';
 process.env.DATABASE_URL = `file:${e2eDbPath}`;
 
 execSync('npx prisma migrate deploy --schema apps/server/prisma/schema.prisma', {
