@@ -243,4 +243,26 @@ describe('Plan and preview workflow (test mode)', () => {
     expect(runRes.status).toBe(200);
     RunSchema.parse(runRes.body);
   });
+
+  it('POST /api/automate is disabled in TEST_MODE', async () => {
+    const automateRes = await request(app).post('/api/automate').send({
+      topic: 'Test automate',
+      nichePackId: 'facts',
+    });
+    expect(automateRes.status).toBe(403);
+    expect(automateRes.body.error).toBe('Automate disabled in APP_TEST_MODE');
+    expect(automateRes.body.code).toBe('AUTOMATE_DISABLED_TEST_MODE');
+  });
+
+  it('POST /api/batch is disabled in TEST_MODE', async () => {
+    const batchRes = await request(app)
+      .post('/api/batch')
+      .send({
+        topics: ['Test batch 1', 'Test batch 2'],
+        nichePackId: 'facts',
+      });
+    expect(batchRes.status).toBe(403);
+    expect(batchRes.body.error).toBe('Batch disabled in APP_TEST_MODE');
+    expect(batchRes.body.code).toBe('BATCH_DISABLED_TEST_MODE');
+  });
 });
