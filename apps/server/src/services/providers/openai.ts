@@ -1,4 +1,5 @@
 import OpenAI from 'openai';
+import { logError, logDebug, logWarn } from '../../utils/logger.js';
 import pRetry, { type FailedAttemptError } from 'p-retry';
 import { env, isOpenAIConfigured } from '../../env.js';
 import { prisma } from '../../db/client.js';
@@ -18,7 +19,7 @@ const RETRY_OPTIONS = {
   retries: 3,
   minTimeout: 2000,
   onFailedAttempt: (err: FailedAttemptError) => {
-    console.warn(
+    logWarn(
       `OpenAI call failed (attempt ${err.attemptNumber}/${err.attemptNumber + err.retriesLeft}): ${err.message}`
     );
   },
@@ -117,7 +118,7 @@ export async function generateImage(
     return { path: outputPath, estimatedCostUsd: 0 };
   }
 
-  console.log(`Generating image: ${prompt.substring(0, 50)}...`);
+  logDebug(`Generating image: ${prompt.substring(0, 50)}...`);
 
   const response = await pRetry(
     async () =>
@@ -181,7 +182,7 @@ export async function generateTTS(
     return { path: outputPath, estimatedCostUsd: 0 };
   }
 
-  console.log(`Generating TTS: ${text.substring(0, 50)}...`);
+  logDebug(`Generating TTS: ${text.substring(0, 50)}...`);
 
   const mp3 = await pRetry(
     async () =>
@@ -230,7 +231,7 @@ export async function transcribeAudio(audioPath: string): Promise<TranscribeAudi
     return result;
   }
 
-  console.log(`Transcribing audio: ${audioPath}`);
+  logDebug(`Transcribing audio: ${audioPath}`);
 
   const transcription = await pRetry(
     async () =>
@@ -294,6 +295,6 @@ async function cacheResult(hashKey: string, kind: string, result: unknown, paylo
       },
     });
   } catch (error) {
-    console.error('Failed to cache result:', error);
+    logError('Failed to cache result:', error);
   }
 }

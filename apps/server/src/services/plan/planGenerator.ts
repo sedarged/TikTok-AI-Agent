@@ -7,6 +7,7 @@ import { callOpenAI } from '../providers/openai.js';
 import type { Project, Scene } from '@prisma/client';
 import type { EffectPreset, SceneData } from '../../utils/types.js';
 import { EFFECT_PRESETS } from '../../utils/types.js';
+import { logError } from '../../utils/logger.js';
 
 interface OpenAISceneRaw {
   narrationText?: string;
@@ -153,7 +154,7 @@ Return ONLY a JSON array with exactly 5 hook strings, no other text:
     try {
       hooks = JSON.parse(response);
     } catch (error) {
-      console.error('Failed to parse hooks JSON:', error);
+      logError('Failed to parse hooks JSON:', error);
       return generateTemplateHooks(project.topic, pack);
     }
 
@@ -162,7 +163,7 @@ Return ONLY a JSON array with exactly 5 hook strings, no other text:
     }
     return generateTemplateHooks(project.topic, pack);
   } catch (error) {
-    console.error('Error generating hooks with AI:', error);
+    logError('Error generating hooks with AI:', error);
     return generateTemplateHooks(project.topic, pack);
   }
 }
@@ -202,7 +203,7 @@ Keep it brief but clear. Return just the outline text, no JSON.`;
     const response = await callOpenAI(prompt, 'text');
     return response.trim();
   } catch (error) {
-    console.error('Error generating outline with AI:', error);
+    logError('Error generating outline with AI:', error);
     return generateTemplateOutline(project.topic, hook);
   }
 }
@@ -271,7 +272,7 @@ Requirements:
     try {
       scenes = JSON.parse(response);
     } catch (error) {
-      console.error('Failed to parse scenes JSON:', error);
+      logError('Failed to parse scenes JSON:', error);
       throw new Error('Invalid JSON response for scenes');
     }
 
@@ -297,7 +298,7 @@ Requirements:
 
     return generateTemplateScenes(project, hook, outline, pack, sceneCount, avgDuration);
   } catch (error) {
-    console.error('Error generating scenes with AI:', error);
+    logError('Error generating scenes with AI:', error);
     return generateTemplateScenes(project, hook, outline, pack, sceneCount, avgDuration);
   }
 }
@@ -358,7 +359,7 @@ Keep scene count the same. Make the script flow naturally.`;
     try {
       updates = JSON.parse(response);
     } catch (error) {
-      console.error('Failed to parse script updates JSON:', error);
+      logError('Failed to parse script updates JSON:', error);
       throw new Error('Invalid JSON response for script updates');
     }
 
@@ -376,7 +377,7 @@ Keep scene count the same. Make the script flow naturally.`;
       return { scriptFull, scenes: updatedScenes };
     }
   } catch (error) {
-    console.error('Error regenerating script:', error);
+    logError('Error regenerating script:', error);
   }
 
   const scriptFull = scenes.map((s) => s.narrationText).join('\n\n');
@@ -438,7 +439,7 @@ Return JSON:
         visualPrompt?: string;
       };
     } catch (error) {
-      console.error('Failed to parse scene regeneration JSON:', error);
+      logError('Failed to parse scene regeneration JSON:', error);
       return {
         narrationText: scene.narrationText,
         onScreenText: scene.onScreenText,
@@ -454,7 +455,7 @@ Return JSON:
       negativePrompt: pack.globalNegativePrompt,
     };
   } catch (error) {
-    console.error('Error regenerating scene:', error);
+    logError('Error regenerating scene:', error);
     return {
       narrationText: scene.narrationText,
       onScreenText: scene.onScreenText,
@@ -465,7 +466,7 @@ Return JSON:
 }
 
 // Template generators (fallback when no API key)
-function generateTemplateHooks(topic: string, _pack: unknown): string[] {
+function generateTemplateHooks(topic: string, _pack: NichePack): string[] {
   return [
     `You won't believe what I discovered about ${topic}...`,
     `Here's something about ${topic} that nobody talks about.`,

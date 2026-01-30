@@ -6,6 +6,7 @@ import { verifyArtifacts } from '../services/render/verifyArtifacts.js';
 import { env, isTestMode } from '../env.js';
 import path from 'path';
 import fs from 'fs';
+import { logError, logDebug } from '../utils/logger.js';
 
 export const runRoutes = Router();
 
@@ -77,7 +78,7 @@ runRoutes.get('/', async (_req, res) => {
     });
     res.json(runs);
   } catch (error) {
-    console.error('Error listing runs:', error);
+    logError('Error listing runs:', error);
     res.status(500).json({ error: 'Failed to list runs' });
   }
 });
@@ -117,7 +118,7 @@ runRoutes.get('/upcoming', async (req, res) => {
     });
     res.json(runs);
   } catch (error) {
-    console.error('Error listing upcoming runs:', error);
+    logError('Error listing upcoming runs:', error);
     res.status(500).json({ error: 'Failed to list upcoming runs' });
   }
 });
@@ -148,7 +149,7 @@ runRoutes.get('/:runId', async (req, res) => {
 
     res.json(run);
   } catch (error) {
-    console.error('Error getting run:', error);
+    logError('Error getting run:', error);
     res.status(500).json({ error: 'Failed to get run' });
   }
 });
@@ -203,7 +204,7 @@ runRoutes.patch('/:runId', async (req, res) => {
     if ((error as { code?: string }).code === 'P2025') {
       return res.status(404).json({ error: 'Run not found' });
     }
-    console.error('Error patching run:', error);
+    logError('Error patching run:', error);
     res.status(500).json({ error: 'Failed to update run' });
   }
 });
@@ -243,7 +244,7 @@ runRoutes.get('/:runId/stream', async (req, res) => {
     try {
       logs = JSON.parse(run.logsJson) as unknown[];
     } catch (error) {
-      console.error('Failed to parse run logs JSON:', error);
+      logError('Failed to parse run logs JSON:', error);
     }
     try {
       if (!res.writableEnded) {
@@ -257,7 +258,8 @@ runRoutes.get('/:runId/stream', async (req, res) => {
           })}\n\n`
         );
       }
-    } catch {
+    } catch (error) {
+      logDebug('Failed to write initial SSE state', { error, runId });
       connections.delete(res);
     }
   }
@@ -284,7 +286,8 @@ export function broadcastRunUpdate(runId: string, data: unknown) {
     try {
       if (!res.writableEnded) res.write(message);
       else connections.delete(res);
-    } catch {
+    } catch (error) {
+      logDebug('Failed to broadcast SSE message', { error, runId });
       connections.delete(res);
     }
   }
@@ -334,7 +337,7 @@ runRoutes.post('/:runId/retry', async (req, res) => {
     const retriedRun = await retryRun(run.id, fromStep);
     res.json(retriedRun);
   } catch (error) {
-    console.error('Error retrying run:', error);
+    logError('Error retrying run:', error);
     res.status(500).json({ error: 'Failed to retry run' });
   }
 });
@@ -362,7 +365,7 @@ runRoutes.post('/:runId/cancel', async (req, res) => {
     await cancelRun(run.id);
     res.json({ success: true });
   } catch (error) {
-    console.error('Error canceling run:', error);
+    logError('Error canceling run:', error);
     res.status(500).json({ error: 'Failed to cancel run' });
   }
 });
@@ -401,7 +404,7 @@ runRoutes.get('/:runId/verify', async (req, res) => {
     const verification = await verifyArtifacts(run);
     res.json(verification);
   } catch (error) {
-    console.error('Error verifying artifacts:', error);
+    logError('Error verifying artifacts:', error);
     res.status(500).json({ error: 'Failed to verify artifacts' });
   }
 });
@@ -433,7 +436,7 @@ runRoutes.get('/:runId/download', async (req, res) => {
     try {
       artifacts = JSON.parse(run.artifactsJson);
     } catch (error) {
-      console.error('Failed to parse artifacts JSON:', error);
+      logError('Failed to parse artifacts JSON:', error);
       return res.status(500).json({ error: 'Invalid artifacts data' });
     }
 
@@ -458,7 +461,7 @@ runRoutes.get('/:runId/download', async (req, res) => {
       !resolvedPath.startsWith(resolvedArtifactsDir + path.sep) &&
       resolvedPath !== resolvedArtifactsDir
     ) {
-      console.error('Path traversal attempt detected:', artifacts.mp4Path);
+      logError('Path traversal attempt detected:', artifacts.mp4Path);
       return res.status(403).json({ error: 'Invalid file path' });
     }
 
@@ -468,7 +471,7 @@ runRoutes.get('/:runId/download', async (req, res) => {
 
     res.download(resolvedPath, 'final.mp4');
   } catch (error) {
-    console.error('Error downloading video:', error);
+    logError('Error downloading video:', error);
     res.status(500).json({ error: 'Failed to download video' });
   }
 });
@@ -514,7 +517,7 @@ runRoutes.get('/:runId/artifact', async (req, res) => {
 
     res.sendFile(resolvedPath);
   } catch (error) {
-    console.error('Error serving artifact:', error);
+    logError('Error serving artifact:', error);
     res.status(500).json({ error: 'Failed to serve artifact' });
   }
 });
@@ -547,7 +550,7 @@ runRoutes.get('/:runId/export', async (req, res) => {
     try {
       artifacts = JSON.parse(run.artifactsJson);
     } catch (error) {
-      console.error('Failed to parse artifacts JSON:', error);
+      logError('Failed to parse artifacts JSON:', error);
       return res.status(500).json({ error: 'Invalid artifacts data' });
     }
 
@@ -602,7 +605,7 @@ runRoutes.get('/:runId/export', async (req, res) => {
 
     res.json(exportData);
   } catch (error) {
-    console.error('Error exporting:', error);
+    logError('Error exporting:', error);
     res.status(500).json({ error: 'Failed to export' });
   }
 });

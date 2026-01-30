@@ -3,6 +3,7 @@
  */
 import { callOpenAI } from '../providers/openai.js';
 import { getNichePack } from '../nichePacks.js';
+import { logError } from '../../utils/logger.js';
 
 export async function getTopicSuggestions(
   nichePackId: string,
@@ -20,7 +21,7 @@ export async function getTopicSuggestions(
   try {
     parsed = JSON.parse(trimmed);
   } catch (error) {
-    console.error('Failed to parse JSON response from OpenAI:', error);
+    logError('Failed to parse JSON response from OpenAI', error);
     throw new Error('Invalid JSON response from AI');
   }
 

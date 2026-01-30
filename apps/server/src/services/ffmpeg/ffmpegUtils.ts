@@ -1,4 +1,5 @@
 import { spawn } from 'child_process';
+import { logError, logDebug } from '../../utils/logger.js';
 import path from 'path';
 import fs from 'fs';
 
@@ -82,8 +83,8 @@ export async function getFFmpegPath(): Promise<string> {
       ffmpegPath = ffmpegStaticPath;
       return ffmpegPath;
     }
-  } catch {
-    // ffmpeg-static not installed
+  } catch (error) {
+    logDebug('ffmpeg-static not installed or not accessible', { error });
   }
 
   // Try system ffmpeg (spawn, no shell)
@@ -91,7 +92,8 @@ export async function getFFmpegPath(): Promise<string> {
     await runCommand('ffmpeg', ['-version'], 10000);
     ffmpegPath = 'ffmpeg';
     return ffmpegPath;
-  } catch {
+  } catch (error) {
+    logError('FFmpeg not found. Install ffmpeg-static or system ffmpeg.', error);
     throw new Error('FFmpeg not found. Install ffmpeg-static or system ffmpeg.');
   }
 }
@@ -105,7 +107,8 @@ export async function getFFprobePath(): Promise<string> {
     await runCommand('ffprobe', ['-version'], 10000);
     ffprobePath = 'ffprobe';
     return ffprobePath;
-  } catch {
+  } catch (error) {
+    logDebug('System ffprobe not found, trying ffmpeg-static directory', { error });
     // If ffmpeg-static is installed, ffprobe might be in same dir
     try {
       const ffmpegStaticModule = await import('ffmpeg-static');
@@ -117,8 +120,8 @@ export async function getFFprobePath(): Promise<string> {
           return ffprobePath;
         }
       }
-    } catch {
-      // not available
+    } catch (innerError) {
+      logDebug('ffmpeg-static ffprobe not available', { innerError });
     }
     throw new Error('FFprobe not found');
   }
@@ -129,7 +132,7 @@ export async function runFFmpeg(args: string[]): Promise<void> {
   const ffmpeg = await getFFmpegPath();
 
   return new Promise((resolve, reject) => {
-    console.log(`Running: ${ffmpeg} ${args.join(' ')}`);
+    logDebug(`Running: ${ffmpeg} ${args.join(' ')}`);
 
     const proc = spawn(ffmpeg, args, {
       stdio: ['ignore', 'pipe', 'pipe'],

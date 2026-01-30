@@ -19,6 +19,7 @@ import { scriptTemplatesRoutes } from './routes/scriptTemplates.js';
 import { testRoutes } from './routes/test.js';
 import { ensureConnection } from './db/client.js';
 import { resetStuckRuns } from './services/render/renderPipeline.js';
+import { logError, logWarn, logInfo, logDebug } from './utils/logger.js';
 
 function getAppVersion(): string {
   if (env.APP_VERSION) {
@@ -38,8 +39,8 @@ function getAppVersion(): string {
         if (parsed.version) {
           return parsed.version;
         }
-      } catch {
-        // ignore
+      } catch (error) {
+        logDebug('Failed to parse package.json for version', { error, path: pkgPath });
       }
     }
   }
@@ -69,10 +70,9 @@ export function createApp() {
 
   // Warn in production if no origins configured
   if (!isDevelopment && allowedOrigins.length === 0) {
-    console.warn(
-      'WARNING: ALLOWED_ORIGINS not configured in production. CORS will block browser requests.'
+    logWarn(
+      'ALLOWED_ORIGINS not configured in production. CORS will block browser requests. Set ALLOWED_ORIGINS environment variable to enable cross-origin requests.'
     );
-    console.warn('Set ALLOWED_ORIGINS environment variable to enable cross-origin requests.');
   }
 
   // Helmet - Security headers
@@ -174,7 +174,7 @@ export function createApp() {
   // Error handler
   app.use(
     (err: Error, req: express.Request, res: express.Response, _next: express.NextFunction) => {
-      console.error('Server error:', err);
+      logError('Server error', err, { path: req.path, method: req.method });
       res.status(500).json({ error: err.message || 'Internal server error' });
     }
   );
@@ -194,12 +194,14 @@ export function createApp() {
 export function startServer() {
   const app = createApp();
   return app.listen(env.PORT, '0.0.0.0', () => {
-    console.log(`Server running on http://localhost:${env.PORT}`);
-    console.log(`Server also available on http://0.0.0.0:${env.PORT}`);
-    console.log(`Environment: ${env.NODE_ENV}`);
-    console.log(`Artifacts dir: ${env.ARTIFACTS_DIR}`);
-    console.log(`Test mode: ${isTestMode() ? 'enabled' : 'disabled'}`);
-    resetStuckRuns().catch((err) => console.error('Failed to reset stuck runs:', err));
+    logInfo(`Server running on http://localhost:${env.PORT}`, {
+      port: env.PORT,
+      environment: env.NODE_ENV,
+      artifactsDir: env.ARTIFACTS_DIR,
+      testMode: isTestMode(),
+    });
+    logInfo(`Server also available on http://0.0.0.0:${env.PORT}`);
+    resetStuckRuns().catch((err) => logError('Failed to reset stuck runs', err));
   });
 }
 

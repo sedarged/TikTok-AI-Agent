@@ -1,4 +1,5 @@
 import { prisma } from '../../db/client.js';
+import { logError, logWarn } from '../../utils/logger.js';
 import { v4 as uuid } from 'uuid';
 import path from 'path';
 import fs from 'fs';
@@ -95,11 +96,11 @@ async function processNextInQueue(): Promise<void> {
     });
     activeRuns.set(runId, true);
     executePipeline(run, run.planVersion as PlanWithDetails).catch((err) => {
-      console.error('Pipeline execution failed (from queue):', err);
+      logError('Pipeline execution failed (from queue):', err);
       handlePipelineError(runId, err);
     });
   } catch (err) {
-    console.error('Failed to process next in queue:', err);
+    logError('Failed to process next in queue:', err);
     processNextInQueue().catch(console.error);
   }
 }
@@ -131,7 +132,7 @@ async function handlePipelineError(runId: string, error: unknown): Promise<void>
       broadcastRunUpdate(runId, { type: 'failed', error: errorMessage });
     }
   } catch (e) {
-    console.error('Error in handlePipelineError:', e);
+    logError('Error in handlePipelineError:', e);
   }
   // Note: executePipeline's finally will set currentRunningRunId = null and call processNextInQueue
 }
@@ -213,7 +214,7 @@ export async function startRenderPipeline(planVersion: PlanWithDetails): Promise
   });
   activeRuns.set(runId, true);
   executePipeline(run, planVersion).catch((error) => {
-    console.error('Pipeline execution failed:', error);
+    logError('Pipeline execution failed:', error);
     handlePipelineError(runId, error);
   });
 
@@ -253,7 +254,7 @@ async function executePipeline(run: Run, planVersion: PlanWithDetails) {
   try {
     resumeState = JSON.parse(run.resumeStateJson);
   } catch (error) {
-    console.error('Failed to parse resumeStateJson, starting fresh:', error);
+    logError('Failed to parse resumeStateJson, starting fresh:', error);
     resumeState = { completedSteps: [], completedSceneIdxs: [] };
   }
 
@@ -752,7 +753,7 @@ async function executePipeline(run: Run, planVersion: PlanWithDetails) {
       broadcastRunUpdate(runId, { type: 'done', progress: 100 });
     }
   } catch (error) {
-    console.error('Pipeline error:', error);
+    logError('Pipeline error:', error);
 
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
 
@@ -811,7 +812,7 @@ export async function resetStuckRuns(): Promise<void> {
     });
   }
   if (stuck.length > 0) {
-    console.warn(`Reset ${stuck.length} run(s) stuck in "running" state.`);
+    logWarn(`Reset ${stuck.length} run(s) stuck in "running" state.`);
   }
 }
 
@@ -897,7 +898,7 @@ export async function retryRun(runId: string, fromStep?: string): Promise<Run> {
   });
   activeRuns.set(runId, true);
   executePipeline(updatedRun, updatedRun.planVersion as PlanWithDetails).catch((err) => {
-    console.error('Pipeline execution failed (retry):', err);
+    logError('Pipeline execution failed (retry):', err);
     handlePipelineError(runId, err);
   });
 
@@ -960,7 +961,7 @@ async function addLog(runId: string, message: string, level: 'info' | 'warn' | '
   try {
     logs = JSON.parse(run.logsJson);
   } catch (error) {
-    console.error('Failed to parse logsJson, starting fresh:', error);
+    logError('Failed to parse logsJson, starting fresh:', error);
     logs = [];
   }
 
@@ -992,7 +993,7 @@ async function saveResumeState(runId: string, state: Partial<ResumeState>) {
   try {
     currentState = JSON.parse(run.resumeStateJson);
   } catch (error) {
-    console.error('Failed to parse resumeStateJson, starting fresh:', error);
+    logError('Failed to parse resumeStateJson, starting fresh:', error);
     currentState = {};
   }
 
