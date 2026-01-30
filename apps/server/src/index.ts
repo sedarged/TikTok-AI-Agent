@@ -66,7 +66,8 @@ export function createApp() {
       .map((o) => o.trim())
       .filter((o) => o.startsWith('http://') || o.startsWith('https://')) || [];
 
-  const isDevelopment = env.NODE_ENV === 'development' || env.NODE_ENV === 'test';
+  const isDevelopment =
+    env.NODE_ENV === 'development' || env.NODE_ENV === 'test' || env.NODE_ENV === 'e2e';
 
   // Warn in production if no origins configured
   if (!isDevelopment && allowedOrigins.length === 0) {
