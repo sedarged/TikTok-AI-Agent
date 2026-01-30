@@ -23,9 +23,9 @@
         <div class='clearfix'>
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">2.09% </span>
+                <span class="strong">2.04% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>3/143</span>
+                <span class='fraction'>3/147</span>
             </div>
         
             
@@ -44,9 +44,9 @@
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">2.2% </span>
+                <span class="strong">2.14% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>3/136</span>
+                <span class='fraction'>3/140</span>
             </div>
         
             
@@ -519,7 +519,11 @@
 <a name='L454'></a><a href='#L454'>454</a>
 <a name='L455'></a><a href='#L455'>455</a>
 <a name='L456'></a><a href='#L456'>456</a>
-<a name='L457'></a><a href='#L457'>457</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
+<a name='L457'></a><a href='#L457'>457</a>
+<a name='L458'></a><a href='#L458'>458</a>
+<a name='L459'></a><a href='#L459'>459</a>
+<a name='L460'></a><a href='#L460'>460</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -604,7 +608,7 @@
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -614,17 +618,12 @@
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -632,6 +631,13 @@
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
@@ -639,7 +645,7 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -976,6 +982,7 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js">import { spawn } from 'child_process';
+import { logError, logDebug } from '../../utils/logger.js';
 import path from 'path';
 import fs from 'fs';
 &nbsp;
@@ -1012,7 +1019,7 @@ async function <span class="fstat-no" title="function not covered" >runFfprobe(a
 }
 &nbsp;
 /** Escape path for FFmpeg concat list line: file 'path' — single quotes in path escaped. */
-function <span class="fstat-no" title="function not covered" >escapeConcatPath(f</span>ilePath: string): string {
+export function <span class="fstat-no" title="function not covered" >escapeConcatPath(f</span>ilePath: string): string {
 <span class="cstat-no" title="statement not covered" >  return filePath.replace(/'/g, "'\\''");</span>
 }
 &nbsp;
@@ -1059,8 +1066,8 @@ export async function <span class="fstat-no" title="function not covered" >getFF
 <span class="cstat-no" title="statement not covered" >      ffmpegPath = ffmpegStaticPath;</span>
 <span class="cstat-no" title="statement not covered" >      return ffmpegPath;</span>
     }
-  } catch {
-    // ffmpeg-static not installed
+  } catch (error) {
+<span class="cstat-no" title="statement not covered" >    logDebug('ffmpeg-static not installed or not accessible', { error });</span>
   }
 &nbsp;
   // Try system ffmpeg (spawn, no shell)
@@ -1068,7 +1075,8 @@ export async function <span class="fstat-no" title="function not covered" >getFF
 <span class="cstat-no" title="statement not covered" >    await runCommand('ffmpeg', ['-version'], 10000);</span>
 <span class="cstat-no" title="statement not covered" >    ffmpegPath = 'ffmpeg';</span>
 <span class="cstat-no" title="statement not covered" >    return ffmpegPath;</span>
-  } catch {
+  } catch (error) {
+<span class="cstat-no" title="statement not covered" >    logError('FFmpeg not found. Install ffmpeg-static or system ffmpeg.', error);</span>
 <span class="cstat-no" title="statement not covered" >    throw new Error('FFmpeg not found. Install ffmpeg-static or system ffmpeg.');</span>
   }
 }
@@ -1082,7 +1090,8 @@ export async function <span class="fstat-no" title="function not covered" >getFF
 <span class="cstat-no" title="statement not covered" >    await runCommand('ffprobe', ['-version'], 10000);</span>
 <span class="cstat-no" title="statement not covered" >    ffprobePath = 'ffprobe';</span>
 <span class="cstat-no" title="statement not covered" >    return ffprobePath;</span>
-  } catch {
+  } catch (error) {
+<span class="cstat-no" title="statement not covered" >    logDebug('System ffprobe not found, trying ffmpeg-static directory', { error });</span>
     // If ffmpeg-static is installed, ffprobe might be in same dir
 <span class="cstat-no" title="statement not covered" >    try {</span>
       const ffmpegStaticModule = <span class="cstat-no" title="statement not covered" >await import('ffmpeg-static');</span>
@@ -1094,8 +1103,8 @@ export async function <span class="fstat-no" title="function not covered" >getFF
 <span class="cstat-no" title="statement not covered" >          return ffprobePath;</span>
         }
       }
-    } catch {
-      // not available
+    } catch (innerError) {
+<span class="cstat-no" title="statement not covered" >      logDebug('ffmpeg-static ffprobe not available', { innerError });</span>
     }
 <span class="cstat-no" title="statement not covered" >    throw new Error('FFprobe not found');</span>
   }
@@ -1106,7 +1115,7 @@ export async function <span class="fstat-no" title="function not covered" >runFF
   const ffmpeg = <span class="cstat-no" title="statement not covered" >await getFFmpegPath();</span>
 &nbsp;
 <span class="cstat-no" title="statement not covered" >  return new Promise(<span class="fstat-no" title="function not covered" >(r</span>esolve, reject) =&gt; {</span>
-<span class="cstat-no" title="statement not covered" >    console.log(`Running: ${ffmpeg} ${args.join(' ')}`);</span>
+<span class="cstat-no" title="statement not covered" >    logDebug(`Running: ${ffmpeg} ${args.join(' ')}`);</span>
 &nbsp;
     const <span class="cstat-no" title="statement not covered" >proc = spawn(ffmpeg, args, {</span>
       stdio: ['ignore', 'pipe', 'pipe'],
@@ -1240,8 +1249,8 @@ export async function <span class="fstat-no" title="function not covered" >creat
   ]);
 }
 &nbsp;
-// Get FFmpeg filter for motion effect
-function <span class="fstat-no" title="function not covered" >getMotionFilter(e</span>ffect: string, duration: number): string {
+// Get FFmpeg filter for motion effect (exported for unit tests)
+export function <span class="fstat-no" title="function not covered" >getMotionFilter(e</span>ffect: string, duration: number): string {
   const scale = <span class="cstat-no" title="statement not covered" >'scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920';</span>
 &nbsp;
 <span class="cstat-no" title="statement not covered" >  switch (effect) {</span>
@@ -1438,7 +1447,7 @@ export async function <span class="fstat-no" title="function not covered" >extra
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2026-01-29T21:15:55.762Z
+                at 2026-01-30T21:46:15.599Z
             </div>
         <script src="../../../prettify.js"></script>
         <script>

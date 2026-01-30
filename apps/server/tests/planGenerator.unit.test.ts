@@ -1,5 +1,4 @@
 import { describe, expect, it, beforeEach, vi, afterEach } from 'vitest';
-import { v4 as uuid } from 'uuid';
 import type { Project } from '@prisma/client';
 import {
   generatePlan,
@@ -13,10 +12,11 @@ import * as openaiModule from '../src/services/providers/openai.js';
 import * as envModule from '../src/env.js';
 import { prisma } from '../src/db/client.js';
 
-// Helper to build test project
-function buildProject(overrides: Partial<Project> = {}): Project {
+// Helper to build test project data
+function buildProjectData(
+  overrides: Partial<Project> = {}
+): Omit<Project, 'id' | 'createdAt' | 'updatedAt'> {
   return {
-    id: uuid(),
     title: 'Test Project',
     topic: 'Testing deep ocean mysteries',
     nichePackId: 'facts',
@@ -28,10 +28,15 @@ function buildProject(overrides: Partial<Project> = {}): Project {
     seoKeywords: null,
     status: 'DRAFT_PLAN',
     latestPlanVersionId: null,
-    createdAt: new Date(),
-    updatedAt: new Date(),
     ...overrides,
   };
+}
+
+// Helper to create and save test project to DB
+async function createTestProject(overrides: Partial<Project> = {}): Promise<Project> {
+  return prisma.project.create({
+    data: buildProjectData(overrides),
+  });
 }
 
 // Clean up DB before/after tests
@@ -55,7 +60,7 @@ describe('planGenerator - Template Mode (no OpenAI)', () => {
 
   describe('generatePlan', () => {
     it('generates a complete plan with 5 hooks, outline, scenes', async () => {
-      const project = buildProject({ nichePackId: 'facts', targetLengthSec: 60 });
+      const project = await createTestProject({ nichePackId: 'facts', targetLengthSec: 60 });
 
       const plan = await generatePlan(project);
 
@@ -100,7 +105,7 @@ describe('planGenerator - Template Mode (no OpenAI)', () => {
       expect(pacing60.minScenes).toBe(5);
       expect(pacing60.maxScenes).toBe(7);
 
-      const project = buildProject({ nichePackId: 'facts', targetLengthSec: 60 });
+      const project = await createTestProject({ nichePackId: 'facts', targetLengthSec: 60 });
       const plan = await generatePlan(project);
 
       const scenes = await prisma.scene.findMany({ where: { planVersionId: plan.id } });
@@ -116,13 +121,13 @@ describe('planGenerator - Template Mode (no OpenAI)', () => {
       expect(pack).toBeDefined();
 
       // 60s should have fewer scenes than 120s
-      const project60 = buildProject({ targetLengthSec: 60 });
+      const project60 = await createTestProject({ targetLengthSec: 60 });
       const plan60 = await generatePlan(project60);
       const scenes60 = await prisma.scene.findMany({ where: { planVersionId: plan60.id } });
 
       await cleanDb();
 
-      const project120 = buildProject({ targetLengthSec: 120 });
+      const project120 = await createTestProject({ targetLengthSec: 120 });
       const plan120 = await generatePlan(project120);
       const scenes120 = await prisma.scene.findMany({ where: { planVersionId: plan120.id } });
 
@@ -130,7 +135,7 @@ describe('planGenerator - Template Mode (no OpenAI)', () => {
     });
 
     it('calculates duration estimates based on WPM and tempo', async () => {
-      const projectNormal = buildProject({ tempo: 'normal', targetLengthSec: 60 });
+      const projectNormal = await createTestProject({ tempo: 'normal', targetLengthSec: 60 });
       const planNormal = await generatePlan(projectNormal);
       const estimatesNormal = JSON.parse(planNormal.estimatesJson) as {
         wpm: number;
@@ -141,7 +146,7 @@ describe('planGenerator - Template Mode (no OpenAI)', () => {
 
       await cleanDb();
 
-      const projectSlow = buildProject({ tempo: 'slow', targetLengthSec: 60 });
+      const projectSlow = await createTestProject({ tempo: 'slow', targetLengthSec: 60 });
       const planSlow = await generatePlan(projectSlow);
       const estimatesSlow = JSON.parse(planSlow.estimatesJson) as {
         wpm: number;
@@ -152,7 +157,7 @@ describe('planGenerator - Template Mode (no OpenAI)', () => {
 
       await cleanDb();
 
-      const projectFast = buildProject({ tempo: 'fast', targetLengthSec: 60 });
+      const projectFast = await createTestProject({ tempo: 'fast', targetLengthSec: 60 });
       const planFast = await generatePlan(projectFast);
       const estimatesFast = JSON.parse(planFast.estimatesJson) as {
         wpm: number;
@@ -163,7 +168,7 @@ describe('planGenerator - Template Mode (no OpenAI)', () => {
     });
 
     it('generates scenes with sequential timing', async () => {
-      const project = buildProject({ targetLengthSec: 60 });
+      const project = await createTestProject({ targetLengthSec: 60 });
       const plan = await generatePlan(project);
 
       const scenes = await prisma.scene.findMany({
@@ -191,7 +196,7 @@ describe('planGenerator - Template Mode (no OpenAI)', () => {
       const pack = getNichePack('horror');
       expect(pack).toBeDefined();
 
-      const project = buildProject({ nichePackId: 'horror', targetLengthSec: 60 });
+      const project = await createTestProject({ nichePackId: 'horror', targetLengthSec: 60 });
       const plan = await generatePlan(project);
 
       const scenes = await prisma.scene.findMany({ where: { planVersionId: plan.id } });
@@ -205,7 +210,7 @@ describe('planGenerator - Template Mode (no OpenAI)', () => {
     });
 
     it('generates 5 template hooks when OpenAI not configured', async () => {
-      const project = buildProject({ topic: 'artificial intelligence' });
+      const project = await createTestProject({ topic: 'artificial intelligence' });
       const hooks = await regenerateHooks(project);
 
       expect(hooks).toHaveLength(5);
@@ -216,7 +221,7 @@ describe('planGenerator - Template Mode (no OpenAI)', () => {
     });
 
     it('generates template outline with hook and topic', async () => {
-      const project = buildProject({ topic: 'space exploration' });
+      const project = await createTestProject({ topic: 'space exploration' });
       const hook = 'Did you know about space exploration?';
 
       const outline = await regenerateOutline(project, hook);
@@ -228,7 +233,7 @@ describe('planGenerator - Template Mode (no OpenAI)', () => {
     });
 
     it('distributes scenes evenly across target duration', async () => {
-      const project = buildProject({ targetLengthSec: 60 });
+      const project = await createTestProject({ targetLengthSec: 60 });
       const plan = await generatePlan(project);
 
       const scenes = await prisma.scene.findMany({
@@ -249,13 +254,13 @@ describe('planGenerator - Template Mode (no OpenAI)', () => {
     });
 
     it('creates different scenes for different niche packs', async () => {
-      const projectFacts = buildProject({ nichePackId: 'facts', targetLengthSec: 60 });
+      const projectFacts = await createTestProject({ nichePackId: 'facts', targetLengthSec: 60 });
       const planFacts = await generatePlan(projectFacts);
       const scenesFacts = await prisma.scene.findMany({ where: { planVersionId: planFacts.id } });
 
       await cleanDb();
 
-      const projectHorror = buildProject({ nichePackId: 'horror', targetLengthSec: 60 });
+      const projectHorror = await createTestProject({ nichePackId: 'horror', targetLengthSec: 60 });
       const planHorror = await generatePlan(projectHorror);
       const scenesHorror = await prisma.scene.findMany({
         where: { planVersionId: planHorror.id },
@@ -273,7 +278,7 @@ describe('planGenerator - Template Mode (no OpenAI)', () => {
 
   describe('regenerateScript', () => {
     it('keeps scenes unchanged in template mode', async () => {
-      const project = buildProject();
+      const project = await createTestProject();
       const plan = await generatePlan(project);
 
       const scenes = await prisma.scene.findMany({
@@ -297,7 +302,7 @@ describe('planGenerator - Template Mode (no OpenAI)', () => {
 
   describe('regenerateScene', () => {
     it('returns scene unchanged in template mode', async () => {
-      const project = buildProject();
+      const project = await createTestProject();
       const plan = await generatePlan(project);
 
       const scenes = await prisma.scene.findMany({
@@ -316,13 +321,13 @@ describe('planGenerator - Template Mode (no OpenAI)', () => {
 
   describe('Error handling', () => {
     it('throws error for invalid niche pack', async () => {
-      const project = buildProject({ nichePackId: 'invalid-pack' });
+      const project = await createTestProject({ nichePackId: 'invalid-pack' });
 
       await expect(generatePlan(project)).rejects.toThrow('Niche pack not found');
     });
 
     it('throws error when regenerating hooks with invalid niche pack', async () => {
-      const project = buildProject({ nichePackId: 'invalid-pack' });
+      const project = await createTestProject({ nichePackId: 'invalid-pack' });
 
       await expect(regenerateHooks(project)).rejects.toThrow('Niche pack not found');
     });
@@ -372,7 +377,7 @@ describe('planGenerator - AI Mode (with OpenAI mocked)', () => {
       }));
       callOpenAISpy.mockResolvedValueOnce(JSON.stringify(mockScenes));
 
-      const project = buildProject({ targetLengthSec: 60 });
+      const project = await createTestProject({ targetLengthSec: 60 });
       const plan = await generatePlan(project);
 
       expect(plan).toBeDefined();
@@ -397,7 +402,7 @@ describe('planGenerator - AI Mode (with OpenAI mocked)', () => {
       // Mock invalid JSON response for hooks
       callOpenAISpy.mockResolvedValueOnce('Invalid JSON response');
 
-      const project = buildProject();
+      const project = await createTestProject();
       const hooks = await regenerateHooks(project);
 
       // Should fall back to template hooks
@@ -409,7 +414,7 @@ describe('planGenerator - AI Mode (with OpenAI mocked)', () => {
       // Mock response with only 3 hooks instead of 5
       callOpenAISpy.mockResolvedValueOnce(JSON.stringify(['hook 1', 'hook 2', 'hook 3']));
 
-      const project = buildProject();
+      const project = await createTestProject();
       const hooks = await regenerateHooks(project);
 
       // Should fall back to template hooks
@@ -420,7 +425,7 @@ describe('planGenerator - AI Mode (with OpenAI mocked)', () => {
       // Mock error
       callOpenAISpy.mockRejectedValueOnce(new Error('API error'));
 
-      const project = buildProject();
+      const project = await createTestProject();
       const hooks = await regenerateHooks(project);
 
       // Should fall back to template hooks
@@ -429,8 +434,8 @@ describe('planGenerator - AI Mode (with OpenAI mocked)', () => {
     });
 
     it('regenerateScript updates narration with AI response', async () => {
-      const project = buildProject();
-      
+      const project = await createTestProject();
+
       // First generate a plan with template
       vi.spyOn(envModule, 'isOpenAIConfigured').mockReturnValue(false);
       const plan = await generatePlan(project);
@@ -461,11 +466,11 @@ describe('planGenerator - AI Mode (with OpenAI mocked)', () => {
     });
 
     it('regenerateScript preserves locked scenes', async () => {
-      const project = buildProject();
-      
+      const project = await createTestProject();
+
       vi.spyOn(envModule, 'isOpenAIConfigured').mockReturnValue(false);
       const plan = await generatePlan(project);
-      let scenes = await prisma.scene.findMany({
+      const scenes = await prisma.scene.findMany({
         where: { planVersionId: plan.id },
         orderBy: { idx: 'asc' },
       });
@@ -490,8 +495,8 @@ describe('planGenerator - AI Mode (with OpenAI mocked)', () => {
     });
 
     it('regenerateScene calls AI with context', async () => {
-      const project = buildProject();
-      
+      const project = await createTestProject();
+
       vi.spyOn(envModule, 'isOpenAIConfigured').mockReturnValue(false);
       const plan = await generatePlan(project);
       const scenes = await prisma.scene.findMany({
@@ -514,7 +519,7 @@ describe('planGenerator - AI Mode (with OpenAI mocked)', () => {
 
       expect(callOpenAISpy).toHaveBeenCalled();
       const callArgs = callOpenAISpy.mock.calls[0][0] as string;
-      
+
       // Should include context from previous and next scenes
       expect(callArgs).toContain('Scene index: 2'); // idx + 1
       expect(callArgs).toContain('Previous scene narration');
@@ -526,8 +531,8 @@ describe('planGenerator - AI Mode (with OpenAI mocked)', () => {
     });
 
     it('regenerateScene handles first scene without previous', async () => {
-      const project = buildProject();
-      
+      const project = await createTestProject();
+
       vi.spyOn(envModule, 'isOpenAIConfigured').mockReturnValue(false);
       const plan = await generatePlan(project);
       const scenes = await prisma.scene.findMany({
@@ -553,8 +558,8 @@ describe('planGenerator - AI Mode (with OpenAI mocked)', () => {
     });
 
     it('regenerateScene handles last scene without next', async () => {
-      const project = buildProject();
-      
+      const project = await createTestProject();
+
       vi.spyOn(envModule, 'isOpenAIConfigured').mockReturnValue(false);
       const plan = await generatePlan(project);
       const scenes = await prisma.scene.findMany({

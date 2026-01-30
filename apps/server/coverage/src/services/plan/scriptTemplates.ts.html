@@ -3,15 +3,15 @@
 <html lang="en">
 
 <head>
-    <title>Code coverage report for src/routes/status.ts</title>
+    <title>Code coverage report for src/services/plan/scriptTemplates.ts</title>
     <meta charset="utf-8" />
-    <link rel="stylesheet" href="../../prettify.css" />
-    <link rel="stylesheet" href="../../base.css" />
-    <link rel="shortcut icon" type="image/x-icon" href="../../favicon.png" />
+    <link rel="stylesheet" href="../../../prettify.css" />
+    <link rel="stylesheet" href="../../../base.css" />
+    <link rel="shortcut icon" type="image/x-icon" href="../../../favicon.png" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <style type='text/css'>
         .coverage-summary .sorter {
-            background-image: url(../../sort-arrow-sprite.png);
+            background-image: url(../../../sort-arrow-sprite.png);
         }
     </style>
 </head>
@@ -19,34 +19,34 @@
 <body>
 <div class='wrapper'>
     <div class='pad1'>
-        <h1><a href="../../index.html">All files</a> / <a href="index.html">src/routes</a> status.ts</h1>
+        <h1><a href="../../../index.html">All files</a> / <a href="index.html">src/services/plan</a> scriptTemplates.ts</h1>
         <div class='clearfix'>
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">20% </span>
+                <span class="strong">33.33% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>2/10</span>
+                <span class='fraction'>1/3</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">0% </span>
+                <span class="strong">100% </span>
                 <span class="quiet">Branches</span>
-                <span class='fraction'>0/17</span>
+                <span class='fraction'>0/0</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
                 <span class="strong">0% </span>
                 <span class="quiet">Functions</span>
-                <span class='fraction'>0/1</span>
+                <span class='fraction'>0/2</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">20% </span>
+                <span class="strong">50% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>2/10</span>
+                <span class='fraction'>1/2</span>
             </div>
         
             
@@ -93,30 +93,15 @@
 <a name='L28'></a><a href='#L28'>28</a>
 <a name='L29'></a><a href='#L29'>29</a>
 <a name='L30'></a><a href='#L30'>30</a>
-<a name='L31'></a><a href='#L31'>31</a>
-<a name='L32'></a><a href='#L32'>32</a>
-<a name='L33'></a><a href='#L33'>33</a>
-<a name='L34'></a><a href='#L34'>34</a>
-<a name='L35'></a><a href='#L35'>35</a>
-<a name='L36'></a><a href='#L36'>36</a>
-<a name='L37'></a><a href='#L37'>37</a>
-<a name='L38'></a><a href='#L38'>38</a>
-<a name='L39'></a><a href='#L39'>39</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
+<a name='L31'></a><a href='#L31'>31</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">1x</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -138,45 +123,36 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js">import { Router } from 'express';
-import { isOpenAIConfigured, isElevenLabsConfigured, isRenderDryRun, isTestMode } from '../env.js';
-import { checkFFmpegAvailable } from '../services/ffmpeg/ffmpegUtils.js';
+<span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js">export interface ScriptTemplate {
+  id: string;
+  name: string;
+  description: string;
+}
 &nbsp;
-export const statusRoutes = Router();
+export const SCRIPT_TEMPLATES: ScriptTemplate[] = [
+  {
+    id: 'top5',
+    name: 'Top 5 list',
+    description:
+      'Structure as a numbered top-5 list. Each scene is one item. Clear countdown and ranking. Strong hook: "Here are 5..."',
+  },
+  {
+    id: 'myth_vs_fact',
+    name: 'Myth vs fact',
+    description:
+      'Present a common myth or misconception, then debunk it with facts. Contrast structure: myth first, then "Here\'s the truth."',
+  },
+  {
+    id: 'storytime',
+    name: 'Storytime / narrative',
+    description:
+      'Tell a short story with a clear beginning, middle, and end. Emotional beat, twist or lesson. First-person or anecdote style.',
+  },
+];
 &nbsp;
-statusRoutes.get('/', <span class="fstat-no" title="function not covered" >async (r</span>eq, res) =&gt; {
-<span class="cstat-no" title="statement not covered" >  try {</span>
-    const <span class="cstat-no" title="statement not covered" >testMode = isTestMode();</span>
-    const <span class="cstat-no" title="statement not covered" >renderDryRun = isRenderDryRun();</span>
-    const ffmpegAvailable = <span class="cstat-no" title="statement not covered" >testMode || renderDryRun ? false : await checkFFmpegAvailable();</span>
-&nbsp;
-    const <span class="cstat-no" title="statement not covered" >openaiReady = isOpenAIConfigured();</span>
-    const ready = <span class="cstat-no" title="statement not covered" >renderDryRun ? true : !testMode &amp;&amp; openaiReady &amp;&amp; ffmpegAvailable;</span>
-&nbsp;
-<span class="cstat-no" title="statement not covered" >    res.json({</span>
-      providers: {
-        openai: openaiReady,
-        elevenlabs: isElevenLabsConfigured(),
-        ffmpeg: ffmpegAvailable,
-      },
-      ready,
-      testMode,
-      renderDryRun,
-      message: testMode
-        ? 'APP_TEST_MODE enabled: rendering disabled and deterministic plan generator in use.'
-        : renderDryRun
-          ? 'APP_RENDER_DRY_RUN enabled: render pipeline runs without external providers or MP4.'
-          : !openaiReady
-            ? 'OpenAI API key not configured. Set OPENAI_API_KEY in .env file.'
-            : !ffmpegAvailable
-              ? 'FFmpeg not available. Install ffmpeg or use ffmpeg-static.'
-              : 'All providers configured and ready.',
-    });
-  } catch {
-<span class="cstat-no" title="statement not covered" >    res.status(500).json({ error: 'Failed to check status' });</span>
-  }
-});
+export function <span class="fstat-no" title="function not covered" >getScriptTemplate(i</span>d: string): ScriptTemplate | undefined {
+<span class="cstat-no" title="statement not covered" >  return SCRIPT_TEMPLATES.find(<span class="fstat-no" title="function not covered" >(t</span>) =&gt; <span class="cstat-no" title="statement not covered" >t.id === id)</span>;</span>
+}
 &nbsp;</pre></td></tr></table></pre>
 
                 <div class='push'></div><!-- for sticky footer -->
@@ -184,16 +160,16 @@ statusRoutes.get('/', <span class="fstat-no" title="function not covered" >async
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2026-01-29T21:15:55.762Z
+                at 2026-01-30T21:46:15.599Z
             </div>
-        <script src="../../prettify.js"></script>
+        <script src="../../../prettify.js"></script>
         <script>
             window.onload = function () {
                 prettyPrint();
             };
         </script>
-        <script src="../../sorter.js"></script>
-        <script src="../../block-navigation.js"></script>
+        <script src="../../../sorter.js"></script>
+        <script src="../../../block-navigation.js"></script>
     </body>
 </html>
     
