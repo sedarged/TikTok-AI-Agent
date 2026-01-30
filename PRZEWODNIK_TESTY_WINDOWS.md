@@ -4,7 +4,7 @@
 
 Przed rozpoczęciem upewnij się, że masz zainstalowane:
 
-1. **Node.js** (wersja 18 lub nowsza)
+1. **Node.js** (wersja 20.19+ lub 22.12+)
    - Sprawdź: `node --version`
    - Pobierz z: https://nodejs.org/
 
