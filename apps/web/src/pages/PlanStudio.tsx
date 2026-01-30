@@ -506,7 +506,7 @@ export default function PlanStudio({ status }: PlanStudioProps) {
               onClick={() => setToolsMenuOpen(!toolsMenuOpen)}
               className="btn btn-secondary flex items-center gap-1"
             >
-              <span>Narzędzia</span>
+              <span>Tools</span>
               <svg
                 className={`w-4 h-4 transition-transform ${toolsMenuOpen ? 'rotate-180' : ''}`}
                 fill="none"
@@ -624,10 +624,10 @@ export default function PlanStudio({ status }: PlanStudioProps) {
         <nav className="flex gap-4">
           {(['hook', 'outline', 'script', 'scenes'] as const).map((tab) => {
             const tabLabels: Record<typeof tab, { title: string; desc: string }> = {
-              hook: { title: 'Hook', desc: 'Wybierz hook' },
-              outline: { title: 'Outline', desc: 'Zobacz strukturę' },
-              script: { title: 'Script', desc: 'Pełny tekst' },
-              scenes: { title: 'Scenes', desc: 'Edytuj sceny' },
+              hook: { title: 'Hook', desc: 'Choose hook' },
+              outline: { title: 'Outline', desc: 'See structure' },
+              script: { title: 'Script', desc: 'Full text' },
+              scenes: { title: 'Scenes', desc: 'Edit scenes' },
             };
             const label = tabLabels[tab];
             return (
