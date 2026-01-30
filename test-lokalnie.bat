@@ -115,7 +115,7 @@ echo.
 echo Node.js:
 where node >nul 2>&1
 if errorlevel 1 (
-  echo  - BRAK (zainstaluj Node.js 20.19+ LTS)
+  echo  - BRAK (zainstaluj Node.js 20.19+ lub 22.12+ LTS)
 ) else (
   for /f %%v in ('node --version') do echo  - %%v
 )
