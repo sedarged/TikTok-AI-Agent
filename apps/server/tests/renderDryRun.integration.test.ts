@@ -251,6 +251,9 @@ describeIfDryRun('Render dry-run pipeline', () => {
       expect(doneRun.status).toBe('done');
     }
 
+    // Wait a bit for project status updates to complete (done after run status update)
+    await new Promise((resolve) => setTimeout(resolve, 100));
+
     // Verify all projects reached DONE status after render completion
     for (const runId of runIds) {
       const run = await prisma.run.findUnique({
