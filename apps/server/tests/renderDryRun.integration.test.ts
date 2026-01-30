@@ -92,6 +92,8 @@ describeIfDryRun('Render dry-run pipeline', () => {
     const reportPath = path.join(env.ARTIFACTS_DIR, artifacts.dryRunReportPath);
     expect(fs.existsSync(reportPath)).toBe(true);
 
+    // Wait a bit for project status to be updated (done after run status update)
+    await new Promise((resolve) => setTimeout(resolve, 100));
     const project = await prisma.project.findUnique({ where: { id: projectId } });
     expect(project?.status).toBe('DONE');
 
