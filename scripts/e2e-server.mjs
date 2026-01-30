@@ -22,7 +22,12 @@ execSync('npx prisma migrate deploy --schema apps/server/prisma/schema.prisma', 
   env: process.env,
 });
 
-const child = spawn('npm', ['run', 'dev'], {
+// For E2E, use concurrently to run both server and web, but without watch mode for server
+// This prevents tsx from restarting the server during tests
+const serverCmd = 'cd apps/server && npx tsx src/index.ts';
+const webCmd = 'npm run dev:web';
+
+const child = spawn('npx', ['concurrently', `"${serverCmd}"`, `"${webCmd}"`], {
   cwd: root,
   stdio: 'inherit',
   env: process.env,
