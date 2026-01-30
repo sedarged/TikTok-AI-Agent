@@ -101,7 +101,9 @@ async function processNextInQueue(): Promise<void> {
     });
   } catch (err) {
     logError('Failed to process next in queue:', err);
-    processNextInQueue().catch(console.error);
+    processNextInQueue().catch((nextErr) => {
+      logError('Failed to process next in queue (from error handler):', nextErr);
+    });
   }
 }
 

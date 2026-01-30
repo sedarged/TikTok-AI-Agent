@@ -30,7 +30,7 @@ export function logInfo(message: string, meta?: Record<string, unknown>): void {
 
 export function logError(message: string, error?: unknown, meta?: Record<string, unknown>): void {
   logger.error(message, {
-    ...meta,
+    ...(meta ?? {}),
     error:
       error instanceof Error
         ? {

@@ -37,8 +37,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - Database query logging in development mode
   - Prisma client now logs queries, errors, and warnings in development
-  - Only errors logged in test and production to reduce noise
-- Express rate limiting dependency (`express-rate-limit@^7.x`)
+  - Only errors logged in test and errors+warnings in production to reduce noise
+- Express rate limiting dependency (`express-rate-limit@^8.2.1`)
 - Winston logging dependency (`winston@^3.x`)
 
 ### Fixed
