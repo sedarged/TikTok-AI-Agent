@@ -29,7 +29,8 @@ jobs:
       - name: Upload to Codecov
         uses: codecov/codecov-action@v4
         with:
-          files: ./apps/server/coverage/coverage-final.json
+          token: ${{ secrets.CODECOV_TOKEN }}
+          files: ./apps/server/coverage/**/*
           flags: unittests
           name: tiktok-ai-agent
           fail_ci_if_error: false
