@@ -4,6 +4,8 @@ A full-stack web application that generates TikTok-style vertical videos end-to-
 
 **Topic → PLAN & PREVIEW (editable) → APPROVE & RENDER → Real MP4 file**
 
+**Wiele dokumentów?** Zobacz **[DOCUMENTATION_INDEX.md](DOCUMENTATION_INDEX.md)** – tam jest mapa: który plik jest główny (DEVELOPMENT_MASTER_PLAN), co dla AI (AGENTS.md), co dla testów, plany w `.cursor/plans/`.
+
 ## Features
 
 - **AI-Powered Content Generation**: Uses OpenAI GPT-4 for script writing, DALL-E 3 for image generation, TTS for voice-over, and Whisper for caption timing
@@ -33,10 +35,11 @@ The easiest way to run this app and access it from your phone:
    - Click **Code** → **Codespaces** → **Create codespace**
 
 2. **Setup (in Codespace terminal):**
+
    ```bash
    # Dependencies are auto-installed, just add your API key:
    echo "OPENAI_API_KEY=sk-your-key-here" >> .env
-   
+
    # Start the app
    npm run dev
    ```
@@ -165,6 +168,7 @@ npm run test
 ```
 
 When APP_TEST_MODE is enabled:
+
 - Rendering endpoints return 403
 - OpenAI/FFmpeg checks are skipped for status
 - Plan generation uses deterministic templates (no paid APIs)
@@ -180,6 +184,7 @@ npm run test:render
 ```
 
 Notes:
+
 - Dry-run renders do **not** produce MP4 files.
 - `/api/run/:id/download` returns 409 for dry-run runs.
 - In dry-run/test mode, `/api/test/dry-run-config` can adjust fail step/delay for tests.
@@ -206,7 +211,9 @@ npx playwright install --with-deps
 npm run test:e2e
 ```
 
-Windows/macOS note: `npx playwright install` (without `--with-deps`) is usually sufficient.
+Locally, E2E reuses an existing server on port 5173 if one is running (`npm run dev`); in CI a fresh server is started.
+
+Windows/macOS note: `npx playwright install` (without `--with-deps`) is usually sufficient. If `npm run test` or `npm run test:render` fails with **EPERM** on Windows, use `npm run test:only` / `npm run test:render:only` after at least one successful `npx prisma generate` (see TESTING_GUIDE §6).
 
 ## How to Render a 60s Facts Video
 
@@ -256,6 +263,7 @@ Windows/macOS note: `npx playwright install` (without `--with-deps`) is usually 
 ## API Endpoints
 
 ### Projects
+
 - `GET /api/projects` - List all projects
 - `POST /api/project` - Create new project
 - `GET /api/project/:id` - Get project with plan
@@ -264,6 +272,7 @@ Windows/macOS note: `npx playwright install` (without `--with-deps`) is usually 
 - `DELETE /api/project/:id` - Delete project
 
 ### Plan Editing
+
 - `PUT /api/plan/:planVersionId` - Update plan (autosave)
 - `POST /api/plan/:planVersionId/validate` - Validate plan
 - `POST /api/plan/:planVersionId/autofit` - Auto-fit durations
@@ -274,11 +283,13 @@ Windows/macOS note: `npx playwright install` (without `--with-deps`) is usually 
 - `POST /api/plan/:planVersionId/render` - Start render
 
 ### Scenes
+
 - `PUT /api/scene/:sceneId` - Update scene
 - `POST /api/scene/:sceneId/lock` - Toggle lock
 - `POST /api/scene/:sceneId/regenerate` - Regenerate scene
 
 ### Runs
+
 - `GET /api/run/:runId` - Get run status
 - `GET /api/run/:runId/stream` - SSE progress stream
 - `POST /api/run/:runId/retry` - Retry failed run
@@ -288,6 +299,7 @@ Windows/macOS note: `npx playwright install` (without `--with-deps`) is usually 
 - `GET /api/run/:runId/export` - Export JSON
 
 ### Health
+
 - `GET /api/health` - Health check with mode/version/db status
 
 ## Render Pipeline Steps
@@ -303,7 +315,9 @@ Windows/macOS note: `npx playwright install` (without `--with-deps`) is usually 
 ## Troubleshooting
 
 ### FFmpeg not found
+
 Install FFmpeg on your system:
+
 - macOS: `brew install ffmpeg`
 - Ubuntu: `sudo apt install ffmpeg`
 - Windows: Download from https://ffmpeg.org/download.html
@@ -311,16 +325,19 @@ Install FFmpeg on your system:
 Or the app will try to use `ffmpeg-static` automatically.
 
 ### OpenAI API errors
+
 - Check your API key is correct in `.env`
 - Ensure you have sufficient credits
 - Check rate limits if generating many videos
 
 ### Video rendering fails
+
 - Check FFmpeg is properly installed: `ffmpeg -version`
 - Check logs in the run progress for specific errors
 - Use "Retry" to resume from the failed step
 
 ### Database issues
+
 ```bash
 # Reset database
 rm apps/server/dev.db
@@ -329,20 +346,20 @@ npm run db:migrate
 
 ## Niche Packs
 
-| Pack | Description |
-|------|-------------|
-| horror | Dark, atmospheric horror content |
-| facts | Mind-blowing facts and information |
-| motivation | Inspirational content |
-| product | Product reviews and showcases |
-| story | Narrative stories |
-| top5 | Countdown and ranking content |
-| finance_tips | Educational financial advice |
-| health_myths | Debunking health misconceptions |
-| history | Historical events and stories |
-| gaming | Gaming content |
-| science | Scientific concepts explained |
-| mystery | Unsolved mysteries |
+| Pack         | Description                        |
+| ------------ | ---------------------------------- |
+| horror       | Dark, atmospheric horror content   |
+| facts        | Mind-blowing facts and information |
+| motivation   | Inspirational content              |
+| product      | Product reviews and showcases      |
+| story        | Narrative stories                  |
+| top5         | Countdown and ranking content      |
+| finance_tips | Educational financial advice       |
+| health_myths | Debunking health misconceptions    |
+| history      | Historical events and stories      |
+| gaming       | Gaming content                     |
+| science      | Scientific concepts explained      |
+| mystery      | Unsolved mysteries                 |
 
 ## License
 

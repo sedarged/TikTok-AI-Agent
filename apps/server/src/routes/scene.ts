@@ -5,25 +5,36 @@ import { regenerateScene } from '../services/plan/planGenerator.js';
 
 export const sceneRoutes = Router();
 
-const sceneUpdateSchema = z.object({
-  narrationText: z.string().optional(),
-  onScreenText: z.string().optional(),
-  visualPrompt: z.string().optional(),
-  negativePrompt: z.string().optional(),
-  effectPreset: z.string().optional(),
-  durationTargetSec: z.number().positive().optional(),
-  isLocked: z.boolean().optional(),
-}).strict();
+const sceneUpdateSchema = z
+  .object({
+    narrationText: z.string().optional(),
+    onScreenText: z.string().optional(),
+    visualPrompt: z.string().optional(),
+    negativePrompt: z.string().optional(),
+    effectPreset: z.string().optional(),
+    durationTargetSec: z.number().positive().optional(),
+    isLocked: z.boolean().optional(),
+  })
+  .strict();
 
-const sceneLockSchema = z.object({
-  locked: z.boolean(),
-}).strict();
+const sceneLockSchema = z
+  .object({
+    locked: z.boolean(),
+  })
+  .strict();
+
+const sceneIdParamsSchema = z.object({ sceneId: z.string().uuid() });
 
 // Get single scene
 sceneRoutes.get('/:sceneId', async (req, res) => {
   try {
+    const parsed = sceneIdParamsSchema.safeParse(req.params);
+    if (!parsed.success) {
+      return res.status(400).json({ error: 'Invalid scene ID', details: parsed.error.flatten() });
+    }
+    const { sceneId } = parsed.data;
     const scene = await prisma.scene.findUnique({
-      where: { id: req.params.sceneId },
+      where: { id: sceneId },
     });
 
     if (!scene) {
@@ -40,6 +51,13 @@ sceneRoutes.get('/:sceneId', async (req, res) => {
 // Update single scene
 sceneRoutes.put('/:sceneId', async (req, res) => {
   try {
+    const parsedParams = sceneIdParamsSchema.safeParse(req.params);
+    if (!parsedParams.success) {
+      return res
+        .status(400)
+        .json({ error: 'Invalid scene ID', details: parsedParams.error.flatten() });
+    }
+    const { sceneId } = parsedParams.data;
     const parsed = sceneUpdateSchema.safeParse(req.body);
     if (!parsed.success) {
       return res.status(400).json({
@@ -49,7 +67,7 @@ sceneRoutes.put('/:sceneId', async (req, res) => {
     }
 
     const scene = await prisma.scene.findUnique({
-      where: { id: req.params.sceneId },
+      where: { id: sceneId },
     });
 
     if (!scene) {
@@ -61,7 +79,7 @@ sceneRoutes.put('/:sceneId', async (req, res) => {
     }
 
     const updatedScene = await prisma.scene.update({
-      where: { id: req.params.sceneId },
+      where: { id: sceneId },
       data: {
         narrationText: parsed.data.narrationText ?? scene.narrationText,
         onScreenText: parsed.data.onScreenText ?? scene.onScreenText,
@@ -83,6 +101,13 @@ sceneRoutes.put('/:sceneId', async (req, res) => {
 // Lock/unlock scene
 sceneRoutes.post('/:sceneId/lock', async (req, res) => {
   try {
+    const parsedParams = sceneIdParamsSchema.safeParse(req.params);
+    if (!parsedParams.success) {
+      return res
+        .status(400)
+        .json({ error: 'Invalid scene ID', details: parsedParams.error.flatten() });
+    }
+    const { sceneId } = parsedParams.data;
     const parsed = sceneLockSchema.safeParse(req.body);
     if (!parsed.success) {
       return res.status(400).json({
@@ -92,9 +117,9 @@ sceneRoutes.post('/:sceneId/lock', async (req, res) => {
     }
 
     const { locked } = parsed.data;
-    
+
     const scene = await prisma.scene.update({
-      where: { id: req.params.sceneId },
+      where: { id: sceneId },
       data: { isLocked: locked },
     });
 
@@ -108,8 +133,13 @@ sceneRoutes.post('/:sceneId/lock', async (req, res) => {
 // Regenerate single scene
 sceneRoutes.post('/:sceneId/regenerate', async (req, res) => {
   try {
+    const parsed = sceneIdParamsSchema.safeParse(req.params);
+    if (!parsed.success) {
+      return res.status(400).json({ error: 'Invalid scene ID', details: parsed.error.flatten() });
+    }
+    const { sceneId } = parsed.data;
     const scene = await prisma.scene.findUnique({
-      where: { id: req.params.sceneId },
+      where: { id: sceneId },
       include: {
         planVersion: {
           include: {

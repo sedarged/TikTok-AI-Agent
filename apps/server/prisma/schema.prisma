@@ -17,6 +17,7 @@ model Project {
   tempo               String    @default("normal") // slow | normal | fast
   voicePreset         String    @default("alloy")
   visualStylePreset   String?
+  seoKeywords        String?   // SEO keywords (comma-separated), included in plan prompts
   status              String    @default("DRAFT_PLAN") // DRAFT_PLAN | PLAN_READY | APPROVED | RENDERING | DONE | FAILED
   latestPlanVersionId String?
   createdAt           DateTime  @default(now())
@@ -67,12 +68,18 @@ model Run {
   project         Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
   planVersionId   String
   planVersion     PlanVersion @relation(fields: [planVersionId], references: [id], onDelete: Cascade)
-  status          String   @default("queued") // queued | running | done | failed | canceled
+  status          String   @default("queued") // queued | running | done | failed | canceled | qa_failed
   progress        Int      @default(0) // 0-100
   currentStep     String   @default("")
   logsJson        String   @default("[]") // JSON array of log entries with timestamps
   artifactsJson   String   @default("{}") // JSON { imagesDir, audioDir, captionsPath, mp4Path, thumbPath, exportJsonPath }
   resumeStateJson String   @default("{}") // JSON { lastCompletedStep, completedSceneIdxs }
+  views          Int?     // Manual analytics: view count after publish
+  likes          Int?     // Manual analytics: like count
+  retention      Float?   // Manual: retention rate 0–1
+  postedAt      DateTime? // When published to TikTok
+  scheduledPublishAt DateTime? // Content calendar: when to publish
+  publishedAt   DateTime? // When actually published
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 }

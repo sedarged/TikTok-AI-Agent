@@ -1,0 +1,29 @@
+[
+  {
+    "id": "facts-channel",
+    "name": "Facts channel",
+    "nichePackId": "facts",
+    "voicePreset": "alloy",
+    "targetLengthSec": 60,
+    "tempo": "normal",
+    "language": "en"
+  },
+  {
+    "id": "top5-channel",
+    "name": "Top 5 list",
+    "nichePackId": "top5",
+    "voicePreset": "alloy",
+    "targetLengthSec": 60,
+    "tempo": "normal",
+    "language": "en"
+  },
+  {
+    "id": "story-channel",
+    "name": "Story / Narrative",
+    "nichePackId": "story",
+    "voicePreset": "onyx",
+    "targetLengthSec": 90,
+    "tempo": "slow",
+    "language": "en"
+  }
+]

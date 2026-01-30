@@ -8,12 +8,12 @@ Użyć **Twojego komputera** (lub lokalnych bibliotek/serwisów) zamiast płatny
 
 ## 1. Gdzie dziś płacisz (OpenAI)
 
-| Krok | API | Koszt | Lokalna alternatywa |
-|------|-----|--------|----------------------|
+| Krok                             | API              | Koszt                    | Lokalna alternatywa                               |
+| -------------------------------- | ---------------- | ------------------------ | ------------------------------------------------- |
 | **Plan (hooks, outline, sceny)** | Chat gpt-4o-mini | ~$0.15–0.60 / 1M tokenów | **Ollama** – model lokalnie (Llama, Mistral itd.) |
-| **TTS (głos)** | tts-1 | ~$0.015 / 1K znaków | **Edge TTS** (darmowy) lub **Piper** (lokalnie) |
-| **ASR (transkrypcja)** | whisper-1 | ~$0.006 / min | **Whisper lokalnie** (whisper-node / whisper.cpp) |
-| **Obrazy** | DALL-E 3 | per obraz | **Stable Diffusion** (lokalnie, GPU) lub **FLUX** |
+| **TTS (głos)**                   | tts-1            | ~$0.015 / 1K znaków      | **Edge TTS** (darmowy) lub **Piper** (lokalnie)   |
+| **ASR (transkrypcja)**           | whisper-1        | ~$0.006 / min            | **Whisper lokalnie** (whisper-node / whisper.cpp) |
+| **Obrazy**                       | DALL-E 3         | per obraz                | **Stable Diffusion** (lokalnie, GPU) lub **FLUX** |
 
 Poniżej: co konkretnie użyć, jak to podłączyć i jaki wpływ na jakość.
 
@@ -120,12 +120,12 @@ Domyślnie wszystko zostaje na OpenAI; przełączasz po jednym providerze na lok
 
 ### 6.3 Kolejność wdrożenia (minimalny wpływ na jakość)
 
-| Krok | Co włączyć | Wpływ na jakość | Oszczędność |
-|------|------------|------------------|-------------|
-| 1 | **ASR → local (Whisper)** | Brak – ten sam model | 100% kosztu Whisper |
-| 2 | **TTS → Edge TTS** | Bardzo mały lub brak | 100% kosztu TTS |
-| 3 | **Plan → Ollama** | Możliwa drobna różnica w treści; dopracowanie promptów wyrównuje | 100% kosztu chat |
-| 4 | **Obrazy → Stable Diffusion** | Możliwa lekka różnica stylu; dopasowanie modelu/promptów wyrównuje | 100% kosztu DALL-E |
+| Krok | Co włączyć                    | Wpływ na jakość                                                    | Oszczędność         |
+| ---- | ----------------------------- | ------------------------------------------------------------------ | ------------------- |
+| 1    | **ASR → local (Whisper)**     | Brak – ten sam model                                               | 100% kosztu Whisper |
+| 2    | **TTS → Edge TTS**            | Bardzo mały lub brak                                               | 100% kosztu TTS     |
+| 3    | **Plan → Ollama**             | Możliwa drobna różnica w treści; dopracowanie promptów wyrównuje   | 100% kosztu chat    |
+| 4    | **Obrazy → Stable Diffusion** | Możliwa lekka różnica stylu; dopasowanie modelu/promptów wyrównuje | 100% kosztu DALL-E  |
 
 Rekomendacja: najpierw **ASR** i **TTS** (najprostsze, zero lub minimalna różnica jakości), potem **Ollama** (jeśli masz RAM/GPU pod model), na końcu **SD** (jeśli masz GPU).
 

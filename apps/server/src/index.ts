@@ -1,14 +1,20 @@
 import express from 'express';
 import cors from 'cors';
+import helmet from 'helmet';
 import path from 'path';
 import fs from 'fs';
 import { env, isRenderDryRun, isTestMode } from './env.js';
 import { projectRoutes } from './routes/project.js';
+import { automateRoutes } from './routes/automate.js';
+import { batchRoutes } from './routes/batch.js';
 import { planRoutes } from './routes/plan.js';
 import { sceneRoutes } from './routes/scene.js';
 import { runRoutes } from './routes/run.js';
 import { statusRoutes } from './routes/status.js';
 import { nichePackRoutes } from './routes/nichePack.js';
+import { topicSuggestionsRoutes } from './routes/topicSuggestions.js';
+import { channelPresetsRoutes } from './routes/channelPresets.js';
+import { scriptTemplatesRoutes } from './routes/scriptTemplates.js';
 import { testRoutes } from './routes/test.js';
 import { ensureConnection } from './db/client.js';
 import { resetStuckRuns } from './services/render/renderPipeline.js';
@@ -53,36 +59,46 @@ export function createApp() {
 
   // Middleware - CORS configuration
   // In production, configure specific allowed origins via ALLOWED_ORIGINS env var
-  const allowedOrigins = process.env.ALLOWED_ORIGINS?.split(',')
-    .map(o => o.trim())
-    .filter(o => o.startsWith('http://') || o.startsWith('https://')) || [];
-  
+  const allowedOrigins =
+    process.env.ALLOWED_ORIGINS?.split(',')
+      .map((o) => o.trim())
+      .filter((o) => o.startsWith('http://') || o.startsWith('https://')) || [];
+
   const isDevelopment = env.NODE_ENV === 'development' || env.NODE_ENV === 'test';
-  
+
   // Warn in production if no origins configured
   if (!isDevelopment && allowedOrigins.length === 0) {
-    console.warn('WARNING: ALLOWED_ORIGINS not configured in production. CORS will block browser requests.');
+    console.warn(
+      'WARNING: ALLOWED_ORIGINS not configured in production. CORS will block browser requests.'
+    );
     console.warn('Set ALLOWED_ORIGINS environment variable to enable cross-origin requests.');
   }
-  
-  app.use(cors({
-    origin: (origin, callback) => {
-      // Allow requests with no origin (like mobile apps, curl, Postman, same-origin)
-      if (!origin) return callback(null, true);
-      
-      // In development/test, allow all origins for local network access
-      if (isDevelopment) return callback(null, true);
-      
-      // In production, check against whitelist
-      if (allowedOrigins.length > 0 && allowedOrigins.includes(origin)) {
-        return callback(null, true);
-      }
-      
-      // In production without configured origins, reject with error
-      callback(new Error('Not allowed by CORS - configure ALLOWED_ORIGINS'));
-    },
-    credentials: true,
-  }));
+
+  app.use(
+    helmet({
+      contentSecurityPolicy: false,
+    })
+  );
+  app.use(
+    cors({
+      origin: (origin, callback) => {
+        // Allow requests with no origin (like mobile apps, curl, Postman, same-origin)
+        if (!origin) return callback(null, true);
+
+        // In development/test, allow all origins for local network access
+        if (isDevelopment) return callback(null, true);
+
+        // In production, check against whitelist
+        if (allowedOrigins.length > 0 && allowedOrigins.includes(origin)) {
+          return callback(null, true);
+        }
+
+        // In production without configured origins, reject with error
+        callback(new Error('Not allowed by CORS - configure ALLOWED_ORIGINS'));
+      },
+      credentials: true,
+    })
+  );
   app.use(express.json({ limit: '10mb' }));
 
   // Static files for artifacts: only in dev/test so production does not expose full directory
@@ -100,8 +116,13 @@ export function createApp() {
   // API Routes
   app.use('/api/status', statusRoutes);
   app.use('/api/niche-packs', nichePackRoutes);
+  app.use('/api/topic-suggestions', topicSuggestionsRoutes);
+  app.use('/api/channel-presets', channelPresetsRoutes);
+  app.use('/api/script-templates', scriptTemplatesRoutes);
   app.use('/api/project', projectRoutes);
   app.use('/api/projects', projectRoutes);
+  app.use('/api/automate', automateRoutes);
+  app.use('/api/batch', batchRoutes);
   app.use('/api/plan', planRoutes);
   app.use('/api/scene', sceneRoutes);
   app.use('/api/run', runRoutes);
@@ -127,10 +148,12 @@ export function createApp() {
   });
 
   // Error handler
-  app.use((err: Error, req: express.Request, res: express.Response, _next: express.NextFunction) => {
-    console.error('Server error:', err);
-    res.status(500).json({ error: err.message || 'Internal server error' });
-  });
+  app.use(
+    (err: Error, req: express.Request, res: express.Response, _next: express.NextFunction) => {
+      console.error('Server error:', err);
+      res.status(500).json({ error: err.message || 'Internal server error' });
+    }
+  );
 
   // SPA fallback - serve index.html for all non-API routes in production
   if (fs.existsSync(frontendDistPath)) {

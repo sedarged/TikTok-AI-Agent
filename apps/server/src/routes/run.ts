@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import { z } from 'zod';
 import { prisma } from '../db/client.js';
 import { retryRun, cancelRun } from '../services/render/renderPipeline.js';
 import { verifyArtifacts } from '../services/render/verifyArtifacts.js';
@@ -7,6 +8,30 @@ import path from 'path';
 import fs from 'fs';
 
 export const runRoutes = Router();
+
+const runIdParamsSchema = z.object({ runId: z.string().uuid() });
+
+const retryBodySchema = z
+  .object({
+    fromStep: z.string().max(64).optional(),
+  })
+  .strict();
+
+const patchRunBodySchema = z
+  .object({
+    views: z.number().int().min(0).optional(),
+    likes: z.number().int().min(0).optional(),
+    retention: z.number().min(0).max(1).optional(),
+    postedAt: z.union([z.string().datetime(), z.null()]).optional(),
+    scheduledPublishAt: z.union([z.string().datetime(), z.null()]).optional(),
+    publishedAt: z.union([z.string().datetime(), z.null()]).optional(),
+  })
+  .strict();
+
+const upcomingQuerySchema = z.object({
+  from: z.string().optional(),
+  to: z.string().optional(),
+});
 
 // Active SSE connections per runId (response objects)
 const sseConnections = new Map<string, Set<import('express').Response>>();
@@ -41,11 +66,72 @@ function startHeartbeat(runId: string): void {
   sseHeartbeatIntervals.set(runId, interval);
 }
 
+// List runs (for Analytics)
+runRoutes.get('/', async (_req, res) => {
+  try {
+    const runs = await prisma.run.findMany({
+      orderBy: { createdAt: 'desc' },
+      include: {
+        project: { select: { id: true, topic: true, nichePackId: true, title: true } },
+      },
+    });
+    res.json(runs);
+  } catch (error) {
+    console.error('Error listing runs:', error);
+    res.status(500).json({ error: 'Failed to list runs' });
+  }
+});
+
+// Upcoming runs (Calendar: scheduledPublishAt in [from, to])
+runRoutes.get('/upcoming', async (req, res) => {
+  try {
+    const parsed = upcomingQuerySchema.safeParse(req.query);
+    if (!parsed.success) {
+      return res.status(400).json({ error: 'Invalid query', details: parsed.error.flatten() });
+    }
+    const { from: fromStr, to: toStr } = parsed.data;
+    const now = new Date();
+    const defaultFrom = new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0, 0);
+    const defaultTo = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
+    const parseDate = (s: string, endOfDay: boolean): Date => {
+      const d = /^\d{4}-\d{2}-\d{2}$/.test(s)
+        ? endOfDay
+          ? new Date(s + 'T23:59:59.999')
+          : new Date(s + 'T00:00:00.000')
+        : new Date(s);
+      return d;
+    };
+    const fromDate = fromStr ? parseDate(fromStr, false) : defaultFrom;
+    const toDate = toStr ? parseDate(toStr, true) : defaultTo;
+    if (isNaN(fromDate.getTime()) || isNaN(toDate.getTime())) {
+      return res.status(400).json({ error: 'Invalid from/to dates' });
+    }
+    const runs = await prisma.run.findMany({
+      where: {
+        scheduledPublishAt: { not: null, gte: fromDate, lte: toDate },
+      },
+      orderBy: { scheduledPublishAt: 'asc' },
+      include: {
+        project: { select: { id: true, topic: true, nichePackId: true, title: true } },
+      },
+    });
+    res.json(runs);
+  } catch (error) {
+    console.error('Error listing upcoming runs:', error);
+    res.status(500).json({ error: 'Failed to list upcoming runs' });
+  }
+});
+
 // Get single run
 runRoutes.get('/:runId', async (req, res) => {
   try {
+    const parsed = runIdParamsSchema.safeParse(req.params);
+    if (!parsed.success) {
+      return res.status(400).json({ error: 'Invalid run ID', details: parsed.error.flatten() });
+    }
+    const { runId } = parsed.data;
     const run = await prisma.run.findUnique({
-      where: { id: req.params.runId },
+      where: { id: runId },
       include: {
         project: true,
         planVersion: {
@@ -67,9 +153,68 @@ runRoutes.get('/:runId', async (req, res) => {
   }
 });
 
+// PATCH run (analytics: views, likes, retention, postedAt)
+runRoutes.patch('/:runId', async (req, res) => {
+  try {
+    const parsedParams = runIdParamsSchema.safeParse(req.params);
+    if (!parsedParams.success) {
+      return res
+        .status(400)
+        .json({ error: 'Invalid run ID', details: parsedParams.error.flatten() });
+    }
+    const bodyParsed = patchRunBodySchema.safeParse(req.body ?? {});
+    if (!bodyParsed.success) {
+      return res.status(400).json({
+        error: 'Invalid body',
+        details: bodyParsed.error.flatten(),
+      });
+    }
+    const { runId } = parsedParams.data;
+    const data = bodyParsed.data;
+    const update: {
+      views?: number;
+      likes?: number;
+      retention?: number;
+      postedAt?: Date | null;
+      scheduledPublishAt?: Date | null;
+      publishedAt?: Date | null;
+    } = {};
+    if (data.views !== undefined) update.views = data.views;
+    if (data.likes !== undefined) update.likes = data.likes;
+    if (data.retention !== undefined) update.retention = data.retention;
+    if (data.postedAt !== undefined)
+      update.postedAt = data.postedAt === null ? null : new Date(data.postedAt);
+    if (data.scheduledPublishAt !== undefined)
+      update.scheduledPublishAt =
+        data.scheduledPublishAt === null ? null : new Date(data.scheduledPublishAt);
+    if (data.publishedAt !== undefined)
+      update.publishedAt = data.publishedAt === null ? null : new Date(data.publishedAt);
+
+    const run = await prisma.run.update({
+      where: { id: runId },
+      data: update,
+      include: {
+        project: true,
+        planVersion: { include: { scenes: { orderBy: { idx: 'asc' } } } },
+      },
+    });
+    res.json(run);
+  } catch (error) {
+    if ((error as { code?: string }).code === 'P2025') {
+      return res.status(404).json({ error: 'Run not found' });
+    }
+    console.error('Error patching run:', error);
+    res.status(500).json({ error: 'Failed to update run' });
+  }
+});
+
 // SSE stream for run progress (CORS handled by app-level middleware)
 runRoutes.get('/:runId/stream', async (req, res) => {
-  const runId = req.params.runId;
+  const parsed = runIdParamsSchema.safeParse(req.params);
+  if (!parsed.success) {
+    return res.status(400).json({ error: 'Invalid run ID', details: parsed.error.flatten() });
+  }
+  const { runId } = parsed.data;
 
   let connections = sseConnections.get(runId);
   if (!connections) {
@@ -102,15 +247,17 @@ runRoutes.get('/:runId/stream', async (req, res) => {
     }
     try {
       if (!res.writableEnded) {
-        res.write(`data: ${JSON.stringify({
-          type: 'state',
-          status: run.status,
-          progress: run.progress,
-          currentStep: run.currentStep,
-          logs,
-        })}\n\n`);
+        res.write(
+          `data: ${JSON.stringify({
+            type: 'state',
+            status: run.status,
+            progress: run.progress,
+            currentStep: run.currentStep,
+            logs,
+          })}\n\n`
+        );
       }
-    } catch (e) {
+    } catch {
       connections.delete(res);
     }
   }
@@ -146,6 +293,13 @@ export function broadcastRunUpdate(runId: string, data: unknown) {
 // Retry run
 runRoutes.post('/:runId/retry', async (req, res) => {
   try {
+    const parsedParams = runIdParamsSchema.safeParse(req.params);
+    if (!parsedParams.success) {
+      return res
+        .status(400)
+        .json({ error: 'Invalid run ID', details: parsedParams.error.flatten() });
+    }
+    const { runId } = parsedParams.data;
     if (isTestMode()) {
       return res.status(403).json({
         error: 'Rendering is disabled in APP_TEST_MODE',
@@ -153,10 +307,17 @@ runRoutes.post('/:runId/retry', async (req, res) => {
       });
     }
 
-    const { fromStep } = req.body;
-    
+    const parsedBody = retryBodySchema.safeParse(req.body);
+    if (!parsedBody.success) {
+      return res.status(400).json({
+        error: 'Invalid request body',
+        details: parsedBody.error.flatten(),
+      });
+    }
+    const { fromStep } = parsedBody.data;
+
     const run = await prisma.run.findUnique({
-      where: { id: req.params.runId },
+      where: { id: runId },
     });
 
     if (!run) {
@@ -165,6 +326,9 @@ runRoutes.post('/:runId/retry', async (req, res) => {
 
     if (run.status === 'running' || run.status === 'queued') {
       return res.status(400).json({ error: 'Run is already in progress' });
+    }
+    if (!['failed', 'canceled', 'qa_failed'].includes(run.status)) {
+      return res.status(400).json({ error: 'Run is not retryable from current state' });
     }
 
     const retriedRun = await retryRun(run.id, fromStep);
@@ -178,8 +342,13 @@ runRoutes.post('/:runId/retry', async (req, res) => {
 // Cancel run
 runRoutes.post('/:runId/cancel', async (req, res) => {
   try {
+    const parsed = runIdParamsSchema.safeParse(req.params);
+    if (!parsed.success) {
+      return res.status(400).json({ error: 'Invalid run ID', details: parsed.error.flatten() });
+    }
+    const { runId } = parsed.data;
     const run = await prisma.run.findUnique({
-      where: { id: req.params.runId },
+      where: { id: runId },
     });
 
     if (!run) {
@@ -201,6 +370,11 @@ runRoutes.post('/:runId/cancel', async (req, res) => {
 // Verify artifacts
 runRoutes.get('/:runId/verify', async (req, res) => {
   try {
+    const parsed = runIdParamsSchema.safeParse(req.params);
+    if (!parsed.success) {
+      return res.status(400).json({ error: 'Invalid run ID', details: parsed.error.flatten() });
+    }
+    const { runId } = parsed.data;
     if (isTestMode()) {
       return res.status(403).json({
         error: 'Artifact verification disabled in APP_TEST_MODE',
@@ -209,7 +383,7 @@ runRoutes.get('/:runId/verify', async (req, res) => {
     }
 
     const run = await prisma.run.findUnique({
-      where: { id: req.params.runId },
+      where: { id: runId },
       include: {
         project: true,
         planVersion: {
@@ -235,6 +409,11 @@ runRoutes.get('/:runId/verify', async (req, res) => {
 // Download final video
 runRoutes.get('/:runId/download', async (req, res) => {
   try {
+    const parsed = runIdParamsSchema.safeParse(req.params);
+    if (!parsed.success) {
+      return res.status(400).json({ error: 'Invalid run ID', details: parsed.error.flatten() });
+    }
+    const { runId } = parsed.data;
     if (isTestMode()) {
       return res.status(403).json({
         error: 'Downloads disabled in APP_TEST_MODE',
@@ -243,7 +422,7 @@ runRoutes.get('/:runId/download', async (req, res) => {
     }
 
     const run = await prisma.run.findUnique({
-      where: { id: req.params.runId },
+      where: { id: runId },
     });
 
     if (!run) {
@@ -264,7 +443,7 @@ runRoutes.get('/:runId/download', async (req, res) => {
         code: 'DRY_RUN_NO_MP4',
       });
     }
-    
+
     if (!artifacts.mp4Path) {
       return res.status(404).json({ error: 'Video not found' });
     }
@@ -273,13 +452,16 @@ runRoutes.get('/:runId/download', async (req, res) => {
     const videoPath = path.join(env.ARTIFACTS_DIR, artifacts.mp4Path);
     const resolvedPath = path.resolve(videoPath);
     const resolvedArtifactsDir = path.resolve(env.ARTIFACTS_DIR);
-    
+
     // Ensure the resolved path is within artifacts directory (including path separator check)
-    if (!resolvedPath.startsWith(resolvedArtifactsDir + path.sep) && resolvedPath !== resolvedArtifactsDir) {
+    if (
+      !resolvedPath.startsWith(resolvedArtifactsDir + path.sep) &&
+      resolvedPath !== resolvedArtifactsDir
+    ) {
       console.error('Path traversal attempt detected:', artifacts.mp4Path);
       return res.status(403).json({ error: 'Invalid file path' });
     }
-    
+
     if (!fs.existsSync(resolvedPath)) {
       return res.status(404).json({ error: 'Video file not found on disk' });
     }
@@ -294,7 +476,11 @@ runRoutes.get('/:runId/download', async (req, res) => {
 // Serve a single artifact file (used when /artifacts static is disabled, e.g. production)
 runRoutes.get('/:runId/artifact', async (req, res) => {
   try {
-    const runId = req.params.runId;
+    const parsed = runIdParamsSchema.safeParse(req.params);
+    if (!parsed.success) {
+      return res.status(400).json({ error: 'Invalid run ID', details: parsed.error.flatten() });
+    }
+    const { runId } = parsed.data;
     const relativePath = req.query.path as string | undefined;
     if (!relativePath || relativePath.includes('..')) {
       return res.status(400).json({ error: 'Invalid or missing path' });
@@ -336,8 +522,13 @@ runRoutes.get('/:runId/artifact', async (req, res) => {
 // Get export JSON
 runRoutes.get('/:runId/export', async (req, res) => {
   try {
+    const parsed = runIdParamsSchema.safeParse(req.params);
+    if (!parsed.success) {
+      return res.status(400).json({ error: 'Invalid run ID', details: parsed.error.flatten() });
+    }
+    const { runId } = parsed.data;
     const run = await prisma.run.findUnique({
-      where: { id: req.params.runId },
+      where: { id: runId },
       include: {
         project: true,
         planVersion: {
@@ -359,7 +550,13 @@ runRoutes.get('/:runId/export', async (req, res) => {
       console.error('Failed to parse artifacts JSON:', error);
       return res.status(500).json({ error: 'Invalid artifacts data' });
     }
-    
+
+    const tiktokCaption = artifacts.tiktokCaption as string | undefined;
+    const tiktokHashtags = Array.isArray(artifacts.tiktokHashtags)
+      ? (artifacts.tiktokHashtags as string[])
+      : [];
+    const tiktokTitle = artifacts.tiktokTitle as string | undefined;
+
     const exportData = {
       project: {
         id: run.project.id,
@@ -376,7 +573,7 @@ runRoutes.get('/:runId/export', async (req, res) => {
         hookSelected: run.planVersion.hookSelected,
         outline: run.planVersion.outline,
         scriptFull: run.planVersion.scriptFull,
-        scenes: run.planVersion.scenes.map(s => ({
+        scenes: run.planVersion.scenes.map((s) => ({
           idx: s.idx,
           narrationText: s.narrationText,
           onScreenText: s.onScreenText,
@@ -392,6 +589,15 @@ runRoutes.get('/:runId/export', async (req, res) => {
         updatedAt: run.updatedAt,
       },
       artifacts,
+      ...(tiktokCaption !== undefined || tiktokTitle !== undefined
+        ? {
+            tiktok: {
+              caption: tiktokCaption ?? '',
+              hashtags: tiktokHashtags,
+              title: tiktokTitle ?? '',
+            },
+          }
+        : {}),
     };
 
     res.json(exportData);

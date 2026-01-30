@@ -37,7 +37,9 @@ export function validatePlan(planVersion: PlanWithScenes, project: Project): Val
     if (planVersion.scenes.length < pacing.minScenes) {
       errors.push(`Too few scenes: ${planVersion.scenes.length} (minimum: ${pacing.minScenes})`);
     } else if (planVersion.scenes.length > pacing.maxScenes) {
-      warnings.push(`Many scenes: ${planVersion.scenes.length} (recommended max: ${pacing.maxScenes})`);
+      warnings.push(
+        `Many scenes: ${planVersion.scenes.length} (recommended max: ${pacing.maxScenes})`
+      );
     }
 
     // Check each scene
@@ -45,28 +47,42 @@ export function validatePlan(planVersion: PlanWithScenes, project: Project): Val
       if (!scene.narrationText || scene.narrationText.trim().length === 0) {
         errors.push(`Scene ${scene.idx + 1}: Narration text is empty`);
       }
-      
+
       if (!scene.visualPrompt || scene.visualPrompt.trim().length === 0) {
         errors.push(`Scene ${scene.idx + 1}: Visual prompt is empty`);
       }
 
       if (scene.durationTargetSec < pacing.minDurationSec) {
-        warnings.push(`Scene ${scene.idx + 1}: Duration (${scene.durationTargetSec}s) is below minimum (${pacing.minDurationSec}s)`);
+        warnings.push(
+          `Scene ${scene.idx + 1}: Duration (${scene.durationTargetSec}s) is below minimum (${pacing.minDurationSec}s)`
+        );
       } else if (scene.durationTargetSec > pacing.maxDurationSec) {
-        warnings.push(`Scene ${scene.idx + 1}: Duration (${scene.durationTargetSec}s) exceeds maximum (${pacing.maxDurationSec}s)`);
+        warnings.push(
+          `Scene ${scene.idx + 1}: Duration (${scene.durationTargetSec}s) exceeds maximum (${pacing.maxDurationSec}s)`
+        );
       }
+    }
+
+    // Hook 3s: first scene should be under 5s so the hook lands in the first 3 seconds
+    const firstScene = planVersion.scenes[0];
+    if (firstScene && firstScene.durationTargetSec > 4) {
+      warnings.push('First scene should be under 5s so the hook lands in the first 3 seconds.');
     }
 
     // Check total duration
     const totalDuration = planVersion.scenes.reduce((sum, s) => sum + s.durationTargetSec, 0);
     const tolerance = project.targetLengthSec >= 180 ? 5 : 3;
-    
+
     if (Math.abs(totalDuration - project.targetLengthSec) > tolerance) {
       if (totalDuration < project.targetLengthSec - tolerance) {
-        warnings.push(`Total duration (${totalDuration.toFixed(1)}s) is below target (${project.targetLengthSec}s)`);
+        warnings.push(
+          `Total duration (${totalDuration.toFixed(1)}s) is below target (${project.targetLengthSec}s)`
+        );
         suggestions.push('Use "Auto-fit durations" to adjust scene lengths');
       } else if (totalDuration > project.targetLengthSec + tolerance) {
-        warnings.push(`Total duration (${totalDuration.toFixed(1)}s) exceeds target (${project.targetLengthSec}s)`);
+        warnings.push(
+          `Total duration (${totalDuration.toFixed(1)}s) exceeds target (${project.targetLengthSec}s)`
+        );
         suggestions.push('Use "Auto-fit durations" or reduce scene durations manually');
       }
     }
@@ -78,8 +94,8 @@ export function validatePlan(planVersion: PlanWithScenes, project: Project): Val
   }
 
   // Suggestions
-  if (planVersion.scenes.length > 0 && planVersion.scenes.every(s => !s.isLocked)) {
-    suggestions.push('Consider locking scenes you\'re happy with before regenerating others');
+  if (planVersion.scenes.length > 0 && planVersion.scenes.every((s) => !s.isLocked)) {
+    suggestions.push("Consider locking scenes you're happy with before regenerating others");
   }
 
   return { errors, warnings, suggestions };
@@ -91,14 +107,14 @@ export function autofitDurations(scenes: Scene[], project: Project): Scene[] {
 
   const pacing = getScenePacing(pack, project.targetLengthSec);
   const targetTotal = project.targetLengthSec;
-  
+
   // Calculate current total of locked scenes
-  const lockedScenes = scenes.filter(s => s.isLocked);
-  const unlockedScenes = scenes.filter(s => !s.isLocked);
-  
+  const lockedScenes = scenes.filter((s) => s.isLocked);
+  const unlockedScenes = scenes.filter((s) => !s.isLocked);
+
   const lockedTotal = lockedScenes.reduce((sum, s) => sum + s.durationTargetSec, 0);
   const remainingBudget = targetTotal - lockedTotal;
-  
+
   if (unlockedScenes.length === 0) {
     // All scenes are locked, just update times
     return updateSceneTimes(scenes);
@@ -106,7 +122,7 @@ export function autofitDurations(scenes: Scene[], project: Project): Scene[] {
 
   // Distribute remaining budget among unlocked scenes
   const avgDuration = remainingBudget / unlockedScenes.length;
-  
+
   // Clamp to min/max
   const clampedDuration = Math.max(
     pacing.minDurationSec,
@@ -114,7 +130,7 @@ export function autofitDurations(scenes: Scene[], project: Project): Scene[] {
   );
 
   // Update unlocked scenes
-  const updatedScenes = scenes.map(scene => {
+  const updatedScenes = scenes.map((scene) => {
     if (scene.isLocked) {
       return scene;
     }
@@ -127,11 +143,11 @@ export function autofitDurations(scenes: Scene[], project: Project): Scene[] {
   // Fine-tune to hit target exactly
   const currentTotal = updatedScenes.reduce((sum, s) => sum + s.durationTargetSec, 0);
   const diff = targetTotal - currentTotal;
-  
+
   if (Math.abs(diff) > 0.1 && unlockedScenes.length > 0) {
     // Distribute difference across unlocked scenes
     const adjustmentPerScene = diff / unlockedScenes.length;
-    
+
     for (const scene of updatedScenes) {
       if (!scene.isLocked) {
         const newDuration = scene.durationTargetSec + adjustmentPerScene;
@@ -148,12 +164,12 @@ export function autofitDurations(scenes: Scene[], project: Project): Scene[] {
 
 function updateSceneTimes(scenes: Scene[]): Scene[] {
   let currentTime = 0;
-  
-  return scenes.map(scene => {
+
+  return scenes.map((scene) => {
     const startTime = currentTime;
     const endTime = currentTime + scene.durationTargetSec;
     currentTime = endTime;
-    
+
     return {
       ...scene,
       startTimeSec: startTime,

@@ -33,11 +33,13 @@ async function waitForRunStatus(
 }
 
 async function createProjectWithPlan() {
-  const createRes = await request(app).post('/api/project').send({
-    topic: `Dry-run render test ${Date.now()}`,
-    nichePackId: 'facts',
-    targetLengthSec: 60,
-  });
+  const createRes = await request(app)
+    .post('/api/project')
+    .send({
+      topic: `Dry-run render test ${Date.now()}`,
+      nichePackId: 'facts',
+      targetLengthSec: 60,
+    });
   expect(createRes.status).toBe(200);
   const projectId = createRes.body.id;
 

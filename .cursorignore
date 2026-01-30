@@ -1,0 +1,18 @@
+﻿# Cursor: exclude from context/search when possible (Cursor also uses .gitignore).
+# Keeps agent context focused on source and config.
+
+node_modules/
+**/dist/
+**/build/
+**/artifacts/
+.env
+.env.*
+*.db
+*.db-journal
+**/test-results/
+**/playwright-report/
+**/playwright/.cache/
+coverage/
+package-lock.json
+*.tsbuildinfo
+.git/

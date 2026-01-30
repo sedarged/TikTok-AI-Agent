@@ -7,15 +7,26 @@ import { v4 as uuid } from 'uuid';
 
 export const projectRoutes = Router();
 
-const createProjectSchema = z.object({
-  topic: z.string().min(1).max(500),
-  nichePackId: z.string().min(1),
-  language: z.string().min(1).max(10).optional(),
-  targetLengthSec: z.number().int().positive().max(600).optional(),
-  tempo: z.enum(['slow', 'normal', 'fast']).optional(),
-  voicePreset: z.string().min(1).max(50).optional(),
-  visualStylePreset: z.string().nullable().optional(),
-}).strict();
+const createProjectSchema = z
+  .object({
+    topic: z.string().min(1).max(500),
+    nichePackId: z.string().min(1),
+    language: z.string().min(1).max(10).optional(),
+    targetLengthSec: z.number().int().positive().max(600).optional(),
+    tempo: z.enum(['slow', 'normal', 'fast']).optional(),
+    voicePreset: z.string().min(1).max(50).optional(),
+    visualStylePreset: z.string().nullable().optional(),
+    seoKeywords: z.string().max(500).optional(),
+  })
+  .strict();
+
+const projectIdParamsSchema = z.object({ id: z.string().uuid() });
+
+const generatePlanBodySchema = z
+  .object({
+    scriptTemplateId: z.string().min(1).max(50).optional(),
+  })
+  .strict();
 
 // List all projects
 projectRoutes.get('/', async (req, res) => {
@@ -59,6 +70,7 @@ projectRoutes.post('/', async (req, res) => {
       tempo = 'normal',
       voicePreset = 'alloy',
       visualStylePreset = null,
+      seoKeywords,
     } = parsed.data;
 
     if (!topic || !nichePackId) {
@@ -81,6 +93,7 @@ projectRoutes.post('/', async (req, res) => {
         tempo,
         voicePreset,
         visualStylePreset,
+        seoKeywords: seoKeywords ?? null,
         status: 'DRAFT_PLAN',
       },
     });
@@ -95,8 +108,13 @@ projectRoutes.post('/', async (req, res) => {
 // Get single project with latest plan version
 projectRoutes.get('/:id', async (req, res) => {
   try {
+    const parsed = projectIdParamsSchema.safeParse(req.params);
+    if (!parsed.success) {
+      return res.status(400).json({ error: 'Invalid project ID', details: parsed.error.flatten() });
+    }
+    const { id } = parsed.data;
     const project = await prisma.project.findUnique({
-      where: { id: req.params.id },
+      where: { id },
       include: {
         planVersions: {
           orderBy: { createdAt: 'desc' },
@@ -127,15 +145,24 @@ projectRoutes.get('/:id', async (req, res) => {
 // Generate plan for project
 projectRoutes.post('/:id/plan', async (req, res) => {
   try {
+    const parsed = projectIdParamsSchema.safeParse(req.params);
+    if (!parsed.success) {
+      return res.status(400).json({ error: 'Invalid project ID', details: parsed.error.flatten() });
+    }
+    const bodyParsed = generatePlanBodySchema.safeParse(req.body ?? {});
+    const body = bodyParsed.success ? bodyParsed.data : {};
+    const { id } = parsed.data;
     const project = await prisma.project.findUnique({
-      where: { id: req.params.id },
+      where: { id },
     });
 
     if (!project) {
       return res.status(404).json({ error: 'Project not found' });
     }
 
-    const planVersion = await generatePlan(project);
+    const planVersion = await generatePlan(project, {
+      scriptTemplateId: body.scriptTemplateId,
+    });
 
     // Update project with latest plan version
     await prisma.project.update({
@@ -159,15 +186,22 @@ projectRoutes.post('/:id/plan', async (req, res) => {
     res.json(fullPlanVersion);
   } catch (error) {
     console.error('Error generating plan:', error);
-    res.status(500).json({ error: error instanceof Error ? error.message : 'Failed to generate plan' });
+    res
+      .status(500)
+      .json({ error: error instanceof Error ? error.message : 'Failed to generate plan' });
   }
 });
 
 // Get project runs
 projectRoutes.get('/:id/runs', async (req, res) => {
   try {
+    const parsed = projectIdParamsSchema.safeParse(req.params);
+    if (!parsed.success) {
+      return res.status(400).json({ error: 'Invalid project ID', details: parsed.error.flatten() });
+    }
+    const { id } = parsed.data;
     const runs = await prisma.run.findMany({
-      where: { projectId: req.params.id },
+      where: { projectId: id },
       orderBy: { createdAt: 'desc' },
     });
     res.json(runs);
@@ -180,8 +214,13 @@ projectRoutes.get('/:id/runs', async (req, res) => {
 // Duplicate project
 projectRoutes.post('/:id/duplicate', async (req, res) => {
   try {
+    const parsed = projectIdParamsSchema.safeParse(req.params);
+    if (!parsed.success) {
+      return res.status(400).json({ error: 'Invalid project ID', details: parsed.error.flatten() });
+    }
+    const { id } = parsed.data;
     const original = await prisma.project.findUnique({
-      where: { id: req.params.id },
+      where: { id },
       include: {
         planVersions: {
           orderBy: { createdAt: 'desc' },
@@ -214,6 +253,7 @@ projectRoutes.post('/:id/duplicate', async (req, res) => {
         tempo: original.tempo,
         voicePreset: original.voicePreset,
         visualStylePreset: original.visualStylePreset,
+        seoKeywords: original.seoKeywords,
         status: 'DRAFT_PLAN',
       },
     });
@@ -221,7 +261,7 @@ projectRoutes.post('/:id/duplicate', async (req, res) => {
     // Copy plan version if exists
     if (original.planVersions.length > 0) {
       const originalPlan = original.planVersions[0];
-      
+
       await prisma.planVersion.create({
         data: {
           id: newPlanVersionId,
@@ -275,8 +315,13 @@ projectRoutes.post('/:id/duplicate', async (req, res) => {
 // Delete project
 projectRoutes.delete('/:id', async (req, res) => {
   try {
+    const parsed = projectIdParamsSchema.safeParse(req.params);
+    if (!parsed.success) {
+      return res.status(400).json({ error: 'Invalid project ID', details: parsed.error.flatten() });
+    }
+    const { id } = parsed.data;
     await prisma.project.delete({
-      where: { id: req.params.id },
+      where: { id },
     });
     res.json({ success: true });
   } catch (error) {

@@ -4,6 +4,7 @@ import type {
   Scene,
   Run,
   NichePack,
+  ChannelPreset,
   ValidationResult,
   VerificationResult,
   ProviderStatus,
@@ -18,10 +19,7 @@ export type FetchApiOptions = RequestInit & {
   signal?: AbortSignal;
 };
 
-async function fetchApi<T>(
-  endpoint: string,
-  options: FetchApiOptions = {}
-): Promise<T> {
+async function fetchApi<T>(endpoint: string, options: FetchApiOptions = {}): Promise<T> {
   const { timeout = DEFAULT_FETCH_TIMEOUT_MS, signal: outerSignal, ...init } = options;
   const controller = outerSignal ? null : new AbortController();
   const signal = outerSignal ?? controller!.signal;
@@ -48,7 +46,8 @@ async function fetchApi<T>(
     if (timeoutId) clearTimeout(timeoutId);
     if (err instanceof Error) {
       if (err.name === 'AbortError') throw new Error('Request timeout');
-      if (err.message === 'Failed to fetch') throw new Error('Network error. Check your connection.');
+      if (err.message === 'Failed to fetch')
+        throw new Error('Network error. Check your connection.');
     }
     throw err;
   }
@@ -68,6 +67,28 @@ export async function getNichePack(id: string): Promise<NichePack> {
   return fetchApi<NichePack>(`/niche-packs/${id}`);
 }
 
+export async function getTopicSuggestions(
+  nichePackId: string,
+  limit: number = 10
+): Promise<string[]> {
+  const params = new URLSearchParams({ nichePackId, limit: String(limit) });
+  return fetchApi<string[]>(`/topic-suggestions?${params}`);
+}
+
+export async function getChannelPresets(): Promise<ChannelPreset[]> {
+  return fetchApi<ChannelPreset[]>('/channel-presets');
+}
+
+export interface ScriptTemplate {
+  id: string;
+  name: string;
+  description: string;
+}
+
+export async function getScriptTemplates(): Promise<ScriptTemplate[]> {
+  return fetchApi<ScriptTemplate[]>('/script-templates');
+}
+
 // Projects
 export async function getProjects(options?: FetchApiOptions): Promise<Project[]> {
   return fetchApi<Project[]>('/projects', options);
@@ -85,6 +106,7 @@ export async function createProject(data: {
   tempo?: string;
   voicePreset?: string;
   visualStylePreset?: string | null;
+  seoKeywords?: string;
 }): Promise<Project> {
   return fetchApi<Project>('/project', {
     method: 'POST',
@@ -92,9 +114,53 @@ export async function createProject(data: {
   });
 }
 
-export async function generatePlan(projectId: string): Promise<PlanVersion> {
+export async function generatePlan(
+  projectId: string,
+  options?: { scriptTemplateId?: string }
+): Promise<PlanVersion> {
   return fetchApi<PlanVersion>(`/project/${projectId}/plan`, {
     method: 'POST',
+    body: JSON.stringify(options ?? {}),
+  });
+}
+
+export interface AutomateResponse {
+  projectId: string;
+  planVersionId: string;
+  runId: string;
+}
+
+export async function automateProject(data: {
+  topic: string;
+  nichePackId: string;
+  language?: string;
+  targetLengthSec?: number;
+  tempo?: string;
+  voicePreset?: string;
+  visualStylePreset?: string | null;
+  scriptTemplateId?: string;
+  seoKeywords?: string;
+}): Promise<AutomateResponse> {
+  return fetchApi<AutomateResponse>('/automate', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+}
+
+export async function postBatch(data: {
+  topics: string[];
+  nichePackId: string;
+  language?: string;
+  targetLengthSec?: number;
+  tempo?: string;
+  voicePreset?: string;
+  visualStylePreset?: string | null;
+  seoKeywords?: string;
+  scriptTemplateId?: string;
+}): Promise<{ runIds: string[] }> {
+  return fetchApi<{ runIds: string[] }>('/batch', {
+    method: 'POST',
+    body: JSON.stringify(data),
   });
 }
 
@@ -111,7 +177,10 @@ export async function deleteProject(projectId: string): Promise<void> {
 }
 
 // Plan versions
-export async function getPlanVersion(planVersionId: string, options?: FetchApiOptions): Promise<PlanVersion> {
+export async function getPlanVersion(
+  planVersionId: string,
+  options?: FetchApiOptions
+): Promise<PlanVersion> {
   return fetchApi<PlanVersion>(`/plan/${planVersionId}`, options);
 }
 
@@ -194,8 +263,41 @@ export async function regenerateScene(sceneId: string): Promise<Scene> {
 }
 
 // Runs
+export async function getRuns(options?: FetchApiOptions): Promise<Run[]> {
+  return fetchApi<Run[]>('/run', options);
+}
+
+export async function getRunsUpcoming(
+  from?: string,
+  to?: string,
+  options?: FetchApiOptions
+): Promise<Run[]> {
+  const params = new URLSearchParams();
+  if (from) params.set('from', from);
+  if (to) params.set('to', to);
+  const qs = params.toString();
+  return fetchApi<Run[]>(`/run/upcoming${qs ? `?${qs}` : ''}`, options);
+}
+
 export async function getRun(runId: string, options?: FetchApiOptions): Promise<Run> {
   return fetchApi<Run>(`/run/${runId}`, options);
+}
+
+export async function patchRun(
+  runId: string,
+  body: {
+    views?: number;
+    likes?: number;
+    retention?: number;
+    postedAt?: string | null;
+    scheduledPublishAt?: string | null;
+    publishedAt?: string | null;
+  }
+): Promise<Run> {
+  return fetchApi<Run>(`/run/${runId}`, {
+    method: 'PATCH',
+    body: JSON.stringify(body),
+  });
 }
 
 export async function retryRun(runId: string, fromStep?: string): Promise<Run> {

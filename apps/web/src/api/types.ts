@@ -12,31 +12,26 @@ export const EFFECT_PRESETS = [
   'static',
 ] as const;
 
-export type EffectPreset = typeof EFFECT_PRESETS[number];
+export type EffectPreset = (typeof EFFECT_PRESETS)[number];
 
 // Project status
-export type ProjectStatus = 
-  | 'DRAFT_PLAN' 
-  | 'PLAN_READY' 
-  | 'APPROVED' 
-  | 'RENDERING' 
-  | 'DONE' 
+export type ProjectStatus =
+  | 'DRAFT_PLAN'
+  | 'PLAN_READY'
+  | 'APPROVED'
+  | 'RENDERING'
+  | 'DONE'
   | 'FAILED';
 
 // Run status
-export type RunStatus = 
-  | 'queued' 
-  | 'running' 
-  | 'done' 
-  | 'failed' 
-  | 'canceled';
+export type RunStatus = 'queued' | 'running' | 'done' | 'failed' | 'canceled' | 'qa_failed';
 
 // Tempo
 export type Tempo = 'slow' | 'normal' | 'fast';
 
 // Voice presets
 export const VOICE_PRESETS = ['alloy', 'echo', 'fable', 'onyx', 'nova', 'shimmer'] as const;
-export type VoicePreset = typeof VOICE_PRESETS[number];
+export type VoicePreset = (typeof VOICE_PRESETS)[number];
 
 // Project
 export interface Project {
@@ -49,6 +44,7 @@ export interface Project {
   tempo: Tempo;
   voicePreset: string;
   visualStylePreset: string | null;
+  seoKeywords?: string | null;
   status: ProjectStatus;
   latestPlanVersionId: string | null;
   createdAt: string;
@@ -120,6 +116,12 @@ export interface Run {
   logsJson: string;
   artifactsJson: string;
   resumeStateJson: string;
+  views?: number | null;
+  likes?: number | null;
+  retention?: number | null;
+  postedAt?: string | null;
+  scheduledPublishAt?: string | null;
+  publishedAt?: string | null;
   createdAt: string;
   updatedAt: string;
   project?: Project;
@@ -140,9 +142,19 @@ export interface Artifacts {
   captionsPath?: string;
   mp4Path?: string;
   thumbPath?: string;
+  /** 3 thumbnails for cover choice: 0s, 3s, mid */
+  thumbPaths?: string[];
   exportJsonPath?: string;
   dryRun?: boolean;
   dryRunReportPath?: string;
+  /** QA check result when status is qa_failed */
+  qaResult?: { silence?: boolean; fileSize?: boolean; resolution?: boolean; details?: string };
+  /** TikTok metadata (caption, hashtags, title) */
+  tiktokCaption?: string;
+  tiktokHashtags?: string[];
+  tiktokTitle?: string;
+  /** Estimated cost (USD) for this run */
+  costEstimate?: { estimatedUsd: number };
 }
 
 // Niche pack
@@ -150,6 +162,17 @@ export interface NichePack {
   id: string;
   name: string;
   description: string;
+}
+
+// Channel preset (pre-filled form for QuickCreate)
+export interface ChannelPreset {
+  id: string;
+  name: string;
+  nichePackId: string;
+  voicePreset: string;
+  targetLengthSec: number;
+  tempo: string;
+  language?: string;
 }
 
 // Validation result

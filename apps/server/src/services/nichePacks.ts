@@ -40,7 +40,8 @@ export interface NichePack {
   effectsProfile: EffectsProfile;
 }
 
-const DEFAULT_NEGATIVE_PROMPT = 'blurry, low quality, watermark, text, logo, signature, cropped, out of frame, worst quality, low resolution, duplicate, morbid, mutilated, extra fingers, mutated hands, poorly drawn hands, poorly drawn face, mutation, deformed, ugly, disfigured, bad anatomy, bad proportions, extra limbs, cloned face, gross proportions, malformed limbs, missing arms, missing legs, extra arms, extra legs, fused fingers, too many fingers, long neck';
+const DEFAULT_NEGATIVE_PROMPT =
+  'blurry, low quality, watermark, text, logo, signature, cropped, out of frame, worst quality, low resolution, duplicate, morbid, mutilated, extra fingers, mutated hands, poorly drawn hands, poorly drawn face, mutation, deformed, ugly, disfigured, bad anatomy, bad proportions, extra limbs, cloned face, gross proportions, malformed limbs, missing arms, missing legs, extra arms, extra legs, fused fingers, too many fingers, long neck';
 
 const DEFAULT_CAPTION_STYLE: CaptionStyle = {
   fontFamily: 'Arial Black',
@@ -58,7 +59,8 @@ export const NICHE_PACKS: NichePack[] = [
     id: 'horror',
     name: 'Horror Stories',
     description: 'Creepy, atmospheric horror content',
-    styleBiblePrompt: 'Dark, eerie, cinematic horror style, atmospheric lighting, muted colors with red accents, fog and shadows, unsettling imagery, high contrast, dramatic composition',
+    styleBiblePrompt:
+      'Dark, eerie, cinematic horror style, atmospheric lighting, muted colors with red accents, fog and shadows, unsettling imagery, high contrast, dramatic composition',
     globalNegativePrompt: DEFAULT_NEGATIVE_PROMPT + ', happy, bright colors, cartoon, anime',
     hookRules: [
       'Start with a chilling statement or question',
@@ -87,7 +89,8 @@ export const NICHE_PACKS: NichePack[] = [
     id: 'facts',
     name: 'Amazing Facts',
     description: 'Mind-blowing facts and information',
-    styleBiblePrompt: 'Clean, modern, educational style, bright vibrant colors, clear composition, infographic aesthetic, professional photography style, well-lit subjects',
+    styleBiblePrompt:
+      'Clean, modern, educational style, bright vibrant colors, clear composition, infographic aesthetic, professional photography style, well-lit subjects',
     globalNegativePrompt: DEFAULT_NEGATIVE_PROMPT,
     hookRules: [
       'Start with "Did you know..." or similar',
@@ -116,7 +119,8 @@ export const NICHE_PACKS: NichePack[] = [
     id: 'motivation',
     name: 'Motivation',
     description: 'Inspirational and motivational content',
-    styleBiblePrompt: 'Inspiring, epic, cinematic style, golden hour lighting, dramatic skies, powerful imagery, hero shots, aspirational scenes, mountains and sunrises, determined expressions',
+    styleBiblePrompt:
+      'Inspiring, epic, cinematic style, golden hour lighting, dramatic skies, powerful imagery, hero shots, aspirational scenes, mountains and sunrises, determined expressions',
     globalNegativePrompt: DEFAULT_NEGATIVE_PROMPT + ', sad, depressing, dark mood',
     hookRules: [
       'Start with a powerful statement',
@@ -145,7 +149,8 @@ export const NICHE_PACKS: NichePack[] = [
     id: 'product',
     name: 'Product Showcase',
     description: 'Product reviews and showcases',
-    styleBiblePrompt: 'Clean product photography style, studio lighting, minimalist backgrounds, professional product shots, macro details, sleek and modern aesthetic',
+    styleBiblePrompt:
+      'Clean product photography style, studio lighting, minimalist backgrounds, professional product shots, macro details, sleek and modern aesthetic',
     globalNegativePrompt: DEFAULT_NEGATIVE_PROMPT + ', cluttered background, amateur lighting',
     hookRules: [
       'Start with the problem the product solves',
@@ -174,7 +179,8 @@ export const NICHE_PACKS: NichePack[] = [
     id: 'story',
     name: 'Storytelling',
     description: 'Narrative stories and tales',
-    styleBiblePrompt: 'Cinematic storytelling style, movie-like composition, dramatic lighting, emotional scenes, narrative imagery, rich colors and atmosphere',
+    styleBiblePrompt:
+      'Cinematic storytelling style, movie-like composition, dramatic lighting, emotional scenes, narrative imagery, rich colors and atmosphere',
     globalNegativePrompt: DEFAULT_NEGATIVE_PROMPT,
     hookRules: [
       'Start in the middle of action',
@@ -195,7 +201,14 @@ export const NICHE_PACKS: NichePack[] = [
       highlightColor: '#FF6B6B',
     },
     effectsProfile: {
-      allowedEffects: ['slow_zoom_in', 'slow_zoom_out', 'pan_left', 'pan_right', 'fade', 'flash_cut'],
+      allowedEffects: [
+        'slow_zoom_in',
+        'slow_zoom_out',
+        'pan_left',
+        'pan_right',
+        'fade',
+        'flash_cut',
+      ],
       defaultEffect: 'slow_zoom_in',
     },
   },
@@ -203,7 +216,8 @@ export const NICHE_PACKS: NichePack[] = [
     id: 'top5',
     name: 'Top 5 Lists',
     description: 'Countdown and ranking content',
-    styleBiblePrompt: 'Bold, dynamic list style, vibrant colors, clear numbered graphics aesthetic, eye-catching compositions, variety of subjects, engaging visuals',
+    styleBiblePrompt:
+      'Bold, dynamic list style, vibrant colors, clear numbered graphics aesthetic, eye-catching compositions, variety of subjects, engaging visuals',
     globalNegativePrompt: DEFAULT_NEGATIVE_PROMPT,
     hookRules: [
       'Tease the number one item',
@@ -232,7 +246,8 @@ export const NICHE_PACKS: NichePack[] = [
     id: 'finance_tips',
     name: 'Finance Tips',
     description: 'Educational financial advice',
-    styleBiblePrompt: 'Professional finance style, clean and trustworthy aesthetic, business imagery, charts and graphs visual style, money and success imagery, corporate colors',
+    styleBiblePrompt:
+      'Professional finance style, clean and trustworthy aesthetic, business imagery, charts and graphs visual style, money and success imagery, corporate colors',
     globalNegativePrompt: DEFAULT_NEGATIVE_PROMPT + ', get rich quick, scam',
     hookRules: [
       'Start with a money-saving revelation',
@@ -261,7 +276,8 @@ export const NICHE_PACKS: NichePack[] = [
     id: 'health_myths',
     name: 'Health Myths',
     description: 'Debunking health misconceptions',
-    styleBiblePrompt: 'Clean medical and health style, bright and trustworthy aesthetic, wellness imagery, scientific yet approachable, green and blue tones, healthy lifestyle visuals',
+    styleBiblePrompt:
+      'Clean medical and health style, bright and trustworthy aesthetic, wellness imagery, scientific yet approachable, green and blue tones, healthy lifestyle visuals',
     globalNegativePrompt: DEFAULT_NEGATIVE_PROMPT + ', graphic medical imagery, blood, injury',
     hookRules: [
       'Challenge a common health belief',
@@ -290,7 +306,8 @@ export const NICHE_PACKS: NichePack[] = [
     id: 'history',
     name: 'History',
     description: 'Historical events and stories',
-    styleBiblePrompt: 'Epic historical style, cinematic period imagery, sepia and muted tones with dramatic accents, grand architecture, historical scenes reimagined, documentary aesthetic',
+    styleBiblePrompt:
+      'Epic historical style, cinematic period imagery, sepia and muted tones with dramatic accents, grand architecture, historical scenes reimagined, documentary aesthetic',
     globalNegativePrompt: DEFAULT_NEGATIVE_PROMPT + ', modern elements, anachronistic',
     hookRules: [
       'Start with a dramatic historical moment',
@@ -319,7 +336,8 @@ export const NICHE_PACKS: NichePack[] = [
     id: 'gaming',
     name: 'Gaming',
     description: 'Gaming content and stories',
-    styleBiblePrompt: 'Vibrant gaming style, neon accents, digital aesthetic, game-inspired visuals, dynamic action shots, cyberpunk and fantasy elements, glowing effects',
+    styleBiblePrompt:
+      'Vibrant gaming style, neon accents, digital aesthetic, game-inspired visuals, dynamic action shots, cyberpunk and fantasy elements, glowing effects',
     globalNegativePrompt: DEFAULT_NEGATIVE_PROMPT,
     hookRules: [
       'Reference popular game mechanics',
@@ -348,7 +366,8 @@ export const NICHE_PACKS: NichePack[] = [
     id: 'science',
     name: 'Science Explained',
     description: 'Scientific concepts made simple',
-    styleBiblePrompt: 'Scientific visualization style, space and cosmos imagery, molecular and atomic visuals, clean educational aesthetic, futuristic technology, nature documentray quality',
+    styleBiblePrompt:
+      'Scientific visualization style, space and cosmos imagery, molecular and atomic visuals, clean educational aesthetic, futuristic technology, nature documentray quality',
     globalNegativePrompt: DEFAULT_NEGATIVE_PROMPT,
     hookRules: [
       'Start with a mind-bending question',
@@ -377,7 +396,8 @@ export const NICHE_PACKS: NichePack[] = [
     id: 'mystery',
     name: 'Mysteries & Unexplained',
     description: 'Unsolved mysteries and phenomena',
-    styleBiblePrompt: 'Mysterious and enigmatic style, dark atmospheric lighting, fog and shadows, ancient artifacts, unexplained phenomena visuals, documentary mystery aesthetic',
+    styleBiblePrompt:
+      'Mysterious and enigmatic style, dark atmospheric lighting, fog and shadows, ancient artifacts, unexplained phenomena visuals, documentary mystery aesthetic',
     globalNegativePrompt: DEFAULT_NEGATIVE_PROMPT + ', cartoon, anime, bright happy colors',
     hookRules: [
       'Start with an unsolved question',
@@ -405,7 +425,7 @@ export const NICHE_PACKS: NichePack[] = [
 ];
 
 export function getNichePack(id: string): NichePack | undefined {
-  return NICHE_PACKS.find(pack => pack.id === id);
+  return NICHE_PACKS.find((pack) => pack.id === id);
 }
 
 export function getScenePacing(pack: NichePack, targetLengthSec: number): ScenePacing {

@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { getProjects, deleteProject, duplicateProject } from '../api/client';
 import type { Project } from '../api/types';
+import { getErrorMessage } from '../utils/errors';
 
 export default function Projects() {
   const [projects, setProjects] = useState<Project[]>([]);
@@ -21,7 +22,7 @@ export default function Projects() {
       })
       .catch((err) => {
         if (signal.aborted) return;
-        setError(err instanceof Error ? err.message : 'Failed to load projects');
+        setError(getErrorMessage(err));
       })
       .finally(() => {
         if (!signal.aborted) setLoading(false);
@@ -43,25 +44,14 @@ export default function Projects() {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  const loadProjects = async () => {
-    try {
-      const data = await getProjects();
-      setProjects(data);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load projects');
-    } finally {
-      setLoading(false);
-    }
-  };
-
   const handleDelete = async (id: string) => {
     if (!confirm('Are you sure you want to delete this project?')) return;
-    
+
     try {
       await deleteProject(id);
       setProjects(projects.filter((p) => p.id !== id));
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to delete project');
+      setError(getErrorMessage(err));
     }
   };
 
@@ -70,7 +60,7 @@ export default function Projects() {
       const newProject = await duplicateProject(id);
       setProjects([newProject, ...projects]);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to duplicate project');
+      setError(getErrorMessage(err));
     }
   };
 
@@ -89,7 +79,10 @@ export default function Projects() {
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
-        <div className="w-10 h-10 border-4 border-t-transparent rounded-full animate-spin" style={{ borderColor: 'var(--color-primary)', borderTopColor: 'transparent' }} />
+        <div
+          className="w-10 h-10 border-4 border-t-transparent rounded-full animate-spin"
+          style={{ borderColor: 'var(--color-primary)', borderTopColor: 'transparent' }}
+        />
       </div>
     );
   }
@@ -165,34 +158,59 @@ export default function Projects() {
                       onClick={() => setOpenMenuId(openMenuId === project.id ? null : project.id)}
                       className="btn btn-secondary text-sm px-3"
                     >
-                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z" />
+                      <svg
+                        className="w-5 h-5"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z"
+                        />
                       </svg>
                     </button>
-                    
+
                     {openMenuId === project.id && (
-                      <div className="absolute right-0 mt-2 w-48 rounded-lg shadow-lg z-10 border" style={{ background: 'var(--color-surface)', borderColor: 'var(--color-border)' }}>
+                      <div
+                        className="absolute right-0 mt-2 w-48 rounded-lg shadow-lg z-10 border"
+                        style={{
+                          background: 'var(--color-surface)',
+                          borderColor: 'var(--color-border)',
+                        }}
+                      >
                         <div className="py-1">
-                          {(project.status === 'RENDERING' || project.status === 'FAILED') && 
-                           project.runs && project.runs[0] && (
-                            <Link
-                              to={`/run/${project.runs[0].id}`}
-                              className="block w-full text-left px-4 py-2 text-sm hover:bg-opacity-50 transition-colors"
-                              style={{ color: 'var(--color-text)' }}
-                              onMouseEnter={(e) => e.currentTarget.style.background = 'var(--color-surface-2)'}
-                              onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
-                              onClick={() => setOpenMenuId(null)}
-                            >
-                              View Progress
-                            </Link>
-                          )}
+                          {(project.status === 'RENDERING' || project.status === 'FAILED') &&
+                            project.runs &&
+                            project.runs[0] && (
+                              <Link
+                                to={`/run/${project.runs[0].id}`}
+                                className="block w-full text-left px-4 py-2 text-sm hover:bg-opacity-50 transition-colors"
+                                style={{ color: 'var(--color-text)' }}
+                                onMouseEnter={(e) =>
+                                  (e.currentTarget.style.background = 'var(--color-surface-2)')
+                                }
+                                onMouseLeave={(e) =>
+                                  (e.currentTarget.style.background = 'transparent')
+                                }
+                                onClick={() => setOpenMenuId(null)}
+                              >
+                                View Progress
+                              </Link>
+                            )}
                           {project.status === 'DONE' && project.runs && project.runs[0] && (
                             <Link
                               to={`/run/${project.runs[0].id}`}
                               className="block w-full text-left px-4 py-2 text-sm hover:bg-opacity-50 transition-colors"
                               style={{ color: 'var(--color-text)' }}
-                              onMouseEnter={(e) => e.currentTarget.style.background = 'var(--color-surface-2)'}
-                              onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
+                              onMouseEnter={(e) =>
+                                (e.currentTarget.style.background = 'var(--color-surface-2)')
+                              }
+                              onMouseLeave={(e) =>
+                                (e.currentTarget.style.background = 'transparent')
+                              }
                               onClick={() => setOpenMenuId(null)}
                             >
                               View Output
@@ -202,8 +220,10 @@ export default function Projects() {
                             to={`/project/${project.id}/plan`}
                             className="block w-full text-left px-4 py-2 text-sm hover:bg-opacity-50 transition-colors"
                             style={{ color: 'var(--color-text)' }}
-                            onMouseEnter={(e) => e.currentTarget.style.background = 'var(--color-surface-2)'}
-                            onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
+                            onMouseEnter={(e) =>
+                              (e.currentTarget.style.background = 'var(--color-surface-2)')
+                            }
+                            onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
                             onClick={() => setOpenMenuId(null)}
                           >
                             Edit Plan
@@ -215,8 +235,10 @@ export default function Projects() {
                             }}
                             className="block w-full text-left px-4 py-2 text-sm hover:bg-opacity-50 transition-colors"
                             style={{ color: 'var(--color-text)' }}
-                            onMouseEnter={(e) => e.currentTarget.style.background = 'var(--color-surface-2)'}
-                            onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
+                            onMouseEnter={(e) =>
+                              (e.currentTarget.style.background = 'var(--color-surface-2)')
+                            }
+                            onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
                           >
                             Duplicate
                           </button>
@@ -227,8 +249,10 @@ export default function Projects() {
                             }}
                             className="block w-full text-left px-4 py-2 text-sm hover:bg-opacity-50 transition-colors"
                             style={{ color: 'var(--color-danger)' }}
-                            onMouseEnter={(e) => e.currentTarget.style.background = 'var(--color-surface-2)'}
-                            onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
+                            onMouseEnter={(e) =>
+                              (e.currentTarget.style.background = 'var(--color-surface-2)')
+                            }
+                            onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
                           >
                             Delete
                           </button>

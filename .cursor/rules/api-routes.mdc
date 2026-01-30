@@ -1,0 +1,23 @@
+---
+description: API route conventions – Zod, UUID params, error handling, registration.
+globs: apps/server/src/routes/**/*.ts
+alwaysApply: false
+---
+
+# API Routes
+
+## New endpoint checklist
+
+1. **Route** – Add handler in the appropriate file under `apps/server/src/routes/` (or create one). Use `router.get/post/patch/delete` etc.
+2. **Validation** – Define a Zod schema (or reuse from `utils/apiSchemas.ts`). Use `safeParse()` on `req.body` or `req.params`. Return `400` with `{ error, details: parsed.error.flatten() }` when invalid.
+3. **Path params** – For `runId`, `projectId`, `planVersionId`, etc., validate with `z.string().uuid()`. Return 400 on invalid.
+4. **Register** – Mount the router in `apps/server/src/index.ts` under `/api/...`.
+5. **Client** – Add corresponding function in `apps/web/src/api/client.ts` and types in `api/types.ts` if needed.
+6. **Test** – Add or extend an integration test in `apps/server/tests/` or an E2E in `apps/web/tests/e2e/`.
+
+## Patterns
+
+- Use `schema.strict()` for body schemas.
+- Use `try/catch` around DB and external calls; return 5xx with JSON `{ error: string }` on failure.
+- Wrap `JSON.parse` (e.g. `run.logsJson`) in try/catch.
+- See [apps/server/src/routes/project.ts](apps/server/src/routes/project.ts) and [plan.ts](apps/server/src/routes/plan.ts) for examples.

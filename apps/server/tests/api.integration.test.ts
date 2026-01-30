@@ -1,6 +1,7 @@
 import { beforeAll, beforeEach, afterAll, describe, expect, it } from 'vitest';
 import request from 'supertest';
 import type { Express } from 'express';
+import { v4 as uuid } from 'uuid';
 import { prisma } from '../src/db/client.js';
 import {
   PlanVersionSchema,
@@ -100,9 +101,7 @@ describe('Plan and preview workflow (test mode)', () => {
     const planRes = await request(app).post(`/api/project/${project.id}/plan`);
     const plan = PlanVersionSchema.parse(planRes.body);
 
-    await request(app)
-      .put(`/api/plan/${plan.id}`)
-      .send({ hookSelected: '', outline: '' });
+    await request(app).put(`/api/plan/${plan.id}`).send({ hookSelected: '', outline: '' });
 
     const validateRes = await request(app).post(`/api/plan/${plan.id}/validate`);
     expect(validateRes.status).toBe(200);
@@ -228,7 +227,7 @@ describe('Plan and preview workflow (test mode)', () => {
 
     const run = await prisma.run.create({
       data: {
-        id: `test-run-${project.id}`,
+        id: uuid(),
         projectId: project.id,
         planVersionId: plan.id,
         status: 'queued',

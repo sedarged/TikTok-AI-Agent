@@ -12,24 +12,19 @@ export const EFFECT_PRESETS = [
   'static',
 ] as const;
 
-export type EffectPreset = typeof EFFECT_PRESETS[number];
+export type EffectPreset = (typeof EFFECT_PRESETS)[number];
 
 // Project status
-export type ProjectStatus = 
-  | 'DRAFT_PLAN' 
-  | 'PLAN_READY' 
-  | 'APPROVED' 
-  | 'RENDERING' 
-  | 'DONE' 
+export type ProjectStatus =
+  | 'DRAFT_PLAN'
+  | 'PLAN_READY'
+  | 'APPROVED'
+  | 'RENDERING'
+  | 'DONE'
   | 'FAILED';
 
 // Run status
-export type RunStatus = 
-  | 'queued' 
-  | 'running' 
-  | 'done' 
-  | 'failed' 
-  | 'canceled';
+export type RunStatus = 'queued' | 'running' | 'done' | 'failed' | 'canceled';
 
 // Tempo
 export type Tempo = 'slow' | 'normal' | 'fast';

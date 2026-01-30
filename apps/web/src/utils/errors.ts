@@ -7,4 +7,3 @@ export function getErrorMessage(err: unknown): string {
     return 'Unknown error';
   }
 }
-

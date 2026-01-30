@@ -35,6 +35,7 @@ Alternatywnie możesz użyć:
 ```
 
 Ten skrypt automatycznie:
+
 1. ✅ Zainstaluje wszystkie zależności
 2. ✅ Wygeneruje klienta Prisma
 3. ✅ Utworzy bazę danych SQLite
@@ -83,6 +84,7 @@ npm run dev
 ```
 
 To uruchomi jednocześnie:
+
 - **Backend** na http://localhost:3001
 - **Frontend** na http://localhost:5173
 
@@ -90,11 +92,11 @@ To uruchomi jednocześnie:
 
 Po uruchomieniu `npm run dev`, otwórz w przeglądarce:
 
-| Komponent | URL | Opis |
-|-----------|-----|------|
-| **Interfejs Webowy** | http://localhost:5173 | React frontend |
-| **API Backend** | http://localhost:3001/api | Express backend |
-| **Baza danych** | `apps/server/app.db` | SQLite (plik) |
+| Komponent            | URL                       | Opis            |
+| -------------------- | ------------------------- | --------------- |
+| **Interfejs Webowy** | http://localhost:5173     | React frontend  |
+| **API Backend**      | http://localhost:3001/api | Express backend |
+| **Baza danych**      | `apps/server/app.db`      | SQLite (plik)   |
 
 ## 🧪 Rodzaje Testów
 
@@ -246,6 +248,7 @@ VITE_API_URL=http://localhost:3001/api
 **Błąd**: `Error: listen EADDRINUSE: address already in use :::3001`
 
 **Rozwiązanie**:
+
 ```powershell
 # Znajdź proces używający portu
 netstat -ano | findstr :3001
@@ -261,6 +264,7 @@ taskkill /PID <PID> /F
 ### Problem: Testy nie przechodzą
 
 **Rozwiązanie**:
+
 1. Sprawdź czy baza danych istnieje: `apps/server/app.db`
 2. Uruchom ponownie migracje: `npm run db:migrate:dev`
 3. Uruchom seed: `npm run db:seed`

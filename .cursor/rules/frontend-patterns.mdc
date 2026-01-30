@@ -1,0 +1,22 @@
+---
+description: Frontend patterns – API client, error handling, no placeholder UI.
+globs: apps/web/src/**/*.{ts,tsx}
+alwaysApply: false
+---
+
+# Frontend (React)
+
+## API & errors
+
+- Use `apps/web/src/api/client.ts` for all API calls. Do not add raw `fetch` elsewhere without wrapping and error handling.
+- Use `getErrorMessage()` from `utils/errors` to show user-facing error messages. Display errors in UI (e.g. under forms), not only in console.
+- Handle loading and error states; avoid blank or unstyled placeholders for real content.
+
+## UI
+
+- Use existing components and Tailwind classes. Keep styling consistent with the rest of the app.
+- For new pages, add a route in `App.tsx` and navigation in `Layout` if needed.
+
+## References
+
+- [api/client.ts](apps/web/src/api/client.ts), [api/types.ts](apps/web/src/api/types.ts), [utils/errors.ts](apps/web/src/utils/errors.ts)

@@ -5,7 +5,7 @@ export const nichePackRoutes = Router();
 
 // Get all niche packs
 nichePackRoutes.get('/', (req, res) => {
-  const packs = NICHE_PACKS.map(pack => ({
+  const packs = NICHE_PACKS.map((pack) => ({
     id: pack.id,
     name: pack.name,
     description: pack.description,

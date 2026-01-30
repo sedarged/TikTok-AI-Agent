@@ -2,7 +2,13 @@ import { prisma } from '../../db/client.js';
 import { v4 as uuid } from 'uuid';
 import path from 'path';
 import fs from 'fs';
-import { env, getDryRunFailStep, getDryRunStepDelayMs, isRenderDryRun, isTestMode } from '../../env.js';
+import {
+  env,
+  getDryRunFailStep,
+  getDryRunStepDelayMs,
+  isRenderDryRun,
+  isTestMode,
+} from '../../env.js';
 import { getNichePack } from '../nichePacks.js';
 import { generateTTS, transcribeAudio, generateImage } from '../providers/openai.js';
 import { buildCaptionsFromWords, buildCaptionsFromScenes } from '../captions/captionsBuilder.js';
@@ -15,6 +21,8 @@ import {
   extractThumbnail,
   getMediaDuration,
 } from '../ffmpeg/ffmpegUtils.js';
+import { validateQa } from '../qa/qaValidator.js';
+import { generateTikTokMeta } from '../tiktokExport.js';
 import { broadcastRunUpdate } from '../../routes/run.js';
 import type { Run, PlanVersion, Scene, Project } from '@prisma/client';
 
@@ -23,7 +31,7 @@ interface PlanWithDetails extends PlanVersion {
   project: Project;
 }
 
-type RunStep = 
+type RunStep =
   | 'tts_generate'
   | 'asr_align'
   | 'images_generate'
@@ -52,8 +60,81 @@ const STEP_WEIGHTS: Record<RunStep, number> = {
   finalize_artifacts: 5,
 };
 
+interface ResumeState {
+  completedSteps?: RunStep[];
+  completedSceneIdxs?: number[];
+}
+
 // Active runs for cancellation
 const activeRuns = new Map<string, boolean>();
+
+// Queue: max 1 render at a time; runIds waiting to start
+const renderQueue: string[] = [];
+let currentRunningRunId: string | null = null;
+
+async function processNextInQueue(): Promise<void> {
+  if (renderQueue.length === 0) return;
+  const runId = renderQueue.shift()!;
+  try {
+    const run = await prisma.run.findUnique({
+      where: { id: runId },
+      include: {
+        planVersion: {
+          include: {
+            scenes: { orderBy: { idx: 'asc' } },
+            project: true,
+          },
+        },
+      },
+    });
+    if (!run || run.status !== 'queued') return;
+    currentRunningRunId = runId;
+    await prisma.project.update({
+      where: { id: run.projectId },
+      data: { status: 'RENDERING' },
+    });
+    activeRuns.set(runId, true);
+    executePipeline(run, run.planVersion as PlanWithDetails).catch((err) => {
+      console.error('Pipeline execution failed (from queue):', err);
+      handlePipelineError(runId, err);
+    });
+  } catch (err) {
+    console.error('Failed to process next in queue:', err);
+    processNextInQueue().catch(console.error);
+  }
+}
+
+async function handlePipelineError(runId: string, error: unknown): Promise<void> {
+  try {
+    const currentRun = await prisma.run.findUnique({ where: { id: runId } });
+    if (currentRun && (currentRun.status === 'running' || currentRun.status === 'queued')) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      let logs: Array<{ timestamp: string; message: string; level: string }>;
+      try {
+        logs = JSON.parse(currentRun.logsJson);
+      } catch {
+        logs = [];
+      }
+      logs.push({
+        timestamp: new Date().toISOString(),
+        message: `Pipeline failed: ${errorMessage}`,
+        level: 'error',
+      });
+      await prisma.run.update({
+        where: { id: runId },
+        data: { status: 'failed', logsJson: JSON.stringify(logs), currentStep: 'error' },
+      });
+      await prisma.project.update({
+        where: { id: currentRun.projectId },
+        data: { status: 'FAILED' },
+      });
+      broadcastRunUpdate(runId, { type: 'failed', error: errorMessage });
+    }
+  } catch (e) {
+    console.error('Error in handlePipelineError:', e);
+  }
+  // Note: executePipeline's finally will set currentRunningRunId = null and call processNextInQueue
+}
 
 function shouldFailStep(step: RunStep): boolean {
   return isRenderDryRun() && getDryRunFailStep() === step;
@@ -103,7 +184,7 @@ export async function startRenderPipeline(planVersion: PlanWithDetails): Promise
 
   const runId = uuid();
   const projectId = planVersion.projectId;
-  
+
   // Create run record
   const run = await prisma.run.create({
     data: {
@@ -119,53 +200,21 @@ export async function startRenderPipeline(planVersion: PlanWithDetails): Promise
     },
   });
 
-  // Update project status
+  // Queue: if a run is already in progress, enqueue this one; otherwise start now
+  if (currentRunningRunId !== null) {
+    renderQueue.push(runId);
+    return run;
+  }
+
+  currentRunningRunId = runId;
   await prisma.project.update({
     where: { id: projectId },
     data: { status: 'RENDERING' },
   });
-
-  // Start pipeline in background with proper error handling
   activeRuns.set(runId, true);
-  executePipeline(run, planVersion).catch(async (error) => {
+  executePipeline(run, planVersion).catch((error) => {
     console.error('Pipeline execution failed:', error);
-    // Update run status to failed if not already updated
-    try {
-      const currentRun = await prisma.run.findUnique({ where: { id: runId } });
-      if (currentRun && currentRun.status === 'RENDERING') {
-        const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-        
-        let logs;
-        try {
-          logs = JSON.parse(currentRun.logsJson);
-        } catch (parseError) {
-          console.error('Failed to parse logsJson in error handler:', parseError);
-          logs = [];
-        }
-        
-        logs.push({
-          timestamp: new Date().toISOString(),
-          message: `Pipeline failed: ${errorMessage}`,
-          level: 'error',
-        });
-        
-        await prisma.run.update({
-          where: { id: runId },
-          data: {
-            status: 'FAILED',
-            logsJson: JSON.stringify(logs),
-          },
-        });
-        
-        // Broadcast failure to SSE clients
-        broadcastRunUpdate(runId, {
-          type: 'failed',
-          error: errorMessage,
-        });
-      }
-    } catch (updateError) {
-      console.error('Failed to update run status after pipeline error:', updateError);
-    }
+    handlePipelineError(runId, error);
   });
 
   return run;
@@ -178,7 +227,7 @@ async function executePipeline(run: Run, planVersion: PlanWithDetails) {
   const project = planVersion.project;
   const scenes = planVersion.scenes;
   const dryRun = isRenderDryRun();
-  
+
   // Create artifacts directory
   const artifactsDir = path.join(env.ARTIFACTS_DIR, projectId, runId);
   const imagesDir = path.join(artifactsDir, 'images');
@@ -186,7 +235,7 @@ async function executePipeline(run: Run, planVersion: PlanWithDetails) {
   const captionsDir = path.join(artifactsDir, 'captions');
   const finalDir = path.join(artifactsDir, 'final');
   const videoDir = path.join(artifactsDir, 'video');
-  
+
   for (const dir of [imagesDir, audioDir, captionsDir, finalDir, videoDir]) {
     ensureDirExists(dir);
   }
@@ -199,6 +248,7 @@ async function executePipeline(run: Run, planVersion: PlanWithDetails) {
     dryRun,
   };
 
+  let totalCostUsd = 0;
   let resumeState;
   try {
     resumeState = JSON.parse(run.resumeStateJson);
@@ -206,8 +256,8 @@ async function executePipeline(run: Run, planVersion: PlanWithDetails) {
     console.error('Failed to parse resumeStateJson, starting fresh:', error);
     resumeState = { completedSteps: [], completedSceneIdxs: [] };
   }
-  
-  let completedSteps = resumeState.completedSteps || [];
+
+  const completedSteps = resumeState.completedSteps || [];
   let progress = 0;
 
   try {
@@ -224,27 +274,32 @@ async function executePipeline(run: Run, planVersion: PlanWithDetails) {
       }
 
       await updateStep(runId, 'tts_generate', 'Generating voice-over audio...');
-      
+
       const sceneAudioPaths: string[] = [];
-      
+
       for (let i = 0; i < scenes.length; i++) {
         if (!isActive(runId)) break;
-        
+
         const scene = scenes[i];
         const audioPath = path.join(audioDir, `scene_${String(i).padStart(2, '0')}.mp3`);
-        
+
         await addLog(runId, `Generating TTS for scene ${i + 1}/${scenes.length}...`);
-        
+
         if (!fs.existsSync(audioPath)) {
           if (dryRun) {
             writePlaceholderFile(audioPath, `[dry-run audio]\n${scene.narrationText}\n`);
           } else {
-            await generateTTS(scene.narrationText, audioPath, project.voicePreset);
+            const ttsResult = await generateTTS(
+              scene.narrationText,
+              audioPath,
+              project.voicePreset
+            );
+            totalCostUsd += ttsResult.estimatedCostUsd;
           }
         }
-        
+
         sceneAudioPaths.push(audioPath);
-        
+
         // Update progress within step
         const stepProgress = ((i + 1) / scenes.length) * STEP_WEIGHTS.tts_generate;
         await updateProgress(runId, Math.round(stepProgress));
@@ -257,7 +312,7 @@ async function executePipeline(run: Run, planVersion: PlanWithDetails) {
           await addLog(runId, 'Creating dry-run voice-over placeholder...');
           writePlaceholderFile(
             voFullPath,
-            `[dry-run voice-over]\n${scenes.map(s => s.narrationText).join('\n')}\n`
+            `[dry-run voice-over]\n${scenes.map((s) => s.narrationText).join('\n')}\n`
           );
         } else {
           await addLog(runId, 'Concatenating voice-over audio...');
@@ -281,15 +336,22 @@ async function executePipeline(run: Run, planVersion: PlanWithDetails) {
       }
 
       await updateStep(runId, 'asr_align', 'Transcribing audio for captions...');
-      
+
       const voFullPath = path.join(audioDir, 'vo_full.mp3');
       const timestampsPath = path.join(captionsDir, 'timestamps.json');
-      
+
       if (fs.existsSync(voFullPath) && !fs.existsSync(timestampsPath)) {
-        const transcription = dryRun
-          ? buildDryRunTranscription(scenes)
-          : await transcribeAudio(voFullPath);
-        fs.writeFileSync(timestampsPath, JSON.stringify(transcription, null, 2));
+        if (dryRun) {
+          const transcription = buildDryRunTranscription(scenes);
+          fs.writeFileSync(timestampsPath, JSON.stringify(transcription, null, 2));
+        } else {
+          const transResult = await transcribeAudio(voFullPath);
+          totalCostUsd += transResult.estimatedCostUsd;
+          fs.writeFileSync(
+            timestampsPath,
+            JSON.stringify({ text: transResult.text, words: transResult.words }, null, 2)
+          );
+        }
       }
 
       completedSteps.push('asr_align');
@@ -309,32 +371,35 @@ async function executePipeline(run: Run, planVersion: PlanWithDetails) {
       }
 
       await updateStep(runId, 'images_generate', 'Generating scene images...');
-      
+
       const pack = getNichePack(project.nichePackId);
-      
+
       for (let i = 0; i < scenes.length; i++) {
         if (!isActive(runId)) break;
-        
+
         const scene = scenes[i];
         const imagePath = path.join(imagesDir, `scene_${String(i).padStart(2, '0')}.png`);
-        
+
         if (!fs.existsSync(imagePath)) {
           await addLog(runId, `Generating image for scene ${i + 1}/${scenes.length}...`);
-          
+
           // Build full prompt
           const fullPrompt = [
             pack?.styleBiblePrompt || '',
             scene.visualPrompt,
             'High quality, detailed, vertical composition suitable for TikTok',
-          ].filter(Boolean).join('. ');
-          
+          ]
+            .filter(Boolean)
+            .join('. ');
+
           if (dryRun) {
             writePlaceholderFile(imagePath, `[dry-run image]\n${fullPrompt}\n`);
           } else {
-            await generateImage(fullPrompt, imagePath, '1024x1792');
+            const imgResult = await generateImage(fullPrompt, imagePath, '1024x1792');
+            totalCostUsd += imgResult.estimatedCostUsd;
           }
         }
-        
+
         // Update progress
         const stepProgress = progress + ((i + 1) / scenes.length) * STEP_WEIGHTS.images_generate;
         await updateProgress(runId, Math.round(stepProgress));
@@ -356,20 +421,20 @@ async function executePipeline(run: Run, planVersion: PlanWithDetails) {
       }
 
       await updateStep(runId, 'captions_build', 'Building captions...');
-      
+
       const pack = getNichePack(project.nichePackId);
       const captionsPath = path.join(captionsDir, 'captions.ass');
       const timestampsPath = path.join(captionsDir, 'timestamps.json');
-      
+
       if (!fs.existsSync(captionsPath)) {
         if (fs.existsSync(timestampsPath)) {
           const transcription = JSON.parse(fs.readFileSync(timestampsPath, 'utf-8'));
-          
+
           if (transcription.words && transcription.words.length > 0) {
             buildCaptionsFromWords(transcription.words, pack!.captionStyle, captionsPath);
           } else {
             buildCaptionsFromScenes(
-              scenes.map(s => ({
+              scenes.map((s) => ({
                 narrationText: s.narrationText,
                 startTimeSec: s.startTimeSec,
                 endTimeSec: s.endTimeSec,
@@ -380,7 +445,7 @@ async function executePipeline(run: Run, planVersion: PlanWithDetails) {
           }
         } else {
           buildCaptionsFromScenes(
-            scenes.map(s => ({
+            scenes.map((s) => ({
               narrationText: s.narrationText,
               startTimeSec: s.startTimeSec,
               endTimeSec: s.endTimeSec,
@@ -409,19 +474,20 @@ async function executePipeline(run: Run, planVersion: PlanWithDetails) {
       }
 
       await updateStep(runId, 'music_build', 'Processing background music...');
-      
+
       const voFullPath = path.join(audioDir, 'vo_full.mp3');
       const mixedAudioPath = path.join(audioDir, 'mixed.mp3');
-      
+
       if (dryRun) {
         writePlaceholderFile(mixedAudioPath, '[dry-run mixed audio]\n');
       } else {
         // Check for music files
         let musicPath: string | null = null;
         if (fs.existsSync(env.MUSIC_LIBRARY_DIR)) {
-          const musicFiles = fs.readdirSync(env.MUSIC_LIBRARY_DIR)
-            .filter(f => /\.(mp3|wav|m4a)$/i.test(f));
-          
+          const musicFiles = fs
+            .readdirSync(env.MUSIC_LIBRARY_DIR)
+            .filter((f) => /\.(mp3|wav|m4a)$/i.test(f));
+
           if (musicFiles.length > 0) {
             // Pick first music file for now
             musicPath = path.join(env.MUSIC_LIBRARY_DIR, musicFiles[0]);
@@ -451,7 +517,7 @@ async function executePipeline(run: Run, planVersion: PlanWithDetails) {
       }
 
       await updateStep(runId, 'ffmpeg_render', 'Rendering video...');
-      
+
       if (dryRun) {
         const reportPath = path.join(finalDir, 'dry_run_report.txt');
         writePlaceholderFile(
@@ -464,56 +530,66 @@ async function executePipeline(run: Run, planVersion: PlanWithDetails) {
         progress += STEP_WEIGHTS.ffmpeg_render;
         await updateProgress(runId, progress);
       } else {
-      const sceneVideoPaths: string[] = [];
-      
-      // Create scene videos with motion effects
-      for (let i = 0; i < scenes.length; i++) {
-        if (!isActive(runId)) break;
-        
-        const scene = scenes[i];
-        const imagePath = path.join(imagesDir, `scene_${String(i).padStart(2, '0')}.png`);
-        const videoPath = path.join(videoDir, `scene_${String(i).padStart(2, '0')}.mp4`);
-        
-        if (!fs.existsSync(videoPath) && fs.existsSync(imagePath)) {
-          await addLog(runId, `Creating video segment ${i + 1}/${scenes.length}...`);
-          await createSceneVideo(imagePath, scene.durationTargetSec, scene.effectPreset, videoPath);
+        const sceneVideoPaths: string[] = [];
+
+        // Create scene videos with motion effects
+        for (let i = 0; i < scenes.length; i++) {
+          if (!isActive(runId)) break;
+
+          const scene = scenes[i];
+          const imagePath = path.join(imagesDir, `scene_${String(i).padStart(2, '0')}.png`);
+          const videoPath = path.join(videoDir, `scene_${String(i).padStart(2, '0')}.mp4`);
+
+          if (!fs.existsSync(videoPath) && fs.existsSync(imagePath)) {
+            await addLog(runId, `Creating video segment ${i + 1}/${scenes.length}...`);
+            await createSceneVideo(
+              imagePath,
+              scene.durationTargetSec,
+              scene.effectPreset,
+              videoPath
+            );
+          }
+
+          if (fs.existsSync(videoPath)) {
+            sceneVideoPaths.push(videoPath);
+          }
+
+          // Update progress
+          const stepProgress =
+            progress + ((i + 1) / scenes.length) * (STEP_WEIGHTS.ffmpeg_render * 0.5);
+          await updateProgress(runId, Math.round(stepProgress));
         }
-        
-        if (fs.existsSync(videoPath)) {
-          sceneVideoPaths.push(videoPath);
+
+        // Concatenate scenes
+        const rawVideoPath = path.join(finalDir, 'raw.mp4');
+        if (sceneVideoPaths.length > 0 && !fs.existsSync(rawVideoPath)) {
+          await addLog(runId, 'Concatenating video segments...');
+          await concatenateVideos(sceneVideoPaths, rawVideoPath);
         }
-        
-        // Update progress
-        const stepProgress = progress + ((i + 1) / scenes.length) * (STEP_WEIGHTS.ffmpeg_render * 0.5);
-        await updateProgress(runId, Math.round(stepProgress));
-      }
 
-      // Concatenate scenes
-      const rawVideoPath = path.join(finalDir, 'raw.mp4');
-      if (sceneVideoPaths.length > 0 && !fs.existsSync(rawVideoPath)) {
-        await addLog(runId, 'Concatenating video segments...');
-        await concatenateVideos(sceneVideoPaths, rawVideoPath);
-      }
+        // Final composite with audio and captions
+        const mixedAudioPath = path.join(audioDir, 'mixed.mp3');
+        const captionsPath = path.join(captionsDir, 'captions.ass');
+        const finalVideoPath = path.join(finalDir, 'final.mp4');
 
-      // Final composite with audio and captions
-      const mixedAudioPath = path.join(audioDir, 'mixed.mp3');
-      const captionsPath = path.join(captionsDir, 'captions.ass');
-      const finalVideoPath = path.join(finalDir, 'final.mp4');
-      
-      const audioToUse = fs.existsSync(mixedAudioPath) 
-        ? mixedAudioPath 
-        : path.join(audioDir, 'vo_full.mp3');
-      
-      if (!fs.existsSync(finalVideoPath) && fs.existsSync(rawVideoPath) && fs.existsSync(audioToUse)) {
-        await addLog(runId, 'Creating final video with audio and captions...');
-        await finalComposite(rawVideoPath, audioToUse, captionsPath, finalVideoPath);
-      }
+        const audioToUse = fs.existsSync(mixedAudioPath)
+          ? mixedAudioPath
+          : path.join(audioDir, 'vo_full.mp3');
 
-      artifacts.mp4Path = path.relative(env.ARTIFACTS_DIR, finalVideoPath);
-      completedSteps.push('ffmpeg_render');
-      await saveResumeState(runId, { completedSteps });
-      progress += STEP_WEIGHTS.ffmpeg_render;
-      await updateProgress(runId, progress);
+        if (
+          !fs.existsSync(finalVideoPath) &&
+          fs.existsSync(rawVideoPath) &&
+          fs.existsSync(audioToUse)
+        ) {
+          await addLog(runId, 'Creating final video with audio and captions...');
+          await finalComposite(rawVideoPath, audioToUse, captionsPath, finalVideoPath);
+        }
+
+        artifacts.mp4Path = path.relative(env.ARTIFACTS_DIR, finalVideoPath);
+        completedSteps.push('ffmpeg_render');
+        await saveResumeState(runId, { completedSteps });
+        progress += STEP_WEIGHTS.ffmpeg_render;
+        await updateProgress(runId, progress);
       }
     }
 
@@ -528,20 +604,71 @@ async function executePipeline(run: Run, planVersion: PlanWithDetails) {
       }
 
       await updateStep(runId, 'finalize_artifacts', 'Finalizing...');
-      
+
+      (artifacts as Record<string, unknown>).costEstimate = {
+        estimatedUsd: Math.round(totalCostUsd * 100) / 100,
+      };
+
       const finalVideoPath = path.join(finalDir, 'final.mp4');
-      const thumbPath = path.join(finalDir, 'thumb.png');
       const exportPath = path.join(finalDir, 'export.json');
-      
-      // Extract thumbnail
-      if (!dryRun && fs.existsSync(finalVideoPath) && !fs.existsSync(thumbPath)) {
-        await addLog(runId, 'Extracting thumbnail...');
-        await extractThumbnail(finalVideoPath, thumbPath, 2);
+
+      // Extract 3 thumbnails: start, 3s, mid (for "Use as cover" choice)
+      const thumbPaths: string[] = [];
+      if (!dryRun && fs.existsSync(finalVideoPath)) {
+        const thumb0Path = path.join(finalDir, 'thumb_0.png');
+        const thumb3Path = path.join(finalDir, 'thumb_3.png');
+        const thumbMidPath = path.join(finalDir, 'thumb_mid.png');
+        const needThumbs =
+          !fs.existsSync(thumb0Path) || !fs.existsSync(thumb3Path) || !fs.existsSync(thumbMidPath);
+        if (needThumbs) {
+          await addLog(runId, 'Extracting thumbnails...');
+          const durationSec = await getMediaDuration(finalVideoPath);
+          const midOffset = Math.max(0, durationSec / 2 - 0.5);
+          if (!fs.existsSync(thumb0Path)) await extractThumbnail(finalVideoPath, thumb0Path, 0);
+          if (!fs.existsSync(thumb3Path)) await extractThumbnail(finalVideoPath, thumb3Path, 3);
+          if (!fs.existsSync(thumbMidPath))
+            await extractThumbnail(finalVideoPath, thumbMidPath, midOffset);
+        }
+        thumbPaths.push(
+          path.relative(env.ARTIFACTS_DIR, path.join(finalDir, 'thumb_0.png')),
+          path.relative(env.ARTIFACTS_DIR, path.join(finalDir, 'thumb_3.png')),
+          path.relative(env.ARTIFACTS_DIR, path.join(finalDir, 'thumb_mid.png'))
+        );
+        (artifacts as Record<string, unknown>).thumbPaths = thumbPaths;
+        artifacts.thumbPath = thumbPaths[0];
+      }
+
+      // TikTok metadata (caption, hashtags, title) – only when not dry-run
+      let tiktokCaption: string | undefined;
+      let tiktokHashtags: string[] = [];
+      let tiktokTitle: string | undefined;
+      if (!dryRun) {
+        try {
+          await addLog(runId, 'Generating TikTok caption and hashtags...');
+          const tiktok = await generateTikTokMeta({
+            topic: project.topic,
+            nichePackId: project.nichePackId,
+            hookSelected: planVersion.hookSelected,
+            outline: planVersion.outline,
+          });
+          tiktokCaption = tiktok.caption;
+          tiktokHashtags = tiktok.hashtags;
+          tiktokTitle = tiktok.title;
+          (artifacts as Record<string, unknown>).tiktokCaption = tiktokCaption;
+          (artifacts as Record<string, unknown>).tiktokHashtags = tiktokHashtags;
+          (artifacts as Record<string, unknown>).tiktokTitle = tiktokTitle;
+        } catch (err) {
+          await addLog(
+            runId,
+            `TikTok meta failed: ${err instanceof Error ? err.message : 'unknown'}`,
+            'warn'
+          );
+        }
       }
 
       // Create export JSON
       if (!fs.existsSync(exportPath)) {
-        const exportData = {
+        const exportData: Record<string, unknown> = {
           project: {
             id: project.id,
             title: project.title,
@@ -553,7 +680,7 @@ async function executePipeline(run: Run, planVersion: PlanWithDetails) {
           plan: {
             hookSelected: planVersion.hookSelected,
             outline: planVersion.outline,
-            scenes: scenes.map(s => ({
+            scenes: scenes.map((s) => ({
               idx: s.idx,
               narrationText: s.narrationText,
               visualPrompt: s.visualPrompt,
@@ -567,19 +694,42 @@ async function executePipeline(run: Run, planVersion: PlanWithDetails) {
           },
           artifacts,
         };
-        
+        if (tiktokCaption !== undefined || tiktokTitle !== undefined) {
+          exportData.tiktok = {
+            caption: tiktokCaption ?? '',
+            hashtags: tiktokHashtags,
+            title: tiktokTitle ?? '',
+          };
+        }
         fs.writeFileSync(exportPath, JSON.stringify(exportData, null, 2));
       }
 
-      if (!dryRun && fs.existsSync(thumbPath)) {
-        artifacts.thumbPath = path.relative(env.ARTIFACTS_DIR, thumbPath);
-      }
       artifacts.exportJsonPath = path.relative(env.ARTIFACTS_DIR, exportPath);
-      
+
       completedSteps.push('finalize_artifacts');
       await saveResumeState(runId, { completedSteps });
       progress = 100;
       await updateProgress(runId, progress);
+    }
+
+    // QA check (only when we have real MP4, not dry-run)
+    if (isActive(runId) && !dryRun) {
+      const finalVideoPath = path.join(finalDir, 'final.mp4');
+      if (fs.existsSync(finalVideoPath)) {
+        const qaResult = await validateQa(finalVideoPath);
+        (artifacts as Record<string, unknown>).qaResult = qaResult.qaResult;
+        if (!qaResult.passed) {
+          await updateRun(runId, {
+            status: 'qa_failed',
+            progress: 100,
+            currentStep: 'complete',
+            artifactsJson: JSON.stringify(artifacts),
+          });
+          await addLog(runId, `QA failed: ${qaResult.details || 'checks failed'}`, 'warn');
+          broadcastRunUpdate(runId, { type: 'state', status: 'qa_failed', progress: 100 });
+          return;
+        }
+      }
     }
 
     // Mark as complete
@@ -590,9 +740,9 @@ async function executePipeline(run: Run, planVersion: PlanWithDetails) {
         currentStep: 'complete',
         artifactsJson: JSON.stringify(artifacts),
       });
-      
+
       await addLog(runId, 'Render complete!');
-      
+
       // Update project status
       await prisma.project.update({
         where: { id: projectId },
@@ -601,20 +751,22 @@ async function executePipeline(run: Run, planVersion: PlanWithDetails) {
 
       broadcastRunUpdate(runId, { type: 'done', progress: 100 });
     }
-
   } catch (error) {
     console.error('Pipeline error:', error);
-    
+
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    
+
+    (artifacts as Record<string, unknown>).costEstimate = {
+      estimatedUsd: Math.round(totalCostUsd * 100) / 100,
+    };
     await updateRun(runId, {
       status: 'failed',
       currentStep: 'error',
       artifactsJson: JSON.stringify(artifacts),
     });
-    
+
     await addLog(runId, `Error: ${errorMessage}`, 'error');
-    
+
     // Update project status
     await prisma.project.update({
       where: { id: projectId },
@@ -624,6 +776,10 @@ async function executePipeline(run: Run, planVersion: PlanWithDetails) {
     broadcastRunUpdate(runId, { type: 'failed', error: errorMessage });
   } finally {
     activeRuns.delete(runId);
+    if (currentRunningRunId === runId) {
+      currentRunningRunId = null;
+      processNextInQueue().catch(console.error);
+    }
   }
 }
 
@@ -695,11 +851,11 @@ export async function retryRun(runId: string, fromStep?: string): Promise<Run> {
     resumeState.completedSteps = [];
   }
 
-  // Atomic check-and-set: only transition from failed/canceled to queued
+  // Atomic check-and-set: only transition from failed/canceled/qa_failed to queued
   const result = await prisma.run.updateMany({
     where: {
       id: runId,
-      status: { in: ['failed', 'canceled'] },
+      status: { in: ['failed', 'canceled', 'qa_failed'] },
     },
     data: {
       status: 'queued',
@@ -730,8 +886,20 @@ export async function retryRun(runId: string, fromStep?: string): Promise<Run> {
 
   if (!updatedRun) throw new Error('Run not found');
 
+  if (currentRunningRunId !== null) {
+    renderQueue.push(runId);
+    return updatedRun as Run;
+  }
+  currentRunningRunId = runId;
+  await prisma.project.update({
+    where: { id: updatedRun.projectId },
+    data: { status: 'RENDERING' },
+  });
   activeRuns.set(runId, true);
-  executePipeline(updatedRun, updatedRun.planVersion as PlanWithDetails).catch(console.error);
+  executePipeline(updatedRun, updatedRun.planVersion as PlanWithDetails).catch((err) => {
+    console.error('Pipeline execution failed (retry):', err);
+    handlePipelineError(runId, err);
+  });
 
   return updatedRun as Run;
 }
@@ -739,7 +907,7 @@ export async function retryRun(runId: string, fromStep?: string): Promise<Run> {
 // Cancel a run
 export async function cancelRun(runId: string): Promise<void> {
   activeRuns.set(runId, false);
-  
+
   await prisma.run.update({
     where: { id: runId },
     data: { status: 'canceled' },
@@ -758,7 +926,7 @@ async function updateRun(runId: string, data: Partial<Run>) {
     where: { id: runId },
     data,
   });
-  
+
   broadcastRunUpdate(runId, { type: 'state', ...data });
 }
 
@@ -767,7 +935,7 @@ async function updateStep(runId: string, step: string, message: string) {
     where: { id: runId },
     data: { currentStep: step },
   });
-  
+
   await addLog(runId, message);
   broadcastRunUpdate(runId, { type: 'step', step, message });
 }
@@ -777,7 +945,7 @@ async function updateProgress(runId: string, progress: number) {
     where: { id: runId },
     data: { progress },
   });
-  
+
   broadcastRunUpdate(runId, { type: 'progress', progress });
 }
 
@@ -785,9 +953,9 @@ async function addLog(runId: string, message: string, level: 'info' | 'warn' | '
   const run = await prisma.run.findUnique({
     where: { id: runId },
   });
-  
+
   if (!run) return;
-  
+
   let logs;
   try {
     logs = JSON.parse(run.logsJson);
@@ -795,28 +963,31 @@ async function addLog(runId: string, message: string, level: 'info' | 'warn' | '
     console.error('Failed to parse logsJson, starting fresh:', error);
     logs = [];
   }
-  
+
   logs.push({
     timestamp: new Date().toISOString(),
     message,
     level,
   });
-  
+
   await prisma.run.update({
     where: { id: runId },
     data: { logsJson: JSON.stringify(logs) },
   });
-  
-  broadcastRunUpdate(runId, { type: 'log', log: { timestamp: new Date().toISOString(), message, level } });
+
+  broadcastRunUpdate(runId, {
+    type: 'log',
+    log: { timestamp: new Date().toISOString(), message, level },
+  });
 }
 
-async function saveResumeState(runId: string, state: any) {
+async function saveResumeState(runId: string, state: Partial<ResumeState>) {
   const run = await prisma.run.findUnique({
     where: { id: runId },
   });
-  
+
   if (!run) return;
-  
+
   let currentState;
   try {
     currentState = JSON.parse(run.resumeStateJson);
@@ -824,9 +995,9 @@ async function saveResumeState(runId: string, state: any) {
     console.error('Failed to parse resumeStateJson, starting fresh:', error);
     currentState = {};
   }
-  
+
   const newState = { ...currentState, ...state };
-  
+
   await prisma.run.update({
     where: { id: runId },
     data: { resumeStateJson: JSON.stringify(newState) },

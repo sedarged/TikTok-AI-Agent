@@ -16,8 +16,12 @@ async function runFfprobe(args: string[], timeoutMs: number = 30000): Promise<st
       proc.kill('SIGKILL');
       reject(new Error('ffprobe timeout'));
     }, timeoutMs);
-    proc.stdout?.on('data', (d) => { stdout += d.toString(); });
-    proc.stderr?.on('data', (d) => { stderr += d.toString(); });
+    proc.stdout?.on('data', (d) => {
+      stdout += d.toString();
+    });
+    proc.stderr?.on('data', (d) => {
+      stderr += d.toString();
+    });
     proc.on('close', (code) => {
       clearTimeout(timer);
       if (code === 0) resolve(stdout.trim());
@@ -31,7 +35,7 @@ async function runFfprobe(args: string[], timeoutMs: number = 30000): Promise<st
 }
 
 /** Escape path for FFmpeg concat list line: file 'path' — single quotes in path escaped. */
-function escapeConcatPath(filePath: string): string {
+export function escapeConcatPath(filePath: string): string {
   return filePath.replace(/'/g, "'\\''");
 }
 
@@ -70,7 +74,11 @@ export async function getFFmpegPath(): Promise<string> {
   try {
     const ffmpegStaticModule = await import('ffmpeg-static');
     const ffmpegStaticPath = ffmpegStaticModule.default as unknown as string;
-    if (ffmpegStaticPath && typeof ffmpegStaticPath === 'string' && fs.existsSync(ffmpegStaticPath)) {
+    if (
+      ffmpegStaticPath &&
+      typeof ffmpegStaticPath === 'string' &&
+      fs.existsSync(ffmpegStaticPath)
+    ) {
       ffmpegPath = ffmpegStaticPath;
       return ffmpegPath;
     }
@@ -119,16 +127,16 @@ export async function getFFprobePath(): Promise<string> {
 // Run FFmpeg command
 export async function runFFmpeg(args: string[]): Promise<void> {
   const ffmpeg = await getFFmpegPath();
-  
+
   return new Promise((resolve, reject) => {
     console.log(`Running: ${ffmpeg} ${args.join(' ')}`);
-    
+
     const proc = spawn(ffmpeg, args, {
       stdio: ['ignore', 'pipe', 'pipe'],
     });
 
     let stderr = '';
-    
+
     proc.stderr?.on('data', (data) => {
       stderr += data.toString();
     });
@@ -174,10 +182,21 @@ export async function validateVideo(videoPath: string): Promise<{
 
   try {
     const stdout = await runFfprobe(
-      ['-v', 'quiet', '-show_entries', 'format=duration:stream=width,height', '-of', 'json', videoPath],
+      [
+        '-v',
+        'quiet',
+        '-show_entries',
+        'format=duration:stream=width,height',
+        '-of',
+        'json',
+        videoPath,
+      ],
       30000
     );
-    const data = JSON.parse(stdout) as { format?: { duration?: string }; streams?: Array<{ width?: number; height?: number }> };
+    const data = JSON.parse(stdout) as {
+      format?: { duration?: string };
+      streams?: Array<{ width?: number; height?: number }>;
+    };
     const duration = parseFloat(data.format?.duration || '0');
     const videoStream = data.streams?.find((s) => s.width && s.height);
     return {
@@ -195,23 +214,13 @@ export async function validateVideo(videoPath: string): Promise<{
 }
 
 // Concatenate audio files (paths escaped for concat demuxer)
-export async function concatenateAudio(
-  inputFiles: string[],
-  outputPath: string
-): Promise<void> {
+export async function concatenateAudio(inputFiles: string[], outputPath: string): Promise<void> {
   const listFile = outputPath + '.list.txt';
   const listContent = inputFiles.map((f) => `file '${escapeConcatPath(f)}'`).join('\n');
   fs.writeFileSync(listFile, listContent);
 
   try {
-    await runFFmpeg([
-      '-f', 'concat',
-      '-safe', '0',
-      '-i', listFile,
-      '-c', 'copy',
-      '-y',
-      outputPath,
-    ]);
+    await runFFmpeg(['-f', 'concat', '-safe', '0', '-i', listFile, '-c', 'copy', '-y', outputPath]);
   } finally {
     if (fs.existsSync(listFile)) {
       fs.unlinkSync(listFile);
@@ -233,54 +242,61 @@ export async function createSceneVideo(
 
   // Get motion filter based on effect
   const filter = getMotionFilter(effect, duration);
-  
+
   await runFFmpeg([
-    '-loop', '1',
-    '-i', imagePath,
-    '-c:v', 'libx264',
-    '-t', duration.toString(),
-    '-pix_fmt', 'yuv420p',
-    '-vf', filter,
-    '-r', '30',
+    '-loop',
+    '1',
+    '-i',
+    imagePath,
+    '-c:v',
+    'libx264',
+    '-t',
+    duration.toString(),
+    '-pix_fmt',
+    'yuv420p',
+    '-vf',
+    filter,
+    '-r',
+    '30',
     '-y',
     outputPath,
   ]);
 }
 
-// Get FFmpeg filter for motion effect
-function getMotionFilter(effect: string, duration: number): string {
+// Get FFmpeg filter for motion effect (exported for unit tests)
+export function getMotionFilter(effect: string, duration: number): string {
   const scale = 'scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920';
-  
+
   switch (effect) {
     case 'slow_zoom_in':
       return `${scale},zoompan=z='min(zoom+0.0005,1.1)':d=${duration * 30}:s=1080x1920:fps=30`;
-    
+
     case 'slow_zoom_out':
       return `${scale},zoompan=z='if(eq(on,1),1.1,max(zoom-0.0005,1))':d=${duration * 30}:s=1080x1920:fps=30`;
-    
+
     case 'pan_left':
       return `${scale},zoompan=z='1.1':x='iw/2-(iw/zoom/2)+((iw/zoom)*(1-on/(${duration * 30})))':y='ih/2-(ih/zoom/2)':d=${duration * 30}:s=1080x1920:fps=30`;
-    
+
     case 'pan_right':
       return `${scale},zoompan=z='1.1':x='iw/2-(iw/zoom/2)-((iw/zoom)*(1-on/(${duration * 30})))':y='ih/2-(ih/zoom/2)':d=${duration * 30}:s=1080x1920:fps=30`;
-    
+
     case 'tilt_up':
       return `${scale},zoompan=z='1.1':x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)+((ih/zoom)*(1-on/(${duration * 30})))':d=${duration * 30}:s=1080x1920:fps=30`;
-    
+
     case 'tilt_down':
       return `${scale},zoompan=z='1.1':x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)-((ih/zoom)*(1-on/(${duration * 30})))':d=${duration * 30}:s=1080x1920:fps=30`;
-    
+
     case 'glitch':
       // Simulate glitch with random displacement
       return `${scale},noise=c0s=10:c0f=t+u`;
-    
+
     case 'flash_cut':
       // Quick fade in
       return `${scale},fade=in:0:5`;
-    
+
     case 'fade':
-      return `${scale},fade=in:0:15,fade=out:${Math.floor((duration * 30) - 15)}:15`;
-    
+      return `${scale},fade=in:0:15,fade=out:${Math.floor(duration * 30 - 15)}:15`;
+
     case 'static':
     default:
       return scale;
@@ -309,13 +325,20 @@ export async function concatenateVideos(
 
   try {
     await runFFmpeg([
-      '-f', 'concat',
-      '-safe', '0',
-      '-i', listFile,
-      '-c:v', 'libx264',
-      '-crf', '23',
-      '-preset', 'fast',
-      '-pix_fmt', 'yuv420p',
+      '-f',
+      'concat',
+      '-safe',
+      '0',
+      '-i',
+      listFile,
+      '-c:v',
+      'libx264',
+      '-crf',
+      '23',
+      '-preset',
+      'fast',
+      '-pix_fmt',
+      'yuv420p',
       '-y',
       outputPath,
     ]);
@@ -344,44 +367,68 @@ export async function mixAudio(
 
   // Mix with ducking
   await runFFmpeg([
-    '-i', voicePath,
-    '-i', musicPath,
-    '-filter_complex', 
+    '-i',
+    voicePath,
+    '-i',
+    musicPath,
+    '-filter_complex',
     `[1:a]volume=${musicVolume},atrim=0:${voDuration}[music];[0:a][music]amix=inputs=2:duration=first:dropout_transition=2`,
-    '-c:a', 'aac',
-    '-b:a', '192k',
+    '-c:a',
+    'aac',
+    '-b:a',
+    '192k',
     '-y',
     outputPath,
   ]);
 }
 
-// Combine video with audio and captions
+// TikTok standard: 1080x1920, 30fps, keyframe every 1s, AAC 256k, loudnorm -14 LUFS
+const TIKTOK_SCALE =
+  'scale=1080:1920:force_original_aspect_ratio=decrease,pad=1080:1920:(ow-iw)/2:(oh-ih)/2';
+
+// Combine video with audio and captions (TikTok preset when outputting final MP4)
 export async function finalComposite(
   videoPath: string,
   audioPath: string,
   captionsPath: string | null,
   outputPath: string
 ): Promise<void> {
-  const filters: string[] = [];
-  
+  const filters: string[] = [TIKTOK_SCALE];
   if (captionsPath && fs.existsSync(captionsPath)) {
-    // Burn in subtitles
     filters.push(`subtitles='${captionsPath.replace(/'/g, "\\'")}'`);
   }
 
-  const filterArg = filters.length > 0 ? ['-vf', filters.join(',')] : [];
-
   await runFFmpeg([
-    '-i', videoPath,
-    '-i', audioPath,
-    ...filterArg,
-    '-c:v', 'libx264',
-    '-crf', '20',
-    '-preset', 'fast',
-    '-c:a', 'aac',
-    '-b:a', '192k',
-    '-map', '0:v',
-    '-map', '1:a',
+    '-i',
+    videoPath,
+    '-i',
+    audioPath,
+    '-vf',
+    filters.join(','),
+    '-c:v',
+    'libx264',
+    '-b:v',
+    '12M',
+    '-maxrate',
+    '14M',
+    '-bufsize',
+    '24M',
+    '-g',
+    '30',
+    '-r',
+    '30',
+    '-pix_fmt',
+    'yuv420p',
+    '-c:a',
+    'aac',
+    '-b:a',
+    '256k',
+    '-af',
+    'loudnorm=I=-14:TP=-1:LRA=11',
+    '-map',
+    '0:v',
+    '-map',
+    '1:a',
     '-shortest',
     '-y',
     outputPath,
@@ -395,10 +442,14 @@ export async function extractThumbnail(
   timeOffset: number = 2
 ): Promise<void> {
   await runFFmpeg([
-    '-i', videoPath,
-    '-ss', timeOffset.toString(),
-    '-vframes', '1',
-    '-vf', 'scale=540:960',
+    '-i',
+    videoPath,
+    '-ss',
+    timeOffset.toString(),
+    '-vframes',
+    '1',
+    '-vf',
+    'scale=540:960',
     '-y',
     outputPath,
   ]);

@@ -2,36 +2,54 @@ import { Router } from 'express';
 import { z } from 'zod';
 import { prisma } from '../db/client.js';
 import { validatePlan, autofitDurations } from '../services/plan/planValidator.js';
-import { regenerateHooks, regenerateOutline, regenerateScript } from '../services/plan/planGenerator.js';
+import {
+  regenerateHooks,
+  regenerateOutline,
+  regenerateScript,
+} from '../services/plan/planGenerator.js';
 import { startRenderPipeline } from '../services/render/renderPipeline.js';
 import { isOpenAIConfigured, isRenderDryRun, isTestMode } from '../env.js';
 import { checkFFmpegAvailable } from '../services/ffmpeg/ffmpegUtils.js';
 
 export const planRoutes = Router();
 
-const sceneUpdateSchema = z.object({
-  id: z.string(),
-  narrationText: z.string().optional(),
-  onScreenText: z.string().optional(),
-  visualPrompt: z.string().optional(),
-  negativePrompt: z.string().optional(),
-  effectPreset: z.string().optional(),
-  durationTargetSec: z.number().optional(),
-  isLocked: z.boolean().optional(),
-}).strict();
+const sceneUpdateSchema = z
+  .object({
+    id: z.string(),
+    narrationText: z.string().optional(),
+    onScreenText: z.string().optional(),
+    visualPrompt: z.string().optional(),
+    negativePrompt: z.string().optional(),
+    effectPreset: z.string().optional(),
+    durationTargetSec: z.number().optional(),
+    isLocked: z.boolean().optional(),
+  })
+  .strict();
 
-const planUpdateSchema = z.object({
-  hookSelected: z.string().optional(),
-  outline: z.string().optional(),
-  scriptFull: z.string().optional(),
-  scenes: z.array(sceneUpdateSchema).optional(),
-}).strict();
+const planUpdateSchema = z
+  .object({
+    hookSelected: z.string().optional(),
+    outline: z.string().optional(),
+    scriptFull: z.string().optional(),
+    scenes: z.array(sceneUpdateSchema).optional(),
+  })
+  .strict();
+
+const planVersionIdParamsSchema = z.object({ planVersionId: z.string().uuid() });
 
 // Get plan version
 planRoutes.get('/:planVersionId', async (req, res) => {
   try {
+    const parsed = planVersionIdParamsSchema.safeParse(req.params);
+    if (!parsed.success) {
+      return res.status(400).json({
+        error: 'Invalid plan version ID',
+        details: parsed.error.flatten(),
+      });
+    }
+    const { planVersionId } = parsed.data;
     const planVersion = await prisma.planVersion.findUnique({
-      where: { id: req.params.planVersionId },
+      where: { id: planVersionId },
       include: {
         scenes: {
           orderBy: { idx: 'asc' },
@@ -54,16 +72,22 @@ planRoutes.get('/:planVersionId', async (req, res) => {
 // Update plan version (autosave)
 planRoutes.put('/:planVersionId', async (req, res) => {
   try {
-    const parsed = planUpdateSchema.safeParse(req.body);
-    if (!parsed.success) {
+    const parsedBody = planUpdateSchema.safeParse(req.body);
+    if (!parsedBody.success) {
       return res.status(400).json({
         error: 'Invalid plan update payload',
-        details: parsed.error.flatten(),
+        details: parsedBody.error.flatten(),
       });
     }
-
-    const { hookSelected, outline, scriptFull, scenes } = parsed.data;
-    const planVersionId = req.params.planVersionId;
+    const parsedParams = planVersionIdParamsSchema.safeParse(req.params);
+    if (!parsedParams.success) {
+      return res.status(400).json({
+        error: 'Invalid plan version ID',
+        details: parsedParams.error.flatten(),
+      });
+    }
+    const { hookSelected, outline, scriptFull, scenes } = parsedBody.data;
+    const { planVersionId } = parsedParams.data;
 
     const planVersion = await prisma.planVersion.findUnique({
       where: { id: planVersionId },
@@ -75,7 +99,11 @@ planRoutes.put('/:planVersionId', async (req, res) => {
     }
 
     // Update plan version fields
-    const updateData: any = {};
+    const updateData: {
+      hookSelected?: string;
+      outline?: string;
+      scriptFull?: string;
+    } = {};
     if (hookSelected !== undefined) updateData.hookSelected = hookSelected;
     if (outline !== undefined) updateData.outline = outline;
     if (scriptFull !== undefined) updateData.scriptFull = scriptFull;
@@ -91,7 +119,7 @@ planRoutes.put('/:planVersionId', async (req, res) => {
     if (scenes && Array.isArray(scenes)) {
       for (const scene of scenes) {
         if (!scene.id) continue;
-        
+
         const existingScene = await prisma.scene.findUnique({
           where: { id: scene.id },
         });
@@ -139,8 +167,16 @@ planRoutes.put('/:planVersionId', async (req, res) => {
 // Validate plan
 planRoutes.post('/:planVersionId/validate', async (req, res) => {
   try {
+    const parsed = planVersionIdParamsSchema.safeParse(req.params);
+    if (!parsed.success) {
+      return res.status(400).json({
+        error: 'Invalid plan version ID',
+        details: parsed.error.flatten(),
+      });
+    }
+    const { planVersionId } = parsed.data;
     const planVersion = await prisma.planVersion.findUnique({
-      where: { id: req.params.planVersionId },
+      where: { id: planVersionId },
       include: {
         scenes: {
           orderBy: { idx: 'asc' },
@@ -173,8 +209,16 @@ planRoutes.post('/:planVersionId/validate', async (req, res) => {
 // Auto-fit durations
 planRoutes.post('/:planVersionId/autofit', async (req, res) => {
   try {
+    const parsed = planVersionIdParamsSchema.safeParse(req.params);
+    if (!parsed.success) {
+      return res.status(400).json({
+        error: 'Invalid plan version ID',
+        details: parsed.error.flatten(),
+      });
+    }
+    const { planVersionId } = parsed.data;
     const planVersion = await prisma.planVersion.findUnique({
-      where: { id: req.params.planVersionId },
+      where: { id: planVersionId },
       include: {
         scenes: {
           orderBy: { idx: 'asc' },
@@ -203,7 +247,10 @@ planRoutes.post('/:planVersionId/autofit', async (req, res) => {
 
     // Recalculate estimates
     const totalDuration = fittedScenes.reduce((sum, s) => sum + s.durationTargetSec, 0);
-    const totalWords = fittedScenes.reduce((sum, s) => sum + s.narrationText.split(/\s+/).length, 0);
+    const totalWords = fittedScenes.reduce(
+      (sum, s) => sum + s.narrationText.split(/\s+/).length,
+      0
+    );
     const wpm = totalDuration > 0 ? (totalWords / totalDuration) * 60 : 0;
 
     await prisma.planVersion.update({
@@ -237,8 +284,16 @@ planRoutes.post('/:planVersionId/autofit', async (req, res) => {
 // Regenerate hooks
 planRoutes.post('/:planVersionId/regenerate-hooks', async (req, res) => {
   try {
+    const parsed = planVersionIdParamsSchema.safeParse(req.params);
+    if (!parsed.success) {
+      return res.status(400).json({
+        error: 'Invalid plan version ID',
+        details: parsed.error.flatten(),
+      });
+    }
+    const { planVersionId } = parsed.data;
     const planVersion = await prisma.planVersion.findUnique({
-      where: { id: req.params.planVersionId },
+      where: { id: planVersionId },
       include: { project: true },
     });
 
@@ -265,8 +320,16 @@ planRoutes.post('/:planVersionId/regenerate-hooks', async (req, res) => {
 // Regenerate outline
 planRoutes.post('/:planVersionId/regenerate-outline', async (req, res) => {
   try {
+    const parsed = planVersionIdParamsSchema.safeParse(req.params);
+    if (!parsed.success) {
+      return res.status(400).json({
+        error: 'Invalid plan version ID',
+        details: parsed.error.flatten(),
+      });
+    }
+    const { planVersionId } = parsed.data;
     const planVersion = await prisma.planVersion.findUnique({
-      where: { id: req.params.planVersionId },
+      where: { id: planVersionId },
       include: { project: true },
     });
 
@@ -291,8 +354,16 @@ planRoutes.post('/:planVersionId/regenerate-outline', async (req, res) => {
 // Regenerate script
 planRoutes.post('/:planVersionId/regenerate-script', async (req, res) => {
   try {
+    const parsed = planVersionIdParamsSchema.safeParse(req.params);
+    if (!parsed.success) {
+      return res.status(400).json({
+        error: 'Invalid plan version ID',
+        details: parsed.error.flatten(),
+      });
+    }
+    const { planVersionId } = parsed.data;
     const planVersion = await prisma.planVersion.findUnique({
-      where: { id: req.params.planVersionId },
+      where: { id: planVersionId },
       include: {
         scenes: { orderBy: { idx: 'asc' } },
         project: true,
@@ -338,8 +409,16 @@ planRoutes.post('/:planVersionId/regenerate-script', async (req, res) => {
 // Approve plan
 planRoutes.post('/:planVersionId/approve', async (req, res) => {
   try {
+    const parsed = planVersionIdParamsSchema.safeParse(req.params);
+    if (!parsed.success) {
+      return res.status(400).json({
+        error: 'Invalid plan version ID',
+        details: parsed.error.flatten(),
+      });
+    }
+    const { planVersionId } = parsed.data;
     const planVersion = await prisma.planVersion.findUnique({
-      where: { id: req.params.planVersionId },
+      where: { id: planVersionId },
       include: {
         scenes: { orderBy: { idx: 'asc' } },
         project: true,
@@ -352,7 +431,7 @@ planRoutes.post('/:planVersionId/approve', async (req, res) => {
 
     // Validate before approval
     const validation = validatePlan(planVersion, planVersion.project);
-    
+
     if (validation.errors.length > 0) {
       return res.status(400).json({
         error: 'Plan has validation errors',
@@ -376,6 +455,14 @@ planRoutes.post('/:planVersionId/approve', async (req, res) => {
 // Start render
 planRoutes.post('/:planVersionId/render', async (req, res) => {
   try {
+    const parsed = planVersionIdParamsSchema.safeParse(req.params);
+    if (!parsed.success) {
+      return res.status(400).json({
+        error: 'Invalid plan version ID',
+        details: parsed.error.flatten(),
+      });
+    }
+    const { planVersionId } = parsed.data;
     if (isTestMode()) {
       return res.status(403).json({
         error: 'Rendering disabled in APP_TEST_MODE',
@@ -402,7 +489,7 @@ planRoutes.post('/:planVersionId/render', async (req, res) => {
     }
 
     const planVersion = await prisma.planVersion.findUnique({
-      where: { id: req.params.planVersionId },
+      where: { id: planVersionId },
       include: {
         scenes: { orderBy: { idx: 'asc' } },
         project: true,
@@ -415,7 +502,7 @@ planRoutes.post('/:planVersionId/render', async (req, res) => {
 
     // Validate before render
     const validation = validatePlan(planVersion, planVersion.project);
-    
+
     if (validation.errors.length > 0) {
       return res.status(400).json({
         error: 'Plan has validation errors. Please fix them before rendering.',

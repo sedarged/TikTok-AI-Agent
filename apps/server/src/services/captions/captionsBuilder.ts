@@ -22,7 +22,7 @@ function formatASSTime(seconds: number): string {
   const s = seconds % 60;
   const cs = Math.floor((s % 1) * 100);
   const sInt = Math.floor(s);
-  
+
   return `${h}:${m.toString().padStart(2, '0')}:${sInt.toString().padStart(2, '0')}.${cs.toString().padStart(2, '0')}`;
 }
 
@@ -43,7 +43,7 @@ export function buildCaptionsASS(
   const primaryColor = hexToASS(style.primaryColor);
   const outlineColor = hexToASS(style.outlineColor);
   const highlightColor = hexToASS(style.highlightColor);
-  
+
   // ASS header
   let content = `[Script Info]
 Title: TikTok AI Captions
@@ -88,27 +88,24 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
 // Create word-by-word highlight events
 function createWordHighlightEvents(words: WordTiming[], style: CaptionStyle): string {
   let events = '';
-  
+
   // Group words into chunks of 3-5 for readability
   const chunkSize = 4;
   const chunks: WordTiming[][] = [];
-  
+
   for (let i = 0; i < words.length; i += chunkSize) {
     chunks.push(words.slice(i, i + chunkSize));
   }
 
   for (const chunk of chunks) {
     if (chunk.length === 0) continue;
-    
-    const chunkStart = chunk[0].start;
-    const chunkEnd = chunk[chunk.length - 1].end;
-    
+
     // Create events for each word in the chunk
     for (let i = 0; i < chunk.length; i++) {
       const word = chunk[i];
       const start = formatASSTime(word.start);
       const end = formatASSTime(word.end);
-      
+
       // Build text with highlight on current word
       const textParts = chunk.map((w, j) => {
         if (j === i) {
@@ -116,7 +113,7 @@ function createWordHighlightEvents(words: WordTiming[], style: CaptionStyle): st
         }
         return escapeASSText(w.word);
       });
-      
+
       const text = textParts.join(' ');
       events += `Dialogue: 0,${start},${end},Default,,0,0,0,,${text}\n`;
     }
@@ -143,20 +140,19 @@ export function buildCaptionsFromWords(
   // Group words into segments (by pauses or count)
   const segments: CaptionSegment[] = [];
   let currentSegment: WordTiming[] = [];
-  
+
   for (let i = 0; i < words.length; i++) {
     currentSegment.push(words[i]);
-    
+
     // Check for natural break
-    const isLongPause = i < words.length - 1 && 
-      words[i + 1].start - words[i].end > 0.5;
+    const isLongPause = i < words.length - 1 && words[i + 1].start - words[i].end > 0.5;
     const isTooLong = currentSegment.length >= 6;
     const isEnd = i === words.length - 1;
-    
+
     if (isLongPause || isTooLong || isEnd) {
       if (currentSegment.length > 0) {
         segments.push({
-          text: currentSegment.map(w => w.word).join(' '),
+          text: currentSegment.map((w) => w.word).join(' '),
           start: currentSegment[0].start,
           end: currentSegment[currentSegment.length - 1].end,
           words: currentSegment,
@@ -175,7 +171,7 @@ export function buildCaptionsFromScenes(
   style: CaptionStyle,
   outputPath: string
 ): void {
-  const segments: CaptionSegment[] = scenes.map(scene => ({
+  const segments: CaptionSegment[] = scenes.map((scene) => ({
     text: scene.narrationText,
     start: scene.startTimeSec,
     end: scene.endTimeSec,

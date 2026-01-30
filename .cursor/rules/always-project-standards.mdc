@@ -1,0 +1,39 @@
+---
+description: Core project standards – no TODOs/placeholders/dummy, structure, validation. Apply to all AI-generated code.
+alwaysApply: true
+---
+
+# TikTok-AI-Agent: Project Standards
+
+## Deliverables
+
+- **Never** leave TODOs, FIXMEs, "to do", "not implemented", or dummy/placeholder code in deliverables. Implement or remove before finishing.
+- **Never** add `eslint-disable` or `@ts-ignore` to bypass errors without a justified comment and ticket.
+- Prefer small, focused changes. Add or update tests when touching behavior.
+- **Linter errors after edit:** Fix them when clear how; do not loop more than 3 times on the same file—then stop and ask the user.
+- **Edit not applied correctly:** Try reapply once; if still wrong, describe the remaining change instead of repeating the same edit.
+- **Code citations:** Use only the format `startLine:endLine:filepath` (e.g. `12:15:apps/server/src/routes/project.ts`).
+- **No proactive docs:** Do not create documentation or README files unless explicitly requested.
+- **Tests:** Do not change tests to make them pass; fix the implementation unless the task is to change tests.
+- **Code style:** Follow existing conventions and style in the file; use existing libraries and utilities.
+
+## Structure
+
+- **Backend:** Routes in `apps/server/src/routes/`; services in `services/`; shared types in `utils/types.ts`, schemas in `utils/apiSchemas.ts`. Register new routes in `index.ts`.
+- **Frontend:** Pages in `apps/web/src/pages/`, API client in `api/client.ts`, types in `api/types.ts`.
+- **DB:** Prisma schema `apps/server/prisma/schema.prisma`. Use `db/client.ts` singleton. Run `npx prisma migrate dev` after schema changes.
+
+## Skills & security
+
+- When executing commands for skills: prefer `npm run …`, `npx prisma …`, `npx playwright …`. Avoid arbitrary `curl` with tokens. No logging or committing of `.env` or API keys. Review scripts in `scripts/` before adding.
+
+## Validation & Errors
+
+- **API:** Validate all request bodies and path params with Zod. Use `schema.safeParse()`, return 400 with `{ error, details }` on failure. Use `.strict()` on body schemas. For IDs in URLs, validate UUIDs (`z.string().uuid()`) where applicable.
+- **JSON.parse:** Always wrap in try/catch; use a sensible default or return an error. Never bare `JSON.parse()`.
+- **Errors:** Backend use try/catch, return 4xx/5xx with JSON. Frontend use `getErrorMessage()` from `utils/errors` and display in UI.
+
+## References
+
+- Full patterns: [.github/copilot-instructions.md](.github/copilot-instructions.md)
+- Master plan: [DEVELOPMENT_MASTER_PLAN.md](DEVELOPMENT_MASTER_PLAN.md)

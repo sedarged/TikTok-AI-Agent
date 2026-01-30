@@ -39,18 +39,16 @@ export default function RenderQueue() {
       const retriedRun = await retryRun(runId);
       setRuns(runs.map((r) => (r.id === runId ? retriedRun : r)));
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to retry run');
+      setError(getErrorMessage(err));
     }
   };
 
   const handleCancel = async (runId: string) => {
     try {
       await cancelRun(runId);
-      setRuns(runs.map((r) => 
-        r.id === runId ? { ...r, status: 'canceled' as const } : r
-      ));
+      setRuns(runs.map((r) => (r.id === runId ? { ...r, status: 'canceled' as const } : r)));
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to cancel run');
+      setError(getErrorMessage(err));
     }
   };
 
@@ -61,6 +59,7 @@ export default function RenderQueue() {
       done: 'badge-success',
       failed: 'badge-error',
       canceled: 'badge-error',
+      qa_failed: 'badge-warning',
     };
     return styles[status] || 'badge-info';
   };
@@ -68,7 +67,10 @@ export default function RenderQueue() {
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
-        <div className="w-10 h-10 border-4 border-t-transparent rounded-full animate-spin" style={{ borderColor: 'var(--color-primary)', borderTopColor: 'transparent' }} />
+        <div
+          className="w-10 h-10 border-4 border-t-transparent rounded-full animate-spin"
+          style={{ borderColor: 'var(--color-primary)', borderTopColor: 'transparent' }}
+        />
       </div>
     );
   }
@@ -150,27 +152,26 @@ function RunCard({
   useEffect(() => {
     if (run.status !== 'running' && run.status !== 'queued') return;
 
-    const unsubscribe = subscribeToRun(
-      run.id,
-      (event: SSEEvent) => {
-        if (event.type === 'progress') {
-          setCurrentRun((prev) => ({ ...prev, progress: event.progress || 0 }));
-        } else if (event.type === 'step') {
-          setCurrentRun((prev) => ({ ...prev, currentStep: event.step || '' }));
-        } else if (event.type === 'log' && event.log) {
-          setLogs((prev) => [...prev, event.log!]);
-        } else if (event.type === 'done') {
-          setCurrentRun((prev) => ({ ...prev, status: 'done', progress: 100 }));
-        } else if (event.type === 'failed') {
-          setCurrentRun((prev) => ({ ...prev, status: 'failed' }));
-        } else if (event.type === 'state') {
-          if (event.status) setCurrentRun((prev) => ({ ...prev, status: event.status! }));
-          if (event.progress !== undefined) setCurrentRun((prev) => ({ ...prev, progress: event.progress! }));
-          if (event.currentStep) setCurrentRun((prev) => ({ ...prev, currentStep: event.currentStep! }));
-          if (event.logs) setLogs(event.logs);
-        }
+    const unsubscribe = subscribeToRun(run.id, (event: SSEEvent) => {
+      if (event.type === 'progress') {
+        setCurrentRun((prev) => ({ ...prev, progress: event.progress || 0 }));
+      } else if (event.type === 'step') {
+        setCurrentRun((prev) => ({ ...prev, currentStep: event.step || '' }));
+      } else if (event.type === 'log' && event.log) {
+        setLogs((prev) => [...prev, event.log!]);
+      } else if (event.type === 'done') {
+        setCurrentRun((prev) => ({ ...prev, status: 'done', progress: 100 }));
+      } else if (event.type === 'failed') {
+        setCurrentRun((prev) => ({ ...prev, status: 'failed' }));
+      } else if (event.type === 'state') {
+        if (event.status) setCurrentRun((prev) => ({ ...prev, status: event.status! }));
+        if (event.progress !== undefined)
+          setCurrentRun((prev) => ({ ...prev, progress: event.progress! }));
+        if (event.currentStep)
+          setCurrentRun((prev) => ({ ...prev, currentStep: event.currentStep! }));
+        if (event.logs) setLogs(event.logs);
       }
-    );
+    });
 
     return () => unsubscribe();
   }, [run.id, run.status]);
@@ -179,12 +180,8 @@ function RunCard({
     <div className="card">
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-3">
-          <span className={`badge ${getStatusBadge(currentRun.status)}`}>
-            {currentRun.status}
-          </span>
-          <span className="text-sm text-gray-400">
-            {new Date(run.createdAt).toLocaleString()}
-          </span>
+          <span className={`badge ${getStatusBadge(currentRun.status)}`}>{currentRun.status}</span>
+          <span className="text-sm text-gray-400">{new Date(run.createdAt).toLocaleString()}</span>
         </div>
 
         <div className="flex items-center gap-2">
@@ -193,13 +190,13 @@ function RunCard({
               View Output
             </Link>
           )}
-          
+
           {(currentRun.status === 'failed' || currentRun.status === 'canceled') && (
             <button onClick={onRetry} className="btn btn-secondary text-sm">
               Retry
             </button>
           )}
-          
+
           {(currentRun.status === 'running' || currentRun.status === 'queued') && (
             <button onClick={onCancel} className="btn btn-danger text-sm">
               Cancel
@@ -239,26 +236,30 @@ function RunCard({
           >
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
           </svg>
-          {showLogs ? 'Ukryj logi' : 'Pokaż logi'}
+          {showLogs ? 'Hide logs' : 'Show logs'}
           {logs.length > 0 && (
             <span className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
               ({logs.length})
             </span>
           )}
         </button>
-        
+
         {showLogs && (
-          <div className="rounded-lg p-3 max-h-48 overflow-y-auto" style={{ background: 'var(--color-bg)' }}>
+          <div
+            className="rounded-lg p-3 max-h-48 overflow-y-auto"
+            style={{ background: 'var(--color-bg)' }}
+          >
             <div className="space-y-1 font-mono text-xs">
               {logs.slice(-20).map((log, i) => (
                 <div
                   key={i}
                   style={{
-                    color: log.level === 'error' 
-                      ? 'var(--color-danger)' 
-                      : log.level === 'warn' 
-                      ? 'var(--color-warning)' 
-                      : 'var(--color-text-muted)',
+                    color:
+                      log.level === 'error'
+                        ? 'var(--color-danger)'
+                        : log.level === 'warn'
+                          ? 'var(--color-warning)'
+                          : 'var(--color-text-muted)',
                   }}
                 >
                   <span style={{ color: 'var(--color-text-muted)' }}>

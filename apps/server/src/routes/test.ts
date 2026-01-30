@@ -14,10 +14,12 @@ const allowedSteps = [
   'finalize_artifacts',
 ] as const;
 
-const dryRunConfigSchema = z.object({
-  failStep: z.enum(allowedSteps).or(z.literal('')).optional().nullable(),
-  stepDelayMs: z.number().int().min(0).max(5000).optional().nullable(),
-}).strict();
+const dryRunConfigSchema = z
+  .object({
+    failStep: z.enum(allowedSteps).or(z.literal('')).optional().nullable(),
+    stepDelayMs: z.number().int().min(0).max(5000).optional().nullable(),
+  })
+  .strict();
 
 function isEnabled(): boolean {
   return isRenderDryRun() || isTestMode();

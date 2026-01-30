@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
+import { toast } from 'sonner';
 import {
   getProject,
   getPlanVersion,
@@ -16,6 +17,7 @@ import {
 } from '../api/client';
 import type { Project, PlanVersion, Scene, ProviderStatus, ValidationResult } from '../api/types';
 import { EFFECT_PRESETS } from '../api/types';
+import { getErrorMessage } from '../utils/errors';
 
 // Validation Panel Component
 function ValidationPanel({ validation }: { validation: ValidationResult }) {
@@ -31,8 +33,17 @@ function ValidationPanel({ validation }: { validation: ValidationResult }) {
       {hasErrors && (
         <>
           {validation.errors.map((err, i) => (
-            <div key={i} className="flex items-center gap-2 text-sm" style={{ color: 'var(--color-danger)' }}>
-              <span className="w-4 h-4 rounded-full flex items-center justify-center text-xs" style={{ background: 'var(--color-danger)' }}>!</span>
+            <div
+              key={i}
+              className="flex items-center gap-2 text-sm"
+              style={{ color: 'var(--color-danger)' }}
+            >
+              <span
+                className="w-4 h-4 rounded-full flex items-center justify-center text-xs"
+                style={{ background: 'var(--color-danger)' }}
+              >
+                !
+              </span>
               {err}
             </div>
           ))}
@@ -53,15 +64,29 @@ function ValidationPanel({ validation }: { validation: ValidationResult }) {
               stroke="currentColor"
               viewBox="0 0 24 24"
             >
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M19 9l-7 7-7-7"
+              />
             </svg>
-            Ostrzeżenia ({validation.warnings.length})
+            Warnings ({validation.warnings.length})
           </button>
           {expanded && (
             <div className="space-y-2 pl-6">
               {validation.warnings.map((warn, i) => (
-                <div key={i} className="flex items-center gap-2 text-sm" style={{ color: 'var(--color-warning)' }}>
-                  <span className="w-4 h-4 rounded-full flex items-center justify-center text-xs" style={{ background: 'var(--color-warning)' }}>!</span>
+                <div
+                  key={i}
+                  className="flex items-center gap-2 text-sm"
+                  style={{ color: 'var(--color-warning)' }}
+                >
+                  <span
+                    className="w-4 h-4 rounded-full flex items-center justify-center text-xs"
+                    style={{ background: 'var(--color-warning)' }}
+                  >
+                    !
+                  </span>
                   {warn}
                 </div>
               ))}
@@ -74,8 +99,17 @@ function ValidationPanel({ validation }: { validation: ValidationResult }) {
       {hasErrors && validation.warnings.length > 0 && (
         <>
           {validation.warnings.map((warn, i) => (
-            <div key={i} className="flex items-center gap-2 text-sm" style={{ color: 'var(--color-warning)' }}>
-              <span className="w-4 h-4 rounded-full flex items-center justify-center text-xs" style={{ background: 'var(--color-warning)' }}>!</span>
+            <div
+              key={i}
+              className="flex items-center gap-2 text-sm"
+              style={{ color: 'var(--color-warning)' }}
+            >
+              <span
+                className="w-4 h-4 rounded-full flex items-center justify-center text-xs"
+                style={{ background: 'var(--color-warning)' }}
+              >
+                !
+              </span>
               {warn}
             </div>
           ))}
@@ -86,8 +120,17 @@ function ValidationPanel({ validation }: { validation: ValidationResult }) {
       {validation.suggestions.length > 0 && (
         <>
           {validation.suggestions.map((sug, i) => (
-            <div key={i} className="flex items-center gap-2 text-sm" style={{ color: 'var(--color-primary)' }}>
-              <span className="w-4 h-4 rounded-full flex items-center justify-center text-xs" style={{ background: 'var(--color-primary)' }}>i</span>
+            <div
+              key={i}
+              className="flex items-center gap-2 text-sm"
+              style={{ color: 'var(--color-primary)' }}
+            >
+              <span
+                className="w-4 h-4 rounded-full flex items-center justify-center text-xs"
+                style={{ background: 'var(--color-primary)' }}
+              >
+                i
+              </span>
               {sug}
             </div>
           ))}
@@ -104,21 +147,25 @@ interface PlanStudioProps {
 export default function PlanStudio({ status }: PlanStudioProps) {
   const { projectId } = useParams<{ projectId: string }>();
   const navigate = useNavigate();
-  
+
   const [project, setProject] = useState<Project | null>(null);
   const [planVersion, setPlanVersion] = useState<PlanVersion | null>(null);
   const [scenes, setScenes] = useState<Scene[]>([]);
   const [hookOptions, setHookOptions] = useState<string[]>([]);
   const [validation, setValidation] = useState<ValidationResult | null>(null);
-  const [estimates, setEstimates] = useState<{ wpm: number; estimatedLengthSec: number; targetLengthSec: number } | null>(null);
-  
+  const [estimates, setEstimates] = useState<{
+    wpm: number;
+    estimatedLengthSec: number;
+    targetLengthSec: number;
+  } | null>(null);
+
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [autosaving, setAutosaving] = useState(false);
   const [error, setError] = useState('');
   const [activeTab, setActiveTab] = useState<'hook' | 'outline' | 'script' | 'scenes'>('hook');
   const [toolsMenuOpen, setToolsMenuOpen] = useState(false);
-  
+
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const toolsMenuRef = useRef<HTMLDivElement>(null);
   const isMountedRef = useRef(true);
@@ -180,7 +227,7 @@ export default function PlanStudio({ status }: PlanStudioProps) {
       })
       .catch((err) => {
         if (signal.aborted) return;
-        setError(err.message);
+        setError(getErrorMessage(err));
       })
       .finally(() => {
         if (!signal.aborted) setLoading(false);
@@ -189,27 +236,44 @@ export default function PlanStudio({ status }: PlanStudioProps) {
     return () => controller.abort();
   }, [projectId]);
 
-  // Autosave with debounce
-  const autosave = useCallback(async (data: Partial<{ hookSelected: string; outline: string; scriptFull: string; scenes: Partial<Scene>[] }>) => {
-    if (!planVersion?.id) return;
-    
-    if (saveTimeoutRef.current) {
-      clearTimeout(saveTimeoutRef.current);
-    }
-    
-    setAutosaving(true);
-    saveTimeoutRef.current = setTimeout(async () => {
-      try {
-        await updatePlanVersion(planVersion.id, data);
-      } catch (err) {
-        if (isMountedRef.current && typeof import.meta !== 'undefined' && (import.meta as { env?: { DEV?: boolean } }).env?.DEV) {
-          console.error('Autosave failed:', err);
-        }
-      } finally {
-        if (isMountedRef.current) setAutosaving(false);
+  // Autosave with debounce. Only set autosaving when the request runs (inside timeout),
+  // not on every keystroke, to avoid re-renders that cause input focus loss.
+  const autosave = useCallback(
+    (
+      data: Partial<{
+        hookSelected: string;
+        outline: string;
+        scriptFull: string;
+        scenes: Partial<Scene>[];
+      }>
+    ) => {
+      if (!planVersion?.id) return;
+
+      if (saveTimeoutRef.current) {
+        clearTimeout(saveTimeoutRef.current);
       }
-    }, 600);
-  }, [planVersion?.id]);
+
+      saveTimeoutRef.current = setTimeout(async () => {
+        if (!isMountedRef.current) return;
+        setAutosaving(true);
+        try {
+          await updatePlanVersion(planVersion.id, data);
+          if (isMountedRef.current) toast.success('Plan saved');
+        } catch (err) {
+          if (
+            isMountedRef.current &&
+            typeof import.meta !== 'undefined' &&
+            (import.meta as { env?: { DEV?: boolean } }).env?.DEV
+          ) {
+            console.error('Autosave failed:', err);
+          }
+        } finally {
+          if (isMountedRef.current) setAutosaving(false);
+        }
+      }, 600);
+    },
+    [planVersion?.id]
+  );
 
   // Handlers
   const handleHookSelect = (hook: string) => {
@@ -230,10 +294,12 @@ export default function PlanStudio({ status }: PlanStudioProps) {
     autosave({ scriptFull });
   };
 
-  const handleSceneChange = (sceneId: string, field: keyof Scene, value: string | number | boolean) => {
-    const updatedScenes = scenes.map((s) =>
-      s.id === sceneId ? { ...s, [field]: value } : s
-    );
+  const handleSceneChange = (
+    sceneId: string,
+    field: keyof Scene,
+    value: string | number | boolean
+  ) => {
+    const updatedScenes = scenes.map((s) => (s.id === sceneId ? { ...s, [field]: value } : s));
     setScenes(updatedScenes);
     autosave({ scenes: [{ id: sceneId, [field]: value }] });
   };
@@ -245,7 +311,7 @@ export default function PlanStudio({ status }: PlanStudioProps) {
       const result = await regenerateHooks(planVersion.id);
       setHookOptions(result.hookOptions);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to regenerate hooks');
+      setError(getErrorMessage(err));
     } finally {
       setSaving(false);
     }
@@ -258,7 +324,7 @@ export default function PlanStudio({ status }: PlanStudioProps) {
       const result = await regenerateOutline(planVersion.id);
       setPlanVersion({ ...planVersion, outline: result.outline });
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to regenerate outline');
+      setError(getErrorMessage(err));
     } finally {
       setSaving(false);
     }
@@ -274,7 +340,7 @@ export default function PlanStudio({ status }: PlanStudioProps) {
         setScenes(updated.scenes);
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to regenerate script');
+      setError(getErrorMessage(err));
     } finally {
       setSaving(false);
     }
@@ -286,7 +352,7 @@ export default function PlanStudio({ status }: PlanStudioProps) {
       const updated = await regenerateScene(sceneId);
       setScenes(scenes.map((s) => (s.id === sceneId ? updated : s)));
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to regenerate scene');
+      setError(getErrorMessage(err));
     } finally {
       setSaving(false);
     }
@@ -297,7 +363,7 @@ export default function PlanStudio({ status }: PlanStudioProps) {
       const updated = await toggleSceneLock(sceneId, locked);
       setScenes(scenes.map((s) => (s.id === sceneId ? updated : s)));
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to toggle lock');
+      setError(getErrorMessage(err));
     }
   };
 
@@ -307,7 +373,7 @@ export default function PlanStudio({ status }: PlanStudioProps) {
       const result = await validatePlan(planVersion.id);
       setValidation(result);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to validate');
+      setError(getErrorMessage(err));
     }
   };
 
@@ -322,7 +388,7 @@ export default function PlanStudio({ status }: PlanStudioProps) {
       }
       setEstimates(JSON.parse(updated.estimatesJson || '{}'));
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to autofit');
+      setError(getErrorMessage(err));
     } finally {
       setSaving(false);
     }
@@ -337,13 +403,13 @@ export default function PlanStudio({ status }: PlanStudioProps) {
     }
 
     const renderDryRun = status?.renderDryRun === true;
-    
+
     // Check OpenAI status
     if (!renderDryRun && !status?.providers.openai) {
       setError('Cannot render: OpenAI API key not configured. Set OPENAI_API_KEY in .env file.');
       return;
     }
-    
+
     if (!renderDryRun && !status?.providers.ffmpeg) {
       setError('Cannot render: FFmpeg not available.');
       return;
@@ -351,12 +417,12 @@ export default function PlanStudio({ status }: PlanStudioProps) {
 
     setSaving(true);
     setError('');
-    
+
     try {
       // Validate first
       const validationResult = await validatePlan(planVersion.id);
       setValidation(validationResult);
-      
+
       if (validationResult.errors.length > 0) {
         setError('Please fix validation errors before rendering');
         setSaving(false);
@@ -368,12 +434,13 @@ export default function PlanStudio({ status }: PlanStudioProps) {
 
       // Start render
       const run = await startRender(planVersion.id);
+      toast.success('Render started');
 
       // Navigate to run page
       setSaving(false);
       navigate(`/run/${run.id}`);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to start render');
+      setError(getErrorMessage(err));
       setSaving(false);
     }
   };
@@ -406,11 +473,17 @@ export default function PlanStudio({ status }: PlanStudioProps) {
             {project.nichePackId} | {project.targetLengthSec}s target | {project.tempo} tempo
           </p>
         </div>
-        
+
         <div className="flex items-center gap-3">
           {(saving || autosaving) && (
-            <span className="text-sm flex items-center gap-2" style={{ color: 'var(--color-text-muted)' }}>
-              <div className="w-4 h-4 border-2 border-t-transparent rounded-full animate-spin" style={{ borderColor: 'var(--color-text-muted)', borderTopColor: 'transparent' }} />
+            <span
+              className="text-sm flex items-center gap-2"
+              style={{ color: 'var(--color-text-muted)' }}
+            >
+              <div
+                className="w-4 h-4 border-2 border-t-transparent rounded-full animate-spin"
+                style={{ borderColor: 'var(--color-text-muted)', borderTopColor: 'transparent' }}
+              />
               {saving ? 'Saving...' : 'Autosaving...'}
             </span>
           )}
@@ -426,7 +499,7 @@ export default function PlanStudio({ status }: PlanStudioProps) {
               DRY-RUN: no MP4 will be generated
             </span>
           )}
-          
+
           {/* Tools Menu */}
           <div className="relative" ref={toolsMenuRef}>
             <button
@@ -440,12 +513,20 @@ export default function PlanStudio({ status }: PlanStudioProps) {
                 stroke="currentColor"
                 viewBox="0 0 24 24"
               >
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M19 9l-7 7-7-7"
+                />
               </svg>
             </button>
-            
+
             {toolsMenuOpen && (
-              <div className="absolute right-0 mt-2 w-48 rounded-lg shadow-lg z-10 border" style={{ background: 'var(--color-surface)', borderColor: 'var(--color-border)' }}>
+              <div
+                className="absolute right-0 mt-2 w-48 rounded-lg shadow-lg z-10 border"
+                style={{ background: 'var(--color-surface)', borderColor: 'var(--color-border)' }}
+              >
                 <div className="py-1">
                   <button
                     onClick={() => {
@@ -454,8 +535,10 @@ export default function PlanStudio({ status }: PlanStudioProps) {
                     }}
                     className="w-full text-left px-4 py-2 text-sm hover:bg-opacity-50 transition-colors"
                     style={{ color: 'var(--color-text)' }}
-                    onMouseEnter={(e) => e.currentTarget.style.background = 'var(--color-surface-2)'}
-                    onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
+                    onMouseEnter={(e) =>
+                      (e.currentTarget.style.background = 'var(--color-surface-2)')
+                    }
+                    onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
                   >
                     Validate
                   </button>
@@ -466,8 +549,10 @@ export default function PlanStudio({ status }: PlanStudioProps) {
                     }}
                     className="w-full text-left px-4 py-2 text-sm hover:bg-opacity-50 transition-colors"
                     style={{ color: 'var(--color-text)' }}
-                    onMouseEnter={(e) => e.currentTarget.style.background = 'var(--color-surface-2)'}
-                    onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
+                    onMouseEnter={(e) =>
+                      (e.currentTarget.style.background = 'var(--color-surface-2)')
+                    }
+                    onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
                     disabled={saving}
                   >
                     Auto-fit Durations
@@ -476,7 +561,7 @@ export default function PlanStudio({ status }: PlanStudioProps) {
               </div>
             )}
           </div>
-          
+
           <button
             onClick={handleApproveAndRender}
             className="btn btn-primary glow-primary w-full sm:w-auto"
@@ -521,7 +606,7 @@ export default function PlanStudio({ status }: PlanStudioProps) {
             </div>
           )}
         </div>
-        
+
         <div
           className={`badge ${
             Math.abs(totalDuration - project.targetLengthSec) <= 5
@@ -550,9 +635,7 @@ export default function PlanStudio({ status }: PlanStudioProps) {
                 key={tab}
                 onClick={() => setActiveTab(tab)}
                 className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
-                  activeTab === tab
-                    ? 'text-white'
-                    : 'border-transparent'
+                  activeTab === tab ? 'text-white' : 'border-transparent'
                 }`}
                 style={{
                   borderBottomColor: activeTab === tab ? 'var(--color-primary)' : 'transparent',
@@ -797,9 +880,7 @@ function ScenesTab({
         {scenes.map((scene, index) => (
           <div
             key={scene.id}
-            className={`card transition-all ${
-              scene.isLocked ? 'border-yellow-600/50' : ''
-            }`}
+            className={`card transition-all ${scene.isLocked ? 'border-yellow-600/50' : ''}`}
           >
             {/* Scene Header */}
             <div
@@ -822,9 +903,7 @@ function ScenesTab({
               </div>
 
               <div className="flex items-center gap-2">
-                {scene.isLocked && (
-                  <span className="badge badge-warning">Locked</span>
-                )}
+                {scene.isLocked && <span className="badge badge-warning">Locked</span>}
                 <div className="relative" data-scene-menu="true">
                   <button
                     type="button"
@@ -836,21 +915,31 @@ function ScenesTab({
                     aria-label="Scene menu"
                   >
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.5h.01M12 12h.01M12 17.5h.01" />
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M12 6.5h.01M12 12h.01M12 17.5h.01"
+                      />
                     </svg>
                   </button>
 
                   {sceneMenuOpen === scene.id && (
                     <div
                       className="absolute right-0 top-full mt-2 w-40 rounded-lg border py-1 z-50"
-                      style={{ background: 'var(--color-surface)', borderColor: 'var(--color-border)' }}
+                      style={{
+                        background: 'var(--color-surface)',
+                        borderColor: 'var(--color-border)',
+                      }}
                       onClick={(e) => e.stopPropagation()}
                     >
                       <button
                         type="button"
                         className="w-full text-left px-3 py-2 text-sm transition-colors disabled:opacity-50"
                         style={{ color: 'var(--color-text)' }}
-                        onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--color-surface-2)')}
+                        onMouseEnter={(e) =>
+                          (e.currentTarget.style.background = 'var(--color-surface-2)')
+                        }
                         onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
                         onClick={() => {
                           setSceneMenuOpen(null);
@@ -864,7 +953,9 @@ function ScenesTab({
                         type="button"
                         className="w-full text-left px-3 py-2 text-sm transition-colors disabled:opacity-50"
                         style={{ color: 'var(--color-text)' }}
-                        onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--color-surface-2)')}
+                        onMouseEnter={(e) =>
+                          (e.currentTarget.style.background = 'var(--color-surface-2)')
+                        }
                         onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
                         onClick={() => {
                           setSceneMenuOpen(null);
@@ -884,19 +975,34 @@ function ScenesTab({
                   viewBox="0 0 24 24"
                   style={{ color: 'var(--color-text-muted)' }}
                 >
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M19 9l-7 7-7-7"
+                  />
                 </svg>
               </div>
             </div>
 
             {/* Expanded Content */}
             {expandedScene === scene.id && (
-              <div className="mt-4 pt-4 space-y-6" style={{ borderTop: '1px solid var(--color-border)' }}>
+              <div
+                className="mt-4 pt-4 space-y-6"
+                style={{ borderTop: '1px solid var(--color-border)' }}
+              >
                 {/* Tekst */}
                 <div className="space-y-3">
-                  <h4 className="text-sm font-semibold" style={{ color: 'var(--color-text)' }}>Tekst</h4>
+                  <h4 className="text-sm font-semibold" style={{ color: 'var(--color-text)' }}>
+                    Tekst
+                  </h4>
                   <div>
-                    <label className="block text-sm mb-1" style={{ color: 'var(--color-text-muted)' }}>Narration</label>
+                    <label
+                      className="block text-sm mb-1"
+                      style={{ color: 'var(--color-text-muted)' }}
+                    >
+                      Narration
+                    </label>
                     <textarea
                       className="textarea text-sm"
                       rows={3}
@@ -906,7 +1012,12 @@ function ScenesTab({
                     />
                   </div>
                   <div>
-                    <label className="block text-sm mb-1" style={{ color: 'var(--color-text-muted)' }}>On-Screen Text</label>
+                    <label
+                      className="block text-sm mb-1"
+                      style={{ color: 'var(--color-text-muted)' }}
+                    >
+                      On-Screen Text
+                    </label>
                     <input
                       type="text"
                       className="input text-sm"
@@ -919,10 +1030,17 @@ function ScenesTab({
 
                 {/* Czas i efekt */}
                 <div className="space-y-3">
-                  <h4 className="text-sm font-semibold" style={{ color: 'var(--color-text)' }}>Czas i efekt</h4>
+                  <h4 className="text-sm font-semibold" style={{ color: 'var(--color-text)' }}>
+                    Czas i efekt
+                  </h4>
                   <div className="grid grid-cols-2 gap-4">
                     <div>
-                      <label className="block text-sm mb-1" style={{ color: 'var(--color-text-muted)' }}>Duration (sec)</label>
+                      <label
+                        className="block text-sm mb-1"
+                        style={{ color: 'var(--color-text-muted)' }}
+                      >
+                        Duration (sec)
+                      </label>
                       <input
                         type="number"
                         className="input text-sm"
@@ -930,12 +1048,19 @@ function ScenesTab({
                         min="3"
                         max="30"
                         value={scene.durationTargetSec}
-                        onChange={(e) => onChange(scene.id, 'durationTargetSec', parseFloat(e.target.value))}
+                        onChange={(e) =>
+                          onChange(scene.id, 'durationTargetSec', parseFloat(e.target.value))
+                        }
                         disabled={scene.isLocked}
                       />
                     </div>
                     <div>
-                      <label className="block text-sm mb-1" style={{ color: 'var(--color-text-muted)' }}>Effect</label>
+                      <label
+                        className="block text-sm mb-1"
+                        style={{ color: 'var(--color-text-muted)' }}
+                      >
+                        Effect
+                      </label>
                       <select
                         className="select text-sm"
                         value={scene.effectPreset}
@@ -954,9 +1079,16 @@ function ScenesTab({
 
                 {/* Obraz */}
                 <div className="space-y-3">
-                  <h4 className="text-sm font-semibold" style={{ color: 'var(--color-text)' }}>Obraz</h4>
+                  <h4 className="text-sm font-semibold" style={{ color: 'var(--color-text)' }}>
+                    Obraz
+                  </h4>
                   <div>
-                    <label className="block text-sm mb-1" style={{ color: 'var(--color-text-muted)' }}>Visual Prompt</label>
+                    <label
+                      className="block text-sm mb-1"
+                      style={{ color: 'var(--color-text-muted)' }}
+                    >
+                      Visual Prompt
+                    </label>
                     <textarea
                       className="textarea text-sm"
                       rows={2}
@@ -966,7 +1098,12 @@ function ScenesTab({
                     />
                   </div>
                   <div>
-                    <label className="block text-sm mb-1" style={{ color: 'var(--color-text-muted)' }}>Negative Prompt</label>
+                    <label
+                      className="block text-sm mb-1"
+                      style={{ color: 'var(--color-text-muted)' }}
+                    >
+                      Negative Prompt
+                    </label>
                     <input
                       type="text"
                       className="input text-sm"

@@ -13,17 +13,29 @@
     "dev:server": "npm run dev --workspace=apps/server",
     "dev:web": "npm run dev --workspace=apps/web",
     "build": "npm run build --workspace=apps/web && npm run build --workspace=apps/server",
+    "prestart": "npm run db:migrate",
     "start": "cd apps/server && node dist/index.js",
-    "test": "npm run test --workspace=apps/server",
+    "test": "npm run test --workspace=apps/server && npm run test:runSse --workspace=apps/server",
+    "test:only": "npm run test:only --workspace=apps/server && npm run test:runSse --workspace=apps/server",
+    "test:runSse": "npm run test:runSse --workspace=apps/server",
     "test:render": "npm run test:render --workspace=apps/server",
+    "test:render:only": "npm run test:render:only --workspace=apps/server",
     "test:e2e": "playwright test",
     "render:smoke": "npm run render:smoke --workspace=apps/server",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "typecheck": "npm run typecheck -w apps/server && npm run typecheck -w apps/web",
+    "check": "npm run lint && npm run typecheck",
+    "audit": "npm audit",
     "db:generate": "cd apps/server && npx prisma generate",
     "db:migrate": "cd apps/server && npx prisma migrate deploy",
     "db:migrate:dev": "npm run db:migrate --workspace=apps/server",
     "db:seed": "npm run db:seed --workspace=apps/server",
     "db:studio": "npm run db:studio --workspace=apps/server",
-    "postinstall": "npm run db:generate || true"
+    "postinstall": "npm run db:generate || node -e \"process.exit(0)\"",
+    "prepare": "husky"
   },
   "dependencies": {
     "concurrently": "^8.2.2"
@@ -32,7 +44,20 @@
     "node": ">=18"
   },
   "devDependencies": {
+    "@eslint/js": "^9.17.0",
     "@playwright/test": "^1.58.0",
-    "cross-env": "^10.1.0"
+    "cross-env": "^10.1.0",
+    "eslint": "^9.17.0",
+    "eslint-config-prettier": "^10.0.1",
+    "husky": "^9.1.7",
+    "lint-staged": "^15.4.3",
+    "prettier": "^3.4.2",
+    "typescript-eslint": "^8.18.0"
+  },
+  "lint-staged": {
+    "*.{ts,tsx,js,jsx,mjs,cjs}": [
+      "eslint --fix",
+      "prettier --write"
+    ]
   }
 }

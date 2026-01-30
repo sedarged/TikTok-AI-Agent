@@ -1,24 +1,47 @@
 import { prisma } from '../../db/client.js';
 import { v4 as uuid } from 'uuid';
-import { getNichePack, getScenePacing } from '../nichePacks.js';
+import { getNichePack, getScenePacing, type NichePack } from '../nichePacks.js';
+import { getScriptTemplate } from './scriptTemplates.js';
 import { isOpenAIConfigured, isTestMode } from '../../env.js';
 import { callOpenAI } from '../providers/openai.js';
 import type { Project, Scene } from '@prisma/client';
 import type { EffectPreset, SceneData } from '../../utils/types.js';
 import { EFFECT_PRESETS } from '../../utils/types.js';
 
+interface OpenAISceneRaw {
+  narrationText?: string;
+  onScreenText?: string;
+  visualPrompt?: string;
+  effectPreset?: string;
+  durationTargetSec?: number;
+}
+
+interface ScriptUpdateRaw {
+  idx: number;
+  narrationText: string;
+}
+
+const HOOK_FIRST_3_SECONDS =
+  'The first scene must contain the hook within the first 3 seconds; first sentence = attention grabber.';
+
+export interface GeneratePlanOptions {
+  scriptTemplateId?: string;
+}
+
 // Generate complete plan for a project
-export async function generatePlan(project: Project) {
+export async function generatePlan(project: Project, options?: GeneratePlanOptions) {
   const pack = getNichePack(project.nichePackId);
   if (!pack) {
     throw new Error(`Niche pack not found: ${project.nichePackId}`);
   }
 
+  const scriptTemplate = options?.scriptTemplateId
+    ? getScriptTemplate(options.scriptTemplateId)
+    : undefined;
+
   const pacing = getScenePacing(pack, project.targetLengthSec);
   const baseSceneCount = Math.round((pacing.minScenes + pacing.maxScenes) / 2);
-  const sceneCount = isTestMode()
-    ? Math.min(8, Math.max(6, baseSceneCount))
-    : baseSceneCount;
+  const sceneCount = isTestMode() ? Math.min(8, Math.max(6, baseSceneCount)) : baseSceneCount;
 
   // Step 1: Generate hooks
   const hookOptions = await generateHooks(project, pack);
@@ -27,26 +50,28 @@ export async function generatePlan(project: Project) {
   const hookSelected = hookOptions[0];
 
   // Step 3: Generate outline
-  const outline = await generateOutline(project, hookSelected, pack);
+  const outline = await generateOutline(project, hookSelected, pack, scriptTemplate?.description);
 
   // Step 4: Generate scenes
-  const scenesData = await generateScenes(project, hookSelected, outline, pack, sceneCount);
+  const scenesData = await generateScenes(
+    project,
+    hookSelected,
+    outline,
+    pack,
+    sceneCount,
+    scriptTemplate?.description
+  );
 
   // Step 5: Generate full script from scenes
-  const scriptFull = scenesData.map(s => s.narrationText).join('\n\n');
+  const scriptFull = scenesData.map((s) => s.narrationText).join('\n\n');
 
   // Calculate estimates
-  const totalWords = scriptFull.split(/\s+/).filter(w => w.length > 0).length;
+  const totalWords = scriptFull.split(/\s+/).filter((w) => w.length > 0).length;
   const wpm = project.tempo === 'slow' ? 120 : project.tempo === 'fast' ? 180 : 150;
   const estimatedLengthSec = Math.round((totalWords / wpm) * 60);
 
-  // Create plan version in DB
-  const planSequence = isTestMode()
-    ? (await prisma.planVersion.count({ where: { projectId: project.id } })) + 1
-    : 0;
-  const planVersionId = isTestMode()
-    ? `test-${project.id}-plan-${planSequence}`
-    : uuid();
+  // Create plan version in DB (always UUID for API param validation)
+  const planVersionId = uuid();
   const planVersion = await prisma.planVersion.create({
     data: {
       id: planVersionId,
@@ -71,9 +96,7 @@ export async function generatePlan(project: Project) {
   // Create scenes in DB
   let currentTime = 0;
   for (const sceneData of scenesData) {
-    const sceneId = isTestMode()
-      ? `test-${project.id}-plan-${planSequence}-scene-${sceneData.idx}`
-      : sceneData.id;
+    const sceneId = sceneData.id;
     await prisma.scene.create({
       data: {
         id: sceneId,
@@ -98,7 +121,7 @@ export async function generatePlan(project: Project) {
 }
 
 // Generate 5 hook options
-async function generateHooks(project: Project, pack: any): Promise<string[]> {
+async function generateHooks(project: Project, pack: NichePack): Promise<string[]> {
   if (!isOpenAIConfigured()) {
     // Template mode - generate deterministic hooks
     return generateTemplateHooks(project.topic, pack);
@@ -115,6 +138,7 @@ ${pack.hookRules.map((r: string, i: number) => `${i + 1}. ${r}`).join('\n')}
 Requirements:
 - Each hook should be 1-2 sentences
 - Hooks should grab attention immediately
+- ${HOOK_FIRST_3_SECONDS}
 - Use different approaches for each hook
 - Avoid brands, copyrighted content
 - Keep it appropriate for general audiences
@@ -136,10 +160,20 @@ Return ONLY a JSON array with exactly 5 hook strings, no other text:
 }
 
 // Generate outline
-async function generateOutline(project: Project, hook: string, pack: any): Promise<string> {
+async function generateOutline(
+  project: Project,
+  hook: string,
+  pack: NichePack,
+  structureHint?: string
+): Promise<string> {
   if (!isOpenAIConfigured()) {
     return generateTemplateOutline(project.topic, hook);
   }
+
+  const structureLine = structureHint ? `\nUse this structure: ${structureHint}\n` : '';
+  const seoKeywordsLine = project.seoKeywords?.trim()
+    ? `\nInclude these keywords naturally: ${project.seoKeywords.trim()}.\n`
+    : '';
 
   const prompt = `Create a video outline for a TikTok video.
 
@@ -148,9 +182,9 @@ Hook: "${hook}"
 Niche: ${pack.name}
 Target length: ${project.targetLengthSec} seconds
 Tempo: ${project.tempo}
-
+${structureLine}${seoKeywordsLine}
 Create a concise outline with:
-- Opening hook moment
+- Opening hook moment (${HOOK_FIRST_3_SECONDS})
 - 3-5 key points or story beats
 - Strong ending/call to action
 
@@ -170,8 +204,9 @@ async function generateScenes(
   project: Project,
   hook: string,
   outline: string,
-  pack: any,
-  sceneCount: number
+  pack: NichePack,
+  sceneCount: number,
+  structureHint?: string
 ): Promise<SceneData[]> {
   const pacing = getScenePacing(pack, project.targetLengthSec);
   const avgDuration = project.targetLengthSec / sceneCount;
@@ -179,6 +214,11 @@ async function generateScenes(
   if (!isOpenAIConfigured()) {
     return generateTemplateScenes(project, hook, outline, pack, sceneCount, avgDuration);
   }
+
+  const structureLine = structureHint ? `\nUse this structure: ${structureHint}\n` : '';
+  const seoKeywordsLine = project.seoKeywords?.trim()
+    ? `\nInclude these keywords naturally: ${project.seoKeywords.trim()}.\n`
+    : '';
 
   const prompt = `Generate ${sceneCount} scenes for a TikTok video.
 
@@ -189,7 +229,7 @@ Niche: ${pack.name}
 Style: ${pack.styleBiblePrompt}
 Target total duration: ${project.targetLengthSec} seconds
 Average scene duration: ${avgDuration.toFixed(1)} seconds (range: ${pacing.minDurationSec}-${pacing.maxDurationSec}s)
-
+${structureLine}${seoKeywordsLine}
 For each scene provide:
 1. narrationText: What the narrator says (clear, engaging, match the tempo)
 2. onScreenText: Short text shown on screen (2-5 words max, key point)
@@ -214,28 +254,32 @@ Requirements:
 - No copyrighted/brand references
 - Visual prompts should be detailed and match the niche style
 - Scene durations should sum to approximately ${project.targetLengthSec} seconds
-- First scene should deliver the hook`;
+- First scene: ${HOOK_FIRST_3_SECONDS} Keep first scene under 5 seconds.`;
 
   try {
     const response = await callOpenAI(prompt, 'json');
     const scenes = JSON.parse(response);
-    
+
     if (Array.isArray(scenes) && scenes.length > 0) {
-      return scenes.map((s: any, i: number) => ({
-        id: uuid(),
-        idx: i,
-        narrationText: s.narrationText || '',
-        onScreenText: s.onScreenText || '',
-        visualPrompt: s.visualPrompt || '',
-        negativePrompt: pack.globalNegativePrompt,
-        effectPreset: (s.effectPreset && EFFECT_PRESETS.includes(s.effectPreset)) 
-          ? s.effectPreset 
-          : pack.effectsProfile.defaultEffect,
-        durationTargetSec: s.durationTargetSec || avgDuration,
-        isLocked: false,
-      }));
+      return (scenes as OpenAISceneRaw[]).map((s, i) => {
+        const effectPreset: EffectPreset =
+          s.effectPreset && EFFECT_PRESETS.includes(s.effectPreset as EffectPreset)
+            ? (s.effectPreset as EffectPreset)
+            : pack.effectsProfile.defaultEffect;
+        return {
+          id: uuid(),
+          idx: i,
+          narrationText: s.narrationText || '',
+          onScreenText: s.onScreenText || '',
+          visualPrompt: s.visualPrompt || '',
+          negativePrompt: pack.globalNegativePrompt,
+          effectPreset,
+          durationTargetSec: s.durationTargetSec || avgDuration,
+          isLocked: false as const,
+        };
+      });
     }
-    
+
     return generateTemplateScenes(project, hook, outline, pack, sceneCount, avgDuration);
   } catch (error) {
     console.error('Error generating scenes with AI:', error);
@@ -268,7 +312,7 @@ export async function regenerateScript(
   if (!pack) throw new Error('Niche pack not found');
 
   if (!isOpenAIConfigured()) {
-    const scriptFull = scenes.map(s => s.narrationText).join('\n\n');
+    const scriptFull = scenes.map((s) => s.narrationText).join('\n\n');
     return { scriptFull, scenes };
   }
 
@@ -282,7 +326,7 @@ Target length: ${project.targetLengthSec} seconds
 Tempo: ${project.tempo}
 
 Current scenes:
-${scenes.map(s => `Scene ${s.idx + 1}: "${s.narrationText}"`).join('\n')}
+${scenes.map((s) => `Scene ${s.idx + 1}: "${s.narrationText}"`).join('\n')}
 
 Return JSON array with updated narration for each scene:
 [
@@ -295,24 +339,25 @@ Keep scene count the same. Make the script flow naturally.`;
   try {
     const response = await callOpenAI(prompt, 'json');
     const updates = JSON.parse(response);
-    
+
     if (Array.isArray(updates)) {
-      const updatedScenes = scenes.map(scene => {
-        const update = updates.find((u: any) => u.idx === scene.idx);
+      const raw = updates as ScriptUpdateRaw[];
+      const updatedScenes = scenes.map((scene) => {
+        const update = raw.find((u) => u.idx === scene.idx);
         if (update && !scene.isLocked) {
           return { ...scene, narrationText: update.narrationText };
         }
         return scene;
       });
-      
-      const scriptFull = updatedScenes.map(s => s.narrationText).join('\n\n');
+
+      const scriptFull = updatedScenes.map((s) => s.narrationText).join('\n\n');
       return { scriptFull, scenes: updatedScenes };
     }
   } catch (error) {
     console.error('Error regenerating script:', error);
   }
 
-  const scriptFull = scenes.map(s => s.narrationText).join('\n\n');
+  const scriptFull = scenes.map((s) => s.narrationText).join('\n\n');
   return { scriptFull, scenes };
 }
 
@@ -334,8 +379,8 @@ export async function regenerateScene(
     };
   }
 
-  const prevScene = allScenes.find(s => s.idx === scene.idx - 1);
-  const nextScene = allScenes.find(s => s.idx === scene.idx + 1);
+  const prevScene = allScenes.find((s) => s.idx === scene.idx - 1);
+  const nextScene = allScenes.find((s) => s.idx === scene.idx + 1);
 
   const prompt = `Regenerate this single scene for a TikTok video.
 
@@ -363,7 +408,7 @@ Return JSON:
   try {
     const response = await callOpenAI(prompt, 'json');
     const result = JSON.parse(response);
-    
+
     return {
       narrationText: result.narrationText || scene.narrationText,
       onScreenText: result.onScreenText || scene.onScreenText,
@@ -382,7 +427,7 @@ Return JSON:
 }
 
 // Template generators (fallback when no API key)
-function generateTemplateHooks(topic: string, pack: any): string[] {
+function generateTemplateHooks(topic: string, _pack: unknown): string[] {
   return [
     `You won't believe what I discovered about ${topic}...`,
     `Here's something about ${topic} that nobody talks about.`,
@@ -405,21 +450,53 @@ function generateTemplateScenes(
   project: Project,
   hook: string,
   outline: string,
-  pack: any,
+  pack: {
+    styleBiblePrompt: string;
+    globalNegativePrompt: string;
+    effectsProfile: { defaultEffect: string };
+  },
   sceneCount: number,
   avgDuration: number
 ): SceneData[] {
   const scenes: SceneData[] = [];
-  
+
   const points = [
     { narration: hook, onScreen: 'WAIT FOR IT', visual: 'Dramatic opening shot' },
-    { narration: `Let me tell you about ${project.topic}.`, onScreen: project.topic.substring(0, 20).toUpperCase(), visual: 'Introduction scene' },
-    { narration: `First, you need to understand the basics.`, onScreen: 'THE BASICS', visual: 'Educational scene showing fundamentals' },
-    { narration: `But here's what makes this really interesting.`, onScreen: 'BUT WAIT', visual: 'Dramatic reveal moment' },
-    { narration: `The truth is more surprising than you think.`, onScreen: 'THE TRUTH', visual: 'Mind-blowing revelation scene' },
-    { narration: `Here's what this means for you.`, onScreen: 'FOR YOU', visual: 'Personal connection scene' },
-    { narration: `And the most important thing to remember...`, onScreen: 'REMEMBER THIS', visual: 'Key takeaway visual' },
-    { narration: `If you found this helpful, follow for more.`, onScreen: 'FOLLOW', visual: 'Call to action scene' },
+    {
+      narration: `Let me tell you about ${project.topic}.`,
+      onScreen: project.topic.substring(0, 20).toUpperCase(),
+      visual: 'Introduction scene',
+    },
+    {
+      narration: `First, you need to understand the basics.`,
+      onScreen: 'THE BASICS',
+      visual: 'Educational scene showing fundamentals',
+    },
+    {
+      narration: `But here's what makes this really interesting.`,
+      onScreen: 'BUT WAIT',
+      visual: 'Dramatic reveal moment',
+    },
+    {
+      narration: `The truth is more surprising than you think.`,
+      onScreen: 'THE TRUTH',
+      visual: 'Mind-blowing revelation scene',
+    },
+    {
+      narration: `Here's what this means for you.`,
+      onScreen: 'FOR YOU',
+      visual: 'Personal connection scene',
+    },
+    {
+      narration: `And the most important thing to remember...`,
+      onScreen: 'REMEMBER THIS',
+      visual: 'Key takeaway visual',
+    },
+    {
+      narration: `If you found this helpful, follow for more.`,
+      onScreen: 'FOLLOW',
+      visual: 'Call to action scene',
+    },
   ];
 
   for (let i = 0; i < sceneCount; i++) {

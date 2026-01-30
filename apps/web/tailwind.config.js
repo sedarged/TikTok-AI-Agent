@@ -1,9 +1,6 @@
 /** @type {import('tailwindcss').Config} */
 export default {
-  content: [
-    "./index.html",
-    "./src/**/*.{js,ts,jsx,tsx}",
-  ],
+  content: ['./index.html', './src/**/*.{js,ts,jsx,tsx}'],
   theme: {
     extend: {
       colors: {
@@ -21,7 +18,7 @@ export default {
         },
         surface: {
           DEFAULT: '#121826',
-          '2': '#151E2E',
+          2: '#151E2E',
         },
         accent: {
           DEFAULT: '#7C3AED',

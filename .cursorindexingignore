@@ -1,0 +1,15 @@
+# Exclude from codebase indexing only (still accessible to AI).
+# Reduces index size and noise; improves search relevance.
+
+node_modules/
+**/dist/
+**/build/
+**/artifacts/
+*.db
+*.db-journal
+package-lock.json
+**/test-results/
+**/playwright-report/
+**/playwright/.cache/
+coverage/
+.git/

@@ -1,6 +1,7 @@
 import { beforeAll, beforeEach, afterAll, describe, expect, it } from 'vitest';
 import http from 'http';
 import type { AddressInfo } from 'net';
+import { v4 as uuid } from 'uuid';
 import { prisma } from '../src/db/client.js';
 
 let baseUrl = '';
@@ -29,13 +30,12 @@ describe('Run SSE stream', () => {
 
   afterAll(async () => {
     server.close();
-    await prisma.$disconnect();
   });
 
   it('streams initial run state over SSE', async () => {
-    const projectId = `sse-project-${Date.now()}`;
-    const planId = `sse-plan-${Date.now()}`;
-    const runId = `sse-run-${Date.now()}`;
+    const projectId = uuid();
+    const planId = uuid();
+    const runId = uuid();
 
     await prisma.project.create({
       data: {
@@ -117,9 +117,9 @@ describe('Run SSE stream', () => {
   });
 
   it('allows multiple SSE clients for the same run and both receive initial state', async () => {
-    const projectId = `sse-multi-${Date.now()}`;
-    const planId = `sse-multi-plan-${Date.now()}`;
-    const runId = `sse-multi-run-${Date.now()}`;
+    const projectId = uuid();
+    const planId = uuid();
+    const runId = uuid();
 
     await prisma.project.create({
       data: {
@@ -153,7 +153,9 @@ describe('Run SSE stream', () => {
         status: 'running',
         progress: 50,
         currentStep: 'ffmpeg_render',
-        logsJson: JSON.stringify([{ timestamp: new Date().toISOString(), message: 'Step', level: 'info' }]),
+        logsJson: JSON.stringify([
+          { timestamp: new Date().toISOString(), message: 'Step', level: 'info' },
+        ]),
         artifactsJson: '{}',
         resumeStateJson: '{}',
       },

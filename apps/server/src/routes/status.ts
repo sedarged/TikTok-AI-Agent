@@ -25,14 +25,14 @@ statusRoutes.get('/', async (req, res) => {
       message: testMode
         ? 'APP_TEST_MODE enabled: rendering disabled and deterministic plan generator in use.'
         : renderDryRun
-        ? 'APP_RENDER_DRY_RUN enabled: render pipeline runs without external providers or MP4.'
-        : !openaiReady 
-        ? 'OpenAI API key not configured. Set OPENAI_API_KEY in .env file.'
-        : !ffmpegAvailable
-        ? 'FFmpeg not available. Install ffmpeg or use ffmpeg-static.'
-        : 'All providers configured and ready.',
+          ? 'APP_RENDER_DRY_RUN enabled: render pipeline runs without external providers or MP4.'
+          : !openaiReady
+            ? 'OpenAI API key not configured. Set OPENAI_API_KEY in .env file.'
+            : !ffmpegAvailable
+              ? 'FFmpeg not available. Install ffmpeg or use ffmpeg-static.'
+              : 'All providers configured and ready.',
     });
-  } catch (error) {
+  } catch {
     res.status(500).json({ error: 'Failed to check status' });
   }
 });

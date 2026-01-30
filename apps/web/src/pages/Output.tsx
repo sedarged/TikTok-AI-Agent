@@ -1,7 +1,21 @@
 import { useState, useEffect, useRef } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
-import { getRun, verifyRun, getExportData, duplicateProject, subscribeToRun } from '../api/client';
-import type { Run, VerificationResult, Artifacts, LogEntry, ProviderStatus, SSEEvent } from '../api/types';
+import {
+  getRun,
+  verifyRun,
+  getExportData,
+  duplicateProject,
+  subscribeToRun,
+  retryRun,
+} from '../api/client';
+import type {
+  Run,
+  VerificationResult,
+  Artifacts,
+  LogEntry,
+  ProviderStatus,
+  SSEEvent,
+} from '../api/types';
 import { getErrorMessage } from '../utils/errors';
 
 interface OutputProps {
@@ -21,7 +35,19 @@ export default function Output({ status }: OutputProps) {
   const [showMoreMenu, setShowMoreMenu] = useState(false);
   const [showVerificationExpanded, setShowVerificationExpanded] = useState(false);
   const [showArtifactsExpanded, setShowArtifactsExpanded] = useState(false);
+  const [retrying, setRetrying] = useState(false);
+  const [retryFromStep, setRetryFromStep] = useState<string>('');
   const moreMenuRef = useRef<HTMLDivElement>(null);
+
+  const RENDER_STEPS = [
+    'tts_generate',
+    'asr_align',
+    'images_generate',
+    'captions_build',
+    'music_build',
+    'ffmpeg_render',
+    'finalize_artifacts',
+  ] as const;
 
   useEffect(() => {
     if (!runId) return;
@@ -58,20 +84,25 @@ export default function Output({ status }: OutputProps) {
       runId,
       (event: SSEEvent) => {
         if (event.type === 'progress') {
-          setRun((prev) => prev ? { ...prev, progress: event.progress || 0 } : null);
+          setRun((prev) => (prev ? { ...prev, progress: event.progress || 0 } : null));
         } else if (event.type === 'step') {
-          setRun((prev) => prev ? { ...prev, currentStep: event.step || '' } : null);
+          setRun((prev) => (prev ? { ...prev, currentStep: event.step || '' } : null));
         } else if (event.type === 'log' && event.log) {
           setLogs((prev) => [...prev, event.log!]);
         } else if (event.type === 'done') {
-          setRun((prev) => prev ? { ...prev, status: 'done', progress: 100 } : null);
+          setRun((prev) => (prev ? { ...prev, status: 'done', progress: 100 } : null));
           getRun(runId).then(setRun);
         } else if (event.type === 'failed') {
-          setRun((prev) => prev ? { ...prev, status: 'failed' } : null);
+          setRun((prev) => (prev ? { ...prev, status: 'failed' } : null));
+        } else if (event.type === 'state' && event.status === 'qa_failed') {
+          setRun((prev) => (prev ? { ...prev, status: 'qa_failed', progress: 100 } : null));
+          getRun(runId).then(setRun);
         } else if (event.type === 'state') {
-          if (event.status) setRun((prev) => prev ? { ...prev, status: event.status! } : null);
-          if (event.progress !== undefined) setRun((prev) => prev ? { ...prev, progress: event.progress! } : null);
-          if (event.currentStep) setRun((prev) => prev ? { ...prev, currentStep: event.currentStep! } : null);
+          if (event.status) setRun((prev) => (prev ? { ...prev, status: event.status! } : null));
+          if (event.progress !== undefined)
+            setRun((prev) => (prev ? { ...prev, progress: event.progress! } : null));
+          if (event.currentStep)
+            setRun((prev) => (prev ? { ...prev, currentStep: event.currentStep! } : null));
           if (event.logs) setLogs(event.logs);
         }
       },
@@ -99,7 +130,7 @@ export default function Output({ status }: OutputProps) {
       const result = await verifyRun(runId);
       setVerification(result);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to verify artifacts');
+      setError(getErrorMessage(err));
     } finally {
       setVerifying(false);
     }
@@ -117,7 +148,7 @@ export default function Output({ status }: OutputProps) {
       a.click();
       URL.revokeObjectURL(url);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to export');
+      setError(getErrorMessage(err));
     }
   };
 
@@ -127,7 +158,7 @@ export default function Output({ status }: OutputProps) {
       const newProject = await duplicateProject(run.projectId);
       navigate(`/project/${newProject.id}/plan`);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to duplicate project');
+      setError(getErrorMessage(err));
     }
   };
 
@@ -150,14 +181,30 @@ export default function Output({ status }: OutputProps) {
     );
   }
 
-  const artifacts: Artifacts = JSON.parse(run.artifactsJson || '{}');
+  let artifacts: Artifacts = {};
+  try {
+    artifacts = JSON.parse(run.artifactsJson || '{}') as Artifacts;
+  } catch {
+    artifacts = {};
+  }
   const isComplete = run.status === 'done';
   const isRunning = run.status === 'running' || run.status === 'queued';
   const isFailed = run.status === 'failed';
+  const isQaFailed = run.status === 'qa_failed';
   const isDryRun = artifacts.dryRun === true || status?.renderDryRun === true;
 
   const verificationLong = verification && verification.checks.length > 5;
-  const artifactKeys = isComplete ? ['mp4Path', 'thumbPath', 'captionsPath', 'imagesDir', 'audioDir', 'dryRunReportPath'].filter((k) => (artifacts as Record<string, unknown>)[k]) : [];
+  const artifactKeys = isComplete
+    ? [
+        'mp4Path',
+        'thumbPath',
+        'thumbPaths',
+        'captionsPath',
+        'imagesDir',
+        'audioDir',
+        'dryRunReportPath',
+      ].filter((k) => (artifacts as Record<string, unknown>)[k])
+    : [];
   const artifactsLong = artifactKeys.length > 5;
 
   return (
@@ -166,11 +213,17 @@ export default function Output({ status }: OutputProps) {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold">
-            {isComplete ? 'Video Complete' : isRunning ? 'Rendering...' : 'Render Output'}
+            {isComplete
+              ? 'Video Complete'
+              : isRunning
+                ? 'Rendering...'
+                : isQaFailed
+                  ? 'QA Failed'
+                  : isFailed
+                    ? 'Render Failed'
+                    : 'Render Output'}
           </h1>
-          <p className="text-gray-400">
-            {run.project?.title || 'Project'}
-          </p>
+          <p className="text-gray-400">{run.project?.title || 'Project'}</p>
         </div>
 
         <div className="flex items-center gap-3">
@@ -179,8 +232,10 @@ export default function Output({ status }: OutputProps) {
               isComplete
                 ? 'badge-success'
                 : isRunning
-                ? 'badge-warning'
-                : 'badge-error'
+                  ? 'badge-warning'
+                  : isQaFailed
+                    ? 'badge-warning'
+                    : 'badge-error'
             }`}
           >
             {run.status}
@@ -227,10 +282,190 @@ export default function Output({ status }: OutputProps) {
               controls
               className="max-h-full max-w-full"
               src={`/api/run/${runId}/artifact?path=${encodeURIComponent(artifacts.mp4Path)}`}
-              poster={artifacts.thumbPath ? `/api/run/${runId}/artifact?path=${encodeURIComponent(artifacts.thumbPath)}` : undefined}
+              poster={
+                artifacts.thumbPath
+                  ? `/api/run/${runId}/artifact?path=${encodeURIComponent(artifacts.thumbPath)}`
+                  : undefined
+              }
             >
               Your browser does not support the video tag.
             </video>
+          </div>
+        </div>
+      )}
+
+      {/* Cover thumbnails (3 options: 0s, 3s, mid) */}
+      {isComplete && runId && artifacts.thumbPaths && artifacts.thumbPaths.length > 0 && (
+        <div className="card">
+          <h3 className="font-semibold mb-2">Cover options</h3>
+          <p className="text-gray-400 text-sm mb-3">Use as cover when uploading to TikTok.</p>
+          <div className="flex flex-wrap gap-4">
+            {artifacts.thumbPaths.map((p, i) => (
+              <a
+                key={p}
+                href={`/api/run/${runId}/artifact?path=${encodeURIComponent(p)}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="block rounded-lg overflow-hidden border-2 border-transparent hover:border-[var(--color-primary)] transition-colors"
+                style={{ maxWidth: 180 }}
+              >
+                <img
+                  src={`/api/run/${runId}/artifact?path=${encodeURIComponent(p)}`}
+                  alt={`Cover option ${i + 1}`}
+                  className="aspect-[9/16] w-full object-cover"
+                />
+                <span
+                  className="block text-center text-sm py-1"
+                  style={{ color: 'var(--color-text-muted)' }}
+                >
+                  {i === 0 ? 'Start' : i === 1 ? '3s' : 'Mid'}
+                </span>
+              </a>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* TikTok metadata (caption, hashtags, title) */}
+      {isComplete &&
+        (artifacts.tiktokCaption ??
+          artifacts.tiktokTitle ??
+          (artifacts.tiktokHashtags?.length ?? 0) > 0) && (
+          <div className="card">
+            <h3 className="font-semibold mb-3">TikTok</h3>
+            <p className="text-gray-400 text-sm mb-4">Copy and paste when publishing to TikTok.</p>
+            <div className="space-y-4">
+              {artifacts.tiktokCaption && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-400 mb-1">Caption</label>
+                  <div className="flex gap-2">
+                    <p className="flex-1 rounded-lg px-3 py-2 text-sm bg-black/30 border border-gray-700 break-words">
+                      {artifacts.tiktokCaption}
+                    </p>
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        try {
+                          await navigator.clipboard.writeText(artifacts.tiktokCaption!);
+                        } catch {
+                          // fallback ignored
+                        }
+                      }}
+                      className="btn btn-secondary shrink-0"
+                    >
+                      Copy caption
+                    </button>
+                  </div>
+                </div>
+              )}
+              {artifacts.tiktokHashtags && artifacts.tiktokHashtags.length > 0 && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-400 mb-1">Hashtags</label>
+                  <div className="flex gap-2 flex-wrap items-start">
+                    <p className="flex-1 min-w-0 rounded-lg px-3 py-2 text-sm bg-black/30 border border-gray-700 break-words">
+                      {artifacts.tiktokHashtags
+                        .map((h) => (h.startsWith('#') ? h : `#${h}`))
+                        .join(' ')}
+                    </p>
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        const text = artifacts
+                          .tiktokHashtags!.map((h) => (h.startsWith('#') ? h : `#${h}`))
+                          .join(' ');
+                        try {
+                          await navigator.clipboard.writeText(text);
+                        } catch {
+                          // fallback ignored
+                        }
+                      }}
+                      className="btn btn-secondary shrink-0"
+                    >
+                      Copy hashtags
+                    </button>
+                  </div>
+                </div>
+              )}
+              {artifacts.tiktokTitle && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-400 mb-1">Title</label>
+                  <div className="flex gap-2">
+                    <p className="flex-1 rounded-lg px-3 py-2 text-sm bg-black/30 border border-gray-700 break-words">
+                      {artifacts.tiktokTitle}
+                    </p>
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        try {
+                          await navigator.clipboard.writeText(artifacts.tiktokTitle!);
+                        } catch {
+                          // fallback ignored
+                        }
+                      }}
+                      className="btn btn-secondary shrink-0"
+                    >
+                      Copy title
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+      {/* QA Failed state */}
+      {isQaFailed && (
+        <div className="card bg-amber-900/30 border-amber-700">
+          <h3 className="font-semibold text-amber-400 mb-2">QA Failed</h3>
+          <p className="text-gray-300 text-sm mb-2">
+            The video did not pass quality checks (silence, file size, or resolution 1080×1920).
+          </p>
+          {artifacts.qaResult?.details && (
+            <p className="text-gray-400 text-sm mb-4 font-mono">{artifacts.qaResult.details}</p>
+          )}
+          <div className="flex flex-wrap gap-3 items-center">
+            {runId && (
+              <>
+                <label className="flex items-center gap-2 text-sm text-gray-400">
+                  Retry from step:
+                  <select
+                    className="input py-1.5 text-sm w-44"
+                    value={retryFromStep}
+                    onChange={(e) => setRetryFromStep(e.target.value)}
+                    aria-label="Retry from step"
+                  >
+                    <option value="">From beginning</option>
+                    {RENDER_STEPS.map((step) => (
+                      <option key={step} value={step}>
+                        {step}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <button
+                  onClick={async () => {
+                    if (!runId) return;
+                    setRetrying(true);
+                    try {
+                      const updated = await retryRun(runId, retryFromStep || undefined);
+                      setRun(updated);
+                      setError('');
+                    } catch (err) {
+                      setError(getErrorMessage(err));
+                    } finally {
+                      setRetrying(false);
+                    }
+                  }}
+                  disabled={retrying}
+                  className="btn btn-primary"
+                >
+                  {retrying ? 'Retrying...' : 'Retry'}
+                </button>
+              </>
+            )}
+            <Link to={`/project/${run.projectId}/plan`} className="btn btn-secondary">
+              Back to Plan Studio
+            </Link>
           </div>
         </div>
       )}
@@ -242,12 +477,50 @@ export default function Output({ status }: OutputProps) {
           <p className="text-gray-300 text-sm mb-4">
             The render process encountered an error. Check the logs below for details.
           </p>
-          <Link
-            to={`/project/${run.projectId}/plan`}
-            className="btn btn-secondary"
-          >
-            Back to Plan Studio
-          </Link>
+          <div className="flex flex-wrap gap-3 items-center">
+            {runId && (
+              <>
+                <label className="flex items-center gap-2 text-sm text-gray-400">
+                  Retry from step:
+                  <select
+                    className="input py-1.5 text-sm w-44"
+                    value={retryFromStep}
+                    onChange={(e) => setRetryFromStep(e.target.value)}
+                    aria-label="Retry from step"
+                  >
+                    <option value="">From beginning</option>
+                    {RENDER_STEPS.map((step) => (
+                      <option key={step} value={step}>
+                        {step}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <button
+                  onClick={async () => {
+                    if (!runId) return;
+                    setRetrying(true);
+                    try {
+                      const updated = await retryRun(runId, retryFromStep || undefined);
+                      setRun(updated);
+                      setError('');
+                    } catch (err) {
+                      setError(getErrorMessage(err));
+                    } finally {
+                      setRetrying(false);
+                    }
+                  }}
+                  disabled={retrying}
+                  className="btn btn-primary"
+                >
+                  {retrying ? 'Retrying...' : 'Retry'}
+                </button>
+              </>
+            )}
+            <Link to={`/project/${run.projectId}/plan`} className="btn btn-secondary">
+              Back to Plan Studio
+            </Link>
+          </div>
         </div>
       )}
 
@@ -255,6 +528,11 @@ export default function Output({ status }: OutputProps) {
       {isComplete && (
         <div className="card">
           <h3 className="font-semibold mb-4">Actions</h3>
+          {artifacts.costEstimate != null && (
+            <p className="text-gray-400 text-sm mb-3">
+              Cost (est.): ${artifacts.costEstimate.estimatedUsd.toFixed(2)}
+            </p>
+          )}
           <div className="flex flex-wrap gap-3">
             {/* Primary Action */}
             {artifacts.mp4Path ? (
@@ -270,7 +548,7 @@ export default function Output({ status }: OutputProps) {
                 View artifacts
               </button>
             )}
-            
+
             {/* More Menu */}
             <div className="relative" ref={moreMenuRef}>
               <button
@@ -284,12 +562,20 @@ export default function Output({ status }: OutputProps) {
                   stroke="currentColor"
                   viewBox="0 0 24 24"
                 >
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M19 9l-7 7-7-7"
+                  />
                 </svg>
               </button>
-              
+
               {showMoreMenu && (
-                <div className="absolute left-0 mt-2 w-48 rounded-lg shadow-lg z-10 border" style={{ background: 'var(--color-surface)', borderColor: 'var(--color-border)' }}>
+                <div
+                  className="absolute left-0 mt-2 w-48 rounded-lg shadow-lg z-10 border"
+                  style={{ background: 'var(--color-surface)', borderColor: 'var(--color-border)' }}
+                >
                   <div className="py-1">
                     <button
                       onClick={() => {
@@ -298,8 +584,10 @@ export default function Output({ status }: OutputProps) {
                       }}
                       className="block w-full text-left px-4 py-2 text-sm hover:bg-opacity-50 transition-colors"
                       style={{ color: 'var(--color-text)' }}
-                      onMouseEnter={(e) => e.currentTarget.style.background = 'var(--color-surface-2)'}
-                      onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
+                      onMouseEnter={(e) =>
+                        (e.currentTarget.style.background = 'var(--color-surface-2)')
+                      }
+                      onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
                     >
                       Export JSON
                     </button>
@@ -310,8 +598,10 @@ export default function Output({ status }: OutputProps) {
                       }}
                       className="block w-full text-left px-4 py-2 text-sm hover:bg-opacity-50 transition-colors"
                       style={{ color: 'var(--color-text)' }}
-                      onMouseEnter={(e) => e.currentTarget.style.background = 'var(--color-surface-2)'}
-                      onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
+                      onMouseEnter={(e) =>
+                        (e.currentTarget.style.background = 'var(--color-surface-2)')
+                      }
+                      onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
                     >
                       Duplicate Project
                     </button>
@@ -322,8 +612,10 @@ export default function Output({ status }: OutputProps) {
                       }}
                       className="block w-full text-left px-4 py-2 text-sm hover:bg-opacity-50 transition-colors"
                       style={{ color: 'var(--color-text)' }}
-                      onMouseEnter={(e) => e.currentTarget.style.background = 'var(--color-surface-2)'}
-                      onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
+                      onMouseEnter={(e) =>
+                        (e.currentTarget.style.background = 'var(--color-surface-2)')
+                      }
+                      onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
                       disabled={verifying}
                     >
                       {verifying ? 'Verifying...' : 'Verify Artifacts'}
@@ -332,8 +624,10 @@ export default function Output({ status }: OutputProps) {
                       to={`/project/${run.projectId}/plan`}
                       className="block w-full text-left px-4 py-2 text-sm hover:bg-opacity-50 transition-colors"
                       style={{ color: 'var(--color-text)' }}
-                      onMouseEnter={(e) => e.currentTarget.style.background = 'var(--color-surface-2)'}
-                      onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
+                      onMouseEnter={(e) =>
+                        (e.currentTarget.style.background = 'var(--color-surface-2)')
+                      }
+                      onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
                       onClick={() => setShowMoreMenu(false)}
                     >
                       Edit Plan
@@ -351,11 +645,7 @@ export default function Output({ status }: OutputProps) {
         <div className="card">
           <div className="flex items-center justify-between mb-4">
             <h3 className="font-semibold">Verification Results</h3>
-            <span
-              className={`badge ${
-                verification.passed ? 'badge-success' : 'badge-error'
-              }`}
-            >
+            <span className={`badge ${verification.passed ? 'badge-success' : 'badge-error'}`}>
               {verification.passed ? 'PASS' : 'FAIL'}
             </span>
           </div>
@@ -377,9 +667,16 @@ export default function Output({ status }: OutputProps) {
                 stroke="currentColor"
                 viewBox="0 0 24 24"
               >
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M19 9l-7 7-7-7"
+                />
               </svg>
-              {showVerificationExpanded ? 'Ukryj szczegóły' : `Pokaż szczegóły (${verification.checks.length} checks)`}
+              {showVerificationExpanded
+                ? 'Hide details'
+                : `Show details (${verification.checks.length} checks)`}
             </button>
           )}
 
@@ -394,9 +691,7 @@ export default function Output({ status }: OutputProps) {
                 >
                   <span
                     className={`w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold ${
-                      check.passed
-                        ? 'bg-green-600 text-white'
-                        : 'bg-red-600 text-white'
+                      check.passed ? 'bg-green-600 text-white' : 'bg-red-600 text-white'
                     }`}
                   >
                     {check.passed ? 'P' : 'F'}
@@ -430,9 +725,14 @@ export default function Output({ status }: OutputProps) {
                   stroke="currentColor"
                   viewBox="0 0 24 24"
                 >
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M19 9l-7 7-7-7"
+                  />
                 </svg>
-                {showArtifactsExpanded ? 'Ukryj' : `Pokaż więcej (${artifactKeys.length})`}
+                {showArtifactsExpanded ? 'Hide' : `Show more (${artifactKeys.length})`}
               </button>
             )}
           </div>
@@ -442,24 +742,28 @@ export default function Output({ status }: OutputProps) {
                 <ArtifactItem runId={runId!} label="Final Video" path={artifacts.mp4Path} />
               )}
               {artifacts.thumbPath && (
-                <ArtifactItem
-                  runId={runId!}
-                  label="Thumbnail"
-                  path={artifacts.thumbPath}
-                  isImage
-                />
+                <ArtifactItem runId={runId!} label="Thumbnail" path={artifacts.thumbPath} isImage />
               )}
               {artifacts.captionsPath && (
                 <ArtifactItem runId={runId!} label="Captions" path={artifacts.captionsPath} />
               )}
               {artifacts.imagesDir && (
-                <ArtifactItem runId={runId!} label="Scene Images" path={artifacts.imagesDir} isDir />
+                <ArtifactItem
+                  runId={runId!}
+                  label="Scene Images"
+                  path={artifacts.imagesDir}
+                  isDir
+                />
               )}
               {artifacts.audioDir && (
                 <ArtifactItem runId={runId!} label="Audio Files" path={artifacts.audioDir} isDir />
               )}
               {artifacts.dryRunReportPath && (
-                <ArtifactItem runId={runId!} label="Dry-run Report" path={artifacts.dryRunReportPath} />
+                <ArtifactItem
+                  runId={runId!}
+                  label="Dry-run Report"
+                  path={artifacts.dryRunReportPath}
+                />
               )}
             </div>
           )}
@@ -488,19 +792,23 @@ export default function Output({ status }: OutputProps) {
             </span>
           )}
         </button>
-        
+
         {showRenderLog && (
-          <div className="rounded-lg p-4 max-h-64 overflow-y-auto" style={{ background: 'var(--color-bg)' }}>
+          <div
+            className="rounded-lg p-4 max-h-64 overflow-y-auto"
+            style={{ background: 'var(--color-bg)' }}
+          >
             <div className="space-y-1 font-mono text-xs">
               {logs.map((log, i) => (
                 <div
                   key={i}
                   style={{
-                    color: log.level === 'error'
-                      ? 'var(--color-danger)'
-                      : log.level === 'warn'
-                      ? 'var(--color-warning)'
-                      : 'var(--color-text-muted)',
+                    color:
+                      log.level === 'error'
+                        ? 'var(--color-danger)'
+                        : log.level === 'warn'
+                          ? 'var(--color-warning)'
+                          : 'var(--color-text-muted)',
                   }}
                 >
                   <span style={{ color: 'var(--color-text-muted)' }}>
@@ -537,11 +845,7 @@ function ArtifactItem({
   return (
     <div className="bg-gray-800 rounded-lg p-3">
       {isImage && (
-        <img
-          src={artifactUrl}
-          alt={label}
-          className="w-full h-24 object-cover rounded mb-2"
-        />
+        <img src={artifactUrl} alt={label} className="w-full h-24 object-cover rounded mb-2" />
       )}
       <p className="font-medium text-sm">{label}</p>
       <p className="text-gray-500 text-xs truncate">{path}</p>

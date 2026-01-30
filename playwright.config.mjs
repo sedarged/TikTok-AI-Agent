@@ -18,8 +18,8 @@ export default defineConfig({
   },
   webServer: {
     command: `node "${path.join(__dirname, 'scripts', 'e2e-server.mjs')}"`,
-    url: 'http://localhost:5173',
-    reuseExistingServer: false,
+    url: 'http://localhost:5173/api/health',
+    reuseExistingServer: process.env.CI !== 'true',
     timeout: 120_000,
   },
   workers: 1,

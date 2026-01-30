@@ -6,6 +6,7 @@ import { getRun } from '../api/client';
 interface LayoutProps {
   children: React.ReactNode;
   status: ProviderStatus | null;
+  statusError?: string;
 }
 
 function Breadcrumb() {
@@ -14,7 +15,7 @@ function Breadcrumb() {
   const [runProject, setRunProject] = useState<{ projectId: string; title?: string } | null>(null);
 
   const pathParts = location.pathname.split('/').filter(Boolean);
-  
+
   if (pathParts.length === 0 || pathParts[0] === 'create') {
     return null;
   }
@@ -70,7 +71,10 @@ function Breadcrumb() {
   }
 
   return (
-    <nav className="mb-4 flex items-center gap-2 text-sm" style={{ color: 'var(--color-text-muted)' }}>
+    <nav
+      className="mb-4 flex items-center gap-2 text-sm"
+      style={{ color: 'var(--color-text-muted)' }}
+    >
       {breadcrumbs.map((crumb, index) => (
         <span key={crumb.path} className="flex items-center gap-2">
           {index > 0 && <span className="text-xs">/</span>}
@@ -91,13 +95,15 @@ function Breadcrumb() {
   );
 }
 
-export default function Layout({ children, status }: LayoutProps) {
+export default function Layout({ children, status, statusError }: LayoutProps) {
   const location = useLocation();
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
 
   const navItems = [
     { path: '/create', label: 'Create' },
     { path: '/projects', label: 'Projects' },
+    { path: '/analytics', label: 'Analytics' },
+    { path: '/calendar', label: 'Calendar' },
   ];
 
   const navLink = (item: { path: string; label: string }) => (
@@ -116,7 +122,10 @@ export default function Layout({ children, status }: LayoutProps) {
     >
       {item.label}
       {location.pathname.startsWith(item.path) && (
-        <span className="absolute bottom-0 left-0 right-0 h-0.5 hidden md:block" style={{ background: 'var(--color-primary)' }} />
+        <span
+          className="absolute bottom-0 left-0 right-0 h-0.5 hidden md:block"
+          style={{ background: 'var(--color-primary)' }}
+        />
       )}
     </Link>
   );
@@ -124,19 +133,22 @@ export default function Layout({ children, status }: LayoutProps) {
   return (
     <div className="min-h-screen flex flex-col" style={{ background: 'var(--color-bg)' }}>
       {/* Header */}
-      <header className="sticky top-0 z-50 backdrop-blur-lg border-b" style={{ background: 'rgba(13, 17, 26, 0.9)', borderColor: 'var(--color-border)' }}>
+      <header
+        className="sticky top-0 z-50 backdrop-blur-lg border-b"
+        style={{ background: 'rgba(13, 17, 26, 0.9)', borderColor: 'var(--color-border)' }}
+      >
         <div className="max-w-7xl mx-auto px-4 h-14 flex items-center justify-between">
           <Link to="/" className="flex items-center gap-2">
             <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-lg flex items-center justify-center">
               <span className="text-white font-bold text-sm">AI</span>
             </div>
-            <span className="font-bold text-lg" style={{ color: 'var(--color-text)' }}>TikTok AI</span>
+            <span className="font-bold text-lg" style={{ color: 'var(--color-text)' }}>
+              TikTok AI
+            </span>
           </Link>
 
           {/* Desktop nav */}
-          <nav className="hidden md:flex items-center gap-6">
-            {navItems.map(navLink)}
-          </nav>
+          <nav className="hidden md:flex items-center gap-6">{navItems.map(navLink)}</nav>
 
           {/* Mobile: hamburger */}
           <div className="md:hidden relative">
@@ -149,17 +161,31 @@ export default function Layout({ children, status }: LayoutProps) {
             >
               {mobileNavOpen ? (
                 <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M6 18L18 6M6 6l12 12"
+                  />
                 </svg>
               ) : (
                 <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M4 6h16M4 12h16M4 18h16"
+                  />
                 </svg>
               )}
             </button>
             {mobileNavOpen && (
               <>
-                <div className="fixed inset-0 z-40" onClick={() => setMobileNavOpen(false)} aria-hidden="true" />
+                <div
+                  className="fixed inset-0 z-40"
+                  onClick={() => setMobileNavOpen(false)}
+                  aria-hidden="true"
+                />
                 <div
                   className="absolute right-0 top-full mt-2 w-48 rounded-lg border py-2 z-50"
                   style={{ background: 'var(--color-surface)', borderColor: 'var(--color-border)' }}
@@ -176,9 +202,23 @@ export default function Layout({ children, status }: LayoutProps) {
         </div>
       </header>
 
+      {/* Error loading status */}
+      {statusError && (
+        <div
+          className="border-b px-4 py-2"
+          style={{ background: 'rgba(239, 68, 68, 0.1)', borderColor: 'var(--color-danger)' }}
+        >
+          <p className="text-sm text-center" style={{ color: 'var(--color-danger)' }}>
+            {statusError}
+          </p>
+        </div>
+      )}
       {/* Warning banner if not ready */}
-      {status && !status.ready && (
-        <div className="border-b px-4 py-2" style={{ background: 'rgba(245, 158, 11, 0.1)', borderColor: 'var(--color-warning)' }}>
+      {status && !status.ready && !statusError && (
+        <div
+          className="border-b px-4 py-2"
+          style={{ background: 'rgba(245, 158, 11, 0.1)', borderColor: 'var(--color-warning)' }}
+        >
           <p className="text-sm text-center" style={{ color: 'var(--color-warning)' }}>
             {status.message}
           </p>
@@ -211,17 +251,9 @@ function StatusPanel({ status }: { status: ProviderStatus | null }) {
   return (
     <div className="flex items-center justify-between">
       <div className="flex items-center gap-4">
-        <StatusIndicator
-          label="OpenAI"
-          active={status.providers.openai ?? false}
-        />
-        <StatusIndicator
-          label="FFmpeg"
-          active={status.providers.ffmpeg ?? false}
-        />
-        {status.renderDryRun && !status.testMode && (
-          <StatusIndicator label="Dry-Run" active />
-        )}
+        <StatusIndicator label="OpenAI" active={status.providers.openai ?? false} />
+        <StatusIndicator label="FFmpeg" active={status.providers.ffmpeg ?? false} />
+        {status.renderDryRun && !status.testMode && <StatusIndicator label="Dry-Run" active />}
       </div>
 
       {hasIssues && (
@@ -238,7 +270,7 @@ function StatusPanel({ status }: { status: ProviderStatus | null }) {
           >
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
           </svg>
-          {expanded ? 'Ukryj szczegóły' : 'Pokaż szczegóły'}
+          {expanded ? 'Hide details' : 'Show details'}
         </button>
       )}
     </div>
