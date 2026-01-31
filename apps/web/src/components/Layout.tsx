@@ -102,6 +102,7 @@ export default function Layout({ children, status, statusError }: LayoutProps) {
 
   const navItems = [
     { path: '/create', label: 'Create' },
+    { path: '/batch-create', label: 'Batch Create' },
     { path: '/projects', label: 'Projects' },
     { path: '/analytics', label: 'Analytics' },
     { path: '/calendar', label: 'Calendar' },
