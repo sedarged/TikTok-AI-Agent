@@ -81,6 +81,8 @@ export async function generatePlan(project: Project, options?: GeneratePlanOptio
       hookSelected,
       outline,
       scriptFull,
+      // Only persist a template ID if it resolved to a known scriptTemplate
+      scriptTemplateId: scriptTemplate?.id ?? null,
       estimatesJson: JSON.stringify({
         wpm,
         estimatedLengthSec,

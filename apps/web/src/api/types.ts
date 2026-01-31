@@ -80,6 +80,7 @@ export interface PlanVersion {
   hookSelected: string;
   outline: string;
   scriptFull: string;
+  scriptTemplateId?: string | null;
   estimatesJson: string;
   validationJson: string;
   scenes?: Scene[];

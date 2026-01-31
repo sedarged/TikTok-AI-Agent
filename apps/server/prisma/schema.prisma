@@ -37,6 +37,7 @@ model PlanVersion {
   hookSelected    String   @default("")
   outline         String   @default("")
   scriptFull      String   @default("")
+  scriptTemplateId String? // Optional: ID of script template used (e.g. 'top5', 'myth_vs_fact')
   estimatesJson   String   @default("{}") // JSON { wpm, estimatedLengthSec, targetLengthSec }
   validationJson  String   @default("{}") // JSON { errors, warnings, suggestions }
 
