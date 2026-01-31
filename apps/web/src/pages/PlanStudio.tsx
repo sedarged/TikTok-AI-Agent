@@ -14,6 +14,8 @@ import {
   toggleSceneLock,
   approvePlan,
   startRender,
+  getScriptTemplates,
+  type ScriptTemplate,
 } from '../api/client';
 import type { Project, PlanVersion, Scene, ProviderStatus, ValidationResult } from '../api/types';
 import { EFFECT_PRESETS } from '../api/types';
@@ -158,6 +160,7 @@ export default function PlanStudio({ status }: PlanStudioProps) {
     estimatedLengthSec: number;
     targetLengthSec: number;
   } | null>(null);
+  const [scriptTemplates, setScriptTemplates] = useState<ScriptTemplate[]>([]);
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -180,6 +183,13 @@ export default function PlanStudio({ status }: PlanStudioProps) {
         saveTimeoutRef.current = null;
       }
     };
+  }, []);
+
+  // Fetch script templates once on mount
+  useEffect(() => {
+    getScriptTemplates()
+      .then(setScriptTemplates)
+      .catch(() => setScriptTemplates([]));
   }, []);
 
   // Close tools menu when clicking outside
@@ -471,6 +481,13 @@ export default function PlanStudio({ status }: PlanStudioProps) {
           <h1 className="text-2xl font-bold">{project.title}</h1>
           <p className="text-gray-400 text-sm">
             {project.nichePackId} | {project.targetLengthSec}s target | {project.tempo} tempo
+            {planVersion.scriptTemplateId && (
+              <span className="ml-2 text-sm" style={{ color: 'var(--color-primary)' }}>
+                • Template:{' '}
+                {scriptTemplates.find((t) => t.id === planVersion.scriptTemplateId)?.name ||
+                  planVersion.scriptTemplateId}
+              </span>
+            )}
           </p>
         </div>
 

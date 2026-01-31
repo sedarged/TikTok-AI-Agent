@@ -9,6 +9,7 @@ import {
   automateProject,
   postBatch,
   getTopicSuggestions,
+  type ScriptTemplate,
 } from '../api/client';
 import type { NichePack, ChannelPreset, ProviderStatus } from '../api/types';
 import { VOICE_PRESETS } from '../api/types';
@@ -43,7 +44,7 @@ export default function QuickCreate({ status }: QuickCreateProps) {
   const navigate = useNavigate();
   const [nichePacks, setNichePacks] = useState<NichePack[]>([]);
   const [channelPresets, setChannelPresets] = useState<ChannelPreset[]>([]);
-  const [scriptTemplates, setScriptTemplates] = useState<Array<{ id: string; name: string }>>([]);
+  const [scriptTemplates, setScriptTemplates] = useState<ScriptTemplate[]>([]);
   const [loading, setLoading] = useState(false);
   const [loadingAutomate, setLoadingAutomate] = useState(false);
   const [loadingBatch, setLoadingBatch] = useState(false);
@@ -73,7 +74,7 @@ export default function QuickCreate({ status }: QuickCreateProps) {
       .then(setChannelPresets)
       .catch(() => setChannelPresets([]));
     getScriptTemplates()
-      .then((t) => setScriptTemplates(t.map((x) => ({ id: x.id, name: x.name }))))
+      .then(setScriptTemplates)
       .catch(() => setScriptTemplates([]));
   }, []);
 
@@ -293,6 +294,7 @@ export default function QuickCreate({ status }: QuickCreateProps) {
               className="input w-full"
               value={formData.scriptTemplateId}
               onChange={(e) => setFormData({ ...formData, scriptTemplateId: e.target.value })}
+              disabled={isLoading}
             >
               <option value="">— None —</option>
               {scriptTemplates.map((t) => (
@@ -301,6 +303,11 @@ export default function QuickCreate({ status }: QuickCreateProps) {
                 </option>
               ))}
             </select>
+            {formData.scriptTemplateId && (
+              <p className="mt-2 text-sm" style={{ color: 'var(--color-text-muted)' }}>
+                {scriptTemplates.find((t) => t.id === formData.scriptTemplateId)?.description}
+              </p>
+            )}
           </div>
         )}
 

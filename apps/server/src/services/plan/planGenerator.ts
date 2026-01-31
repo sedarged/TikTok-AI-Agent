@@ -81,6 +81,7 @@ export async function generatePlan(project: Project, options?: GeneratePlanOptio
       hookSelected,
       outline,
       scriptFull,
+      scriptTemplateId: options?.scriptTemplateId ?? null,
       estimatesJson: JSON.stringify({
         wpm,
         estimatedLengthSec,
