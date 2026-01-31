@@ -150,8 +150,8 @@ The feature **automatically filters** suggestions by the selected niche pack:
 
 ### OpenAI Not Configured
 ```
-Button is disabled
-Tooltip or visual indicator shows: "OpenAI API required"
+Button is disabled (no tooltip currently shown)
+Topic suggestions are unavailable until OpenAI is configured
 ```
 
 ### Test Mode
@@ -177,7 +177,7 @@ Suggestions cleared
 
 ## Verification Steps for Manual Testing
 
-1. Navigate to `/` (QuickCreate page)
+1. Navigate to `/create` (QuickCreate page, or `/` which redirects to `/create`)
 2. Observe "Suggest viral topics" button next to "Topic / Seed" label
 3. Click the button
 4. Verify button shows "Loading..." temporarily

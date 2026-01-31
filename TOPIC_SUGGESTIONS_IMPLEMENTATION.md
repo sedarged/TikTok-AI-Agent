@@ -173,7 +173,7 @@ Added test file: `apps/web/tests/e2e/topic-suggestions.spec.ts`
 
 ## Usage Flow
 
-1. User navigates to QuickCreate page (/)
+1. User navigates to QuickCreate page (`/create`, or `/` which redirects to `/create`)
 2. User selects a niche pack (e.g., "Facts", "Horror", "Gaming")
 3. User clicks "Suggest viral topics" button
 4. Button shows "Loading..." while fetching

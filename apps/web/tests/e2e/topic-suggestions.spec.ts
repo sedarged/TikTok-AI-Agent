@@ -20,7 +20,9 @@ test.describe('Topic Suggestions', () => {
 
   test('should have topic input field', async ({ page }) => {
     // Verify topic textarea is present
-    const topicInput = page.locator('textarea[placeholder*="surprising facts"]');
+    const topicInput = page.getByPlaceholder(
+      'e.g., 5 surprising facts about the deep ocean, The real story behind the Titanic...'
+    );
     await expect(topicInput).toBeVisible();
   });
 
@@ -33,20 +35,27 @@ test.describe('Topic Suggestions', () => {
     await expect(suggestButton).toBeVisible();
 
     // Both should be in the same parent container
-    const labelParent = await topicLabel.locator('..');
+    const labelParent = topicLabel.locator('..');
     const buttonInSameContainer = labelParent.getByRole('button', {
       name: /suggest viral topics/i,
     });
     await expect(buttonInSameContainer).toBeVisible();
   });
 
-  test('should be disabled when appropriate', async ({ page }) => {
-    // In test environments, the button should be disabled if OpenAI is not configured
-    const suggestButton = page.getByRole('button', { name: /suggest viral topics/i });
-    const isDisabled = await suggestButton.isDisabled();
+  test('should be disabled when OpenAI is not configured', async ({ page, request }) => {
+    // Check the status endpoint to determine expected button state
+    const statusRes = await request.get('/api/status');
+    expect(statusRes.ok()).toBeTruthy();
+    const status = await statusRes.json();
 
-    // Button should be disabled in test mode or when OpenAI is not configured
-    // We just verify the attribute exists, not testing the actual API call
-    expect(typeof isDisabled).toBe('boolean');
+    const suggestButton = page.getByRole('button', { name: /suggest viral topics/i });
+
+    // Button should be disabled if OpenAI is not configured
+    if (!status.providers?.openai) {
+      await expect(suggestButton).toBeDisabled();
+    } else {
+      // If OpenAI is configured, button should be enabled (not disabled)
+      await expect(suggestButton).not.toBeDisabled();
+    }
   });
 });

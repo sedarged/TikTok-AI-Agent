@@ -73,7 +73,7 @@ const [loadingSuggestions, setLoadingSuggestions] = useState(false);
 
 ## User Flow
 
-1. User navigates to QuickCreate (`/`)
+1. User navigates to QuickCreate (`/create`, or `/` which redirects to `/create`)
 2. User selects a niche pack (e.g., "Facts", "Horror")
 3. User clicks "Suggest viral topics" button
 4. Button shows "Loading..." (API call in progress)
