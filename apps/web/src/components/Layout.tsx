@@ -16,12 +16,7 @@ function Breadcrumb() {
 
   const pathParts = location.pathname.split('/').filter(Boolean);
 
-  if (pathParts.length === 0 || pathParts[0] === 'create') {
-    return null;
-  }
-
-  const breadcrumbs: Array<{ label: string; path: string }> = [];
-
+  // useEffect must be called before any early returns to maintain hooks order
   useEffect(() => {
     if (pathParts[0] !== 'run' || !params.runId) {
       setRunProject(null);
@@ -44,7 +39,13 @@ function Breadcrumb() {
       });
 
     return () => controller.abort();
-  }, [params.runId, location.pathname]);
+  }, [params.runId, location.pathname, pathParts]);
+
+  if (pathParts.length === 0 || pathParts[0] === 'create') {
+    return null;
+  }
+
+  const breadcrumbs: Array<{ label: string; path: string }> = [];
 
   if (pathParts[0] === 'projects') {
     breadcrumbs.push({ label: 'Projects', path: '/projects' });
