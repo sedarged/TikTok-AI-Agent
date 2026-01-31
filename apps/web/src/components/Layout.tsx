@@ -39,7 +39,7 @@ function Breadcrumb() {
       });
 
     return () => controller.abort();
-  }, [params.runId, location.pathname, pathParts]);
+  }, [params.runId, location.pathname]);
 
   if (pathParts.length === 0 || pathParts[0] === 'create') {
     return null;
