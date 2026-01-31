@@ -348,7 +348,7 @@ planRoutes.post('/:planVersionId/regenerate-outline', async (req, res) => {
     res.json({ outline });
   } catch (error) {
     logError('Error regenerating outline', error);
-    res.status(500).json({ error: 'Failed to regenerating outline' });
+    res.status(500).json({ error: 'Failed to regenerate outline' });
   }
 });
 
