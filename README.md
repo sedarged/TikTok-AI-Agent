@@ -52,7 +52,50 @@ The easiest way to run this app and access it from your phone:
 
 ---
 
-### Option B: Local Installation
+### Option C: Docker (Production)
+
+Run the application in a container:
+
+```bash
+# Clone and enter directory
+git clone https://github.com/sedarged/TikTok-AI-Agent.git
+cd TikTok-AI-Agent
+
+# Build Docker image
+docker build -t tiktok-ai-agent .
+
+# Run container
+docker run -d \
+  --name tiktok-ai-agent \
+  -p 3001:3001 \
+  -e OPENAI_API_KEY=your_api_key_here \
+  -v $(pwd)/data:/app/data \
+  -v $(pwd)/artifacts:/app/artifacts \
+  tiktok-ai-agent
+
+# Check health
+curl http://localhost:3001/api/health
+```
+
+**Using Docker Compose:**
+
+```bash
+# Create .env file with your API key
+cp .env.example .env
+# Edit .env and add OPENAI_API_KEY
+
+# Start with Docker Compose
+docker-compose up -d
+
+# View logs
+docker-compose logs -f
+```
+
+📖 **See [DOCKER.md](DOCKER.md) for complete Docker deployment guide** including cloud platforms (AWS, GCP, Kubernetes).
+
+---
+
+### Option D: Local Installation
 
 #### 1. Prerequisites
 
@@ -112,11 +155,28 @@ npm run dev
 - Frontend: http://localhost:5173
 - Backend: http://localhost:3001
 
-### Production notes (env vars)
+### Production Deployment
 
+For production deployments, **Docker is recommended** (see [DOCKER.md](DOCKER.md)).
+
+**Important environment variables:**
 - **DATABASE_URL**: set this explicitly for production deployments (SQLite file or PostgreSQL). Do not rely on the default.
 - **ALLOWED_ORIGINS**: must be set in production, otherwise browser requests will be blocked by CORS.
 - **OPENAI_API_KEY**: required for AI features; if missing you can still use template mode and/or dry-run render.
+
+**Production build:**
+```bash
+npm run build  # Builds frontend and backend
+npm start      # Runs production server on port 3001
+```
+
+**Docker deployment:**
+```bash
+docker build -t tiktok-ai-agent .
+docker run -p 3001:3001 -e OPENAI_API_KEY=your_key tiktok-ai-agent
+```
+
+See [DOCKER.md](DOCKER.md) for AWS, GCP, Kubernetes, and Docker Compose examples.
 
 ### Local PC (Dry-Run only, no API keys)
 
