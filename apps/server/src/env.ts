@@ -60,6 +60,11 @@ export const env = {
   APP_DRY_RUN_FAIL_STEP: process.env.APP_DRY_RUN_FAIL_STEP || '',
   APP_DRY_RUN_STEP_DELAY_MS: parseInt(process.env.APP_DRY_RUN_STEP_DELAY_MS || '0', 10),
   APP_VERSION: process.env.APP_VERSION || '',
+  LOG_LEVEL: process.env.LOG_LEVEL || 'info',
+  ALLOWED_ORIGINS:
+    process.env.ALLOWED_ORIGINS?.split(',')
+      .map((o) => o.trim())
+      .filter((o) => o.startsWith('http://') || o.startsWith('https://')) || [],
 };
 
 export function isOpenAIConfigured(): boolean {
@@ -102,4 +107,43 @@ export function getProviderStatus() {
     testMode: env.APP_TEST_MODE,
     renderDryRun: env.APP_RENDER_DRY_RUN,
   };
+}
+
+export function isProduction(): boolean {
+  return env.NODE_ENV === 'production';
+}
+
+export function isDevelopment(): boolean {
+  return env.NODE_ENV === 'development';
+}
+
+export function isNodeTest(): boolean {
+  return env.NODE_ENV === 'test';
+}
+
+/**
+ * Get current dry run configuration dynamically.
+ * This reads from process.env to support runtime updates in test routes.
+ */
+export function getDryRunConfig() {
+  const failStep = process.env.APP_DRY_RUN_FAIL_STEP || '';
+  const rawDelay = process.env.APP_DRY_RUN_STEP_DELAY_MS || '0';
+  const delay = Number.isFinite(parseInt(rawDelay, 10)) ? parseInt(rawDelay, 10) : 0;
+  return {
+    failStep,
+    stepDelayMs: Math.max(0, delay),
+  };
+}
+
+/**
+ * Update dry run configuration at runtime.
+ * Used by test routes to dynamically configure render pipeline behavior.
+ */
+export function setDryRunConfig(config: { failStep?: string; stepDelayMs?: number }): void {
+  if (config.failStep !== undefined) {
+    process.env.APP_DRY_RUN_FAIL_STEP = config.failStep;
+  }
+  if (config.stepDelayMs !== undefined) {
+    process.env.APP_DRY_RUN_STEP_DELAY_MS = String(config.stepDelayMs);
+  }
 }

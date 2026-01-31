@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { z } from 'zod';
-import { isRenderDryRun, isTestMode } from '../env.js';
+import { isRenderDryRun, isTestMode, getDryRunConfig, setDryRunConfig } from '../env.js';
 
 export const testRoutes = Router();
 
@@ -25,22 +25,12 @@ function isEnabled(): boolean {
   return isRenderDryRun() || isTestMode();
 }
 
-function getCurrentConfig() {
-  const failStep = process.env.APP_DRY_RUN_FAIL_STEP || '';
-  const rawDelay = process.env.APP_DRY_RUN_STEP_DELAY_MS || '0';
-  const delay = Number.isFinite(parseInt(rawDelay, 10)) ? parseInt(rawDelay, 10) : 0;
-  return {
-    failStep,
-    stepDelayMs: Math.max(0, delay),
-  };
-}
-
 testRoutes.get('/dry-run-config', (req, res) => {
   if (!isEnabled()) {
     return res.status(404).json({ error: 'Not found' });
   }
 
-  res.json(getCurrentConfig());
+  res.json(getDryRunConfig());
 });
 
 testRoutes.post('/dry-run-config', (req, res) => {
@@ -56,13 +46,15 @@ testRoutes.post('/dry-run-config', (req, res) => {
     });
   }
 
+  const updateData: { failStep?: string; stepDelayMs?: number } = {};
   if (parsed.data.failStep !== undefined && parsed.data.failStep !== null) {
-    process.env.APP_DRY_RUN_FAIL_STEP = parsed.data.failStep;
+    updateData.failStep = parsed.data.failStep;
   }
-
   if (parsed.data.stepDelayMs !== undefined && parsed.data.stepDelayMs !== null) {
-    process.env.APP_DRY_RUN_STEP_DELAY_MS = String(parsed.data.stepDelayMs);
+    updateData.stepDelayMs = parsed.data.stepDelayMs;
   }
 
-  return res.json(getCurrentConfig());
+  setDryRunConfig(updateData);
+
+  return res.json(getDryRunConfig());
 });
