@@ -4,6 +4,7 @@ import { prisma } from '../db/client.js';
 import { generatePlan } from '../services/plan/planGenerator.js';
 import { getNichePack } from '../services/nichePacks.js';
 import { v4 as uuid } from 'uuid';
+import { logError } from '../utils/logger.js';
 
 export const projectRoutes = Router();
 
@@ -46,7 +47,7 @@ projectRoutes.get('/', async (req, res) => {
     });
     res.json(projects);
   } catch (error) {
-    console.error('Error listing projects:', error);
+    logError('Error listing projects', error);
     res.status(500).json({ error: 'Failed to list projects' });
   }
 });
@@ -100,7 +101,7 @@ projectRoutes.post('/', async (req, res) => {
 
     res.json(project);
   } catch (error) {
-    console.error('Error creating project:', error);
+    logError('Error creating project', error);
     res.status(500).json({ error: 'Failed to create project' });
   }
 });
@@ -137,7 +138,7 @@ projectRoutes.get('/:id', async (req, res) => {
 
     res.json(project);
   } catch (error) {
-    console.error('Error getting project:', error);
+    logError('Error getting project', error);
     res.status(500).json({ error: 'Failed to get project' });
   }
 });
@@ -185,7 +186,7 @@ projectRoutes.post('/:id/plan', async (req, res) => {
 
     res.json(fullPlanVersion);
   } catch (error) {
-    console.error('Error generating plan:', error);
+    logError('Error generating plan', error);
     res
       .status(500)
       .json({ error: error instanceof Error ? error.message : 'Failed to generate plan' });
@@ -206,7 +207,7 @@ projectRoutes.get('/:id/runs', async (req, res) => {
     });
     res.json(runs);
   } catch (error) {
-    console.error('Error getting runs:', error);
+    logError('Error getting runs', error);
     res.status(500).json({ error: 'Failed to get runs' });
   }
 });
@@ -307,7 +308,7 @@ projectRoutes.post('/:id/duplicate', async (req, res) => {
 
     res.json(newProject);
   } catch (error) {
-    console.error('Error duplicating project:', error);
+    logError('Error duplicating project', error);
     res.status(500).json({ error: 'Failed to duplicate project' });
   }
 });
@@ -325,7 +326,7 @@ projectRoutes.delete('/:id', async (req, res) => {
     });
     res.json({ success: true });
   } catch (error) {
-    console.error('Error deleting project:', error);
+    logError('Error deleting project', error);
     res.status(500).json({ error: 'Failed to delete project' });
   }
 });

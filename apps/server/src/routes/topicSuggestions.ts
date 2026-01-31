@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { getTopicSuggestions } from '../services/trends/topicSuggestions.js';
 import { getNichePack } from '../services/nichePacks.js';
 import { isOpenAIConfigured, isTestMode } from '../env.js';
+import { logError } from '../utils/logger.js';
 
 export const topicSuggestionsRoutes = Router();
 
@@ -47,7 +48,7 @@ topicSuggestionsRoutes.get('/', async (req, res) => {
     const topics = await getTopicSuggestions(nichePackId, limit);
     res.json(topics);
   } catch (error) {
-    console.error('Error getting topic suggestions:', error);
+    logError('Error getting topic suggestions', error);
     res.status(500).json({
       error: error instanceof Error ? error.message : 'Failed to get suggestions',
     });

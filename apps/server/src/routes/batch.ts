@@ -8,6 +8,7 @@ import { startRenderPipeline } from '../services/render/renderPipeline.js';
 import { isOpenAIConfigured, isRenderDryRun, isTestMode } from '../env.js';
 import { checkFFmpegAvailable } from '../services/ffmpeg/ffmpegUtils.js';
 import { v4 as uuid } from 'uuid';
+import { logError } from '../utils/logger.js';
 
 export const batchRoutes = Router();
 
@@ -151,7 +152,7 @@ batchRoutes.post('/', async (req, res) => {
 
     res.json({ runIds });
   } catch (error) {
-    console.error('Error in batch:', error);
+    logError('Error in batch', error);
     res.status(500).json({
       error: error instanceof Error ? error.message : 'Batch failed',
     });

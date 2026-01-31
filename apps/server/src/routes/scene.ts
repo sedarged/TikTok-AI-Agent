@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { z } from 'zod';
 import { prisma } from '../db/client.js';
 import { regenerateScene } from '../services/plan/planGenerator.js';
+import { logError } from '../utils/logger.js';
 
 export const sceneRoutes = Router();
 
@@ -43,7 +44,7 @@ sceneRoutes.get('/:sceneId', async (req, res) => {
 
     res.json(scene);
   } catch (error) {
-    console.error('Error getting scene:', error);
+    logError('Error getting scene', error);
     res.status(500).json({ error: 'Failed to get scene' });
   }
 });
@@ -93,7 +94,7 @@ sceneRoutes.put('/:sceneId', async (req, res) => {
 
     res.json(updatedScene);
   } catch (error) {
-    console.error('Error updating scene:', error);
+    logError('Error updating scene', error);
     res.status(500).json({ error: 'Failed to update scene' });
   }
 });
@@ -125,7 +126,7 @@ sceneRoutes.post('/:sceneId/lock', async (req, res) => {
 
     res.json(scene);
   } catch (error) {
-    console.error('Error toggling scene lock:', error);
+    logError('Error toggling scene lock', error);
     res.status(500).json({ error: 'Failed to toggle scene lock' });
   }
 });
@@ -179,7 +180,7 @@ sceneRoutes.post('/:sceneId/regenerate', async (req, res) => {
 
     res.json(updatedScene);
   } catch (error) {
-    console.error('Error regenerating scene:', error);
+    logError('Error regenerating scene', error);
     res.status(500).json({ error: 'Failed to regenerate scene' });
   }
 });

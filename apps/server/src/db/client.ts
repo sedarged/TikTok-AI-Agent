@@ -1,5 +1,6 @@
 import { PrismaClient } from '@prisma/client';
 import { env } from '../env.js';
+import { logError } from '../utils/logger.js';
 
 // Create Prisma client with logging configuration
 export const prisma = new PrismaClient({
@@ -16,8 +17,7 @@ export async function ensureConnection() {
     await prisma.$connect();
     return true;
   } catch (error) {
-    // Using console.error here since logger may not be available during bootstrap
-    console.error('Database connection failed:', error);
+    logError('Database connection failed', error);
     return false;
   }
 }

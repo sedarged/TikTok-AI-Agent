@@ -4,7 +4,7 @@ import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
 import path from 'path';
 import fs from 'fs';
-import { env, isRenderDryRun, isTestMode, isNodeTest } from './env.js';
+import { env, isRenderDryRun, isTestMode, isNodeTest, isDevelopment } from './env.js';
 import { projectRoutes } from './routes/project.js';
 import { automateRoutes } from './routes/automate.js';
 import { batchRoutes } from './routes/batch.js';
@@ -112,7 +112,7 @@ export function createApp() {
         if (!origin) return callback(null, true);
 
         // In development/test, allow all origins for local network access
-        if (isDevelopment) return callback(null, true);
+        if (isDevelopment()) return callback(null, true);
 
         // In production, check against whitelist
         if (allowedOrigins.length > 0 && allowedOrigins.includes(origin)) {
