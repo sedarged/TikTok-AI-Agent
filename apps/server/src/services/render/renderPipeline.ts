@@ -73,22 +73,6 @@ const activeRuns = new Map<string, boolean>();
 const renderQueue: string[] = [];
 let currentRunningRunId: string | null = null;
 
-// Export for graceful shutdown
-export function getActiveRuns(): string[] {
-  return Array.from(activeRuns.keys()).filter((runId) => activeRuns.get(runId) === true);
-}
-
-export async function cancelAllActiveRuns(): Promise<void> {
-  const activeRunIds = getActiveRuns();
-  for (const runId of activeRunIds) {
-    try {
-      await cancelRun(runId);
-    } catch (error) {
-      logError('Failed to cancel run during shutdown:', error, { runId });
-    }
-  }
-}
-
 async function processNextInQueue(): Promise<void> {
   if (renderQueue.length === 0) return;
   const runId = renderQueue.shift()!;
