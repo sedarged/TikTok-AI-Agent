@@ -66,11 +66,15 @@ export function createApp() {
       .map((o) => o.trim())
       .filter((o) => o.startsWith('http://') || o.startsWith('https://')) || [];
 
-  const isDevelopment =
+  // Development-like environments for security headers (CORS, Helmet)
+  const isDevLikeForSecurityHeaders =
     env.NODE_ENV === 'development' || env.NODE_ENV === 'test' || env.NODE_ENV === 'e2e';
 
+  // Development-like environments for rate limiting
+  const isDevLikeForRateLimit = env.NODE_ENV === 'development' || env.NODE_ENV === 'test';
+
   // Warn in production if no origins configured
-  if (!isDevelopment && allowedOrigins.length === 0) {
+  if (!isDevLikeForSecurityHeaders && allowedOrigins.length === 0) {
     logWarn(
       'ALLOWED_ORIGINS not configured in production. CORS will block browser requests. Set ALLOWED_ORIGINS environment variable to enable cross-origin requests.'
     );
@@ -79,7 +83,7 @@ export function createApp() {
   // Helmet - Security headers
   app.use(
     helmet({
-      contentSecurityPolicy: isDevelopment
+      contentSecurityPolicy: isDevLikeForSecurityHeaders
         ? false
         : {
             directives: {
@@ -96,7 +100,7 @@ export function createApp() {
   // Rate limiting - protect API endpoints
   const apiLimiter = rateLimit({
     windowMs: 15 * 60 * 1000, // 15 minutes
-    max: isDevelopment ? 1000 : 100, // More permissive in development
+    max: isDevLikeForRateLimit ? 1000 : 100, // More permissive in development
     message: { error: 'Too many requests, please try again later.' },
     standardHeaders: true,
     legacyHeaders: false,

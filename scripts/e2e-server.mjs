@@ -26,8 +26,9 @@ execSync('npx prisma migrate deploy --schema apps/server/prisma/schema.prisma', 
 // This prevents tsx from restarting the server during tests
 const serverCmd = 'cd apps/server && npx tsx src/index.ts';
 const webCmd = 'npm run dev:web';
+const concurrentlyCmd = `npx concurrently "${serverCmd}" "${webCmd}"`;
 
-const child = spawn('npx', ['concurrently', `"${serverCmd}"`, `"${webCmd}"`], {
+const child = spawn(concurrentlyCmd, {
   cwd: root,
   stdio: 'inherit',
   env: process.env,
