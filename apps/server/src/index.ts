@@ -112,7 +112,7 @@ export function createApp() {
         if (!origin) return callback(null, true);
 
         // In development/test, allow all origins for local network access
-        if (isDevelopment) return callback(null, true);
+        if (isDevLikeForSecurityHeaders) return callback(null, true);
 
         // In production, check against whitelist
         if (allowedOrigins.length > 0 && allowedOrigins.includes(origin)) {
