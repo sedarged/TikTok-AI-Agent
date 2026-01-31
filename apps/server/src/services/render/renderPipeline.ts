@@ -781,7 +781,7 @@ async function executePipeline(run: Run, planVersion: PlanWithDetails) {
     activeRuns.delete(runId);
     if (currentRunningRunId === runId) {
       currentRunningRunId = null;
-      processNextInQueue().catch(console.error);
+      processNextInQueue().catch((err) => logError('Error processing next in queue', err));
     }
   }
 }

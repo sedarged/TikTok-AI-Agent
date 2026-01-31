@@ -8,6 +8,7 @@ import { startRenderPipeline } from '../services/render/renderPipeline.js';
 import { isOpenAIConfigured, isRenderDryRun, isTestMode } from '../env.js';
 import { checkFFmpegAvailable } from '../services/ffmpeg/ffmpegUtils.js';
 import { v4 as uuid } from 'uuid';
+import { logError } from '../utils/logger.js';
 
 export const automateRoutes = Router();
 
@@ -149,7 +150,7 @@ automateRoutes.post('/', async (req, res) => {
       runId: run.id,
     });
   } catch (error) {
-    console.error('Error in automate:', error);
+    logError('Error in automate', error);
     res.status(500).json({
       error: error instanceof Error ? error.message : 'Automate failed',
     });

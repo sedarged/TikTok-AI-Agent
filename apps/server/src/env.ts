@@ -1,5 +1,6 @@
 import dotenv from 'dotenv';
 import path from 'path';
+import { logBootstrapWarn } from './utils/bootstrapLogger.js';
 
 // Load .env from workspace root - try multiple locations
 const possibleEnvPaths = [
@@ -30,12 +31,12 @@ function validateEnv() {
 
   // In production, require explicit DATABASE_URL (not default)
   if (isProduction && !process.env.DATABASE_URL) {
-    console.warn('WARNING: DATABASE_URL not set in production. Using default ./dev.db');
+    logBootstrapWarn('DATABASE_URL not set in production. Using default ./dev.db');
   }
 
   // Warn if OpenAI key is missing in production (unless in test mode)
   if (isProduction && !isTest && !process.env.OPENAI_API_KEY && !process.env.APP_TEST_MODE) {
-    console.warn('WARNING: OPENAI_API_KEY not configured. AI features will not work.');
+    logBootstrapWarn('OPENAI_API_KEY not configured. AI features will not work.');
   }
 
   // Validate PORT is a valid number

@@ -10,6 +10,7 @@ import {
 import { startRenderPipeline } from '../services/render/renderPipeline.js';
 import { isOpenAIConfigured, isRenderDryRun, isTestMode } from '../env.js';
 import { checkFFmpegAvailable } from '../services/ffmpeg/ffmpegUtils.js';
+import { logError } from '../utils/logger.js';
 
 export const planRoutes = Router();
 
@@ -64,7 +65,7 @@ planRoutes.get('/:planVersionId', async (req, res) => {
 
     res.json(planVersion);
   } catch (error) {
-    console.error('Error getting plan version:', error);
+    logError('Error getting plan version', error);
     res.status(500).json({ error: 'Failed to get plan version' });
   }
 });
@@ -159,7 +160,7 @@ planRoutes.put('/:planVersionId', async (req, res) => {
 
     res.json(updatedPlan);
   } catch (error) {
-    console.error('Error updating plan version:', error);
+    logError('Error updating plan version', error);
     res.status(500).json({ error: 'Failed to update plan version' });
   }
 });
@@ -201,7 +202,7 @@ planRoutes.post('/:planVersionId/validate', async (req, res) => {
 
     res.json(validation);
   } catch (error) {
-    console.error('Error validating plan:', error);
+    logError('Error validating plan', error);
     res.status(500).json({ error: 'Failed to validate plan' });
   }
 });
@@ -276,7 +277,7 @@ planRoutes.post('/:planVersionId/autofit', async (req, res) => {
 
     res.json(updatedPlan);
   } catch (error) {
-    console.error('Error auto-fitting durations:', error);
+    logError('Error auto-fitting durations', error);
     res.status(500).json({ error: 'Failed to auto-fit durations' });
   }
 });
@@ -312,7 +313,7 @@ planRoutes.post('/:planVersionId/regenerate-hooks', async (req, res) => {
 
     res.json({ hookOptions });
   } catch (error) {
-    console.error('Error regenerating hooks:', error);
+    logError('Error regenerating hooks', error);
     res.status(500).json({ error: 'Failed to regenerate hooks' });
   }
 });
@@ -346,7 +347,7 @@ planRoutes.post('/:planVersionId/regenerate-outline', async (req, res) => {
 
     res.json({ outline });
   } catch (error) {
-    console.error('Error regenerating outline:', error);
+    logError('Error regenerating outline', error);
     res.status(500).json({ error: 'Failed to regenerate outline' });
   }
 });
@@ -401,7 +402,7 @@ planRoutes.post('/:planVersionId/regenerate-script', async (req, res) => {
 
     res.json(updatedPlan);
   } catch (error) {
-    console.error('Error regenerating script:', error);
+    logError('Error regenerating script', error);
     res.status(500).json({ error: 'Failed to regenerate script' });
   }
 });
@@ -447,7 +448,7 @@ planRoutes.post('/:planVersionId/approve', async (req, res) => {
 
     res.json({ success: true, message: 'Plan approved' });
   } catch (error) {
-    console.error('Error approving plan:', error);
+    logError('Error approving plan', error);
     res.status(500).json({ error: 'Failed to approve plan' });
   }
 });
@@ -515,7 +516,7 @@ planRoutes.post('/:planVersionId/render', async (req, res) => {
 
     res.json(run);
   } catch (error) {
-    console.error('Error starting render:', error);
+    logError('Error starting render', error);
     res.status(500).json({ error: 'Failed to start render' });
   }
 });
