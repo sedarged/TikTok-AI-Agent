@@ -1,7 +1,7 @@
 import winston from 'winston';
 import { env } from '../env.js';
 
-const logLevel = process.env.LOG_LEVEL || 'info';
+const logLevel = env.LOG_LEVEL;
 const isDevelopment = env.NODE_ENV === 'development';
 const isTest = env.NODE_ENV === 'test';
 

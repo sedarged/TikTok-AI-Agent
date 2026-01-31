@@ -4,7 +4,7 @@ import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
 import path from 'path';
 import fs from 'fs';
-import { env, isRenderDryRun, isTestMode } from './env.js';
+import { env, isRenderDryRun, isTestMode, isNodeTest } from './env.js';
 import { projectRoutes } from './routes/project.js';
 import { automateRoutes } from './routes/automate.js';
 import { batchRoutes } from './routes/batch.js';
@@ -61,10 +61,7 @@ export function createApp() {
 
   // Middleware - CORS configuration
   // In production, configure specific allowed origins via ALLOWED_ORIGINS env var
-  const allowedOrigins =
-    process.env.ALLOWED_ORIGINS?.split(',')
-      .map((o) => o.trim())
-      .filter((o) => o.startsWith('http://') || o.startsWith('https://')) || [];
+  const allowedOrigins = env.ALLOWED_ORIGINS;
 
   // Development-like environments for security headers (CORS, Helmet)
   const isDevLikeForSecurityHeaders =
@@ -213,6 +210,6 @@ export function startServer() {
 // Check if this module is being run directly (ES Module compatible)
 // Note: In CommonJS builds, this check may not work as expected
 // But the module exports createApp() which can be used by tests
-if (process.env.NODE_ENV !== 'test') {
+if (!isNodeTest()) {
   startServer();
 }
