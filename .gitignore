@@ -36,3 +36,7 @@ playwright-report/
 
 # TypeScript
 *.tsbuildinfo
+
+# Test coverage
+coverage/
+.nyc_output/
