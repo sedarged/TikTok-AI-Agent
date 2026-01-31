@@ -384,6 +384,21 @@ npm run db:migrate
 | science      | Scientific concepts explained      |
 | mystery      | Unsolved mysteries                 |
 
+## Development & Automation
+
+This repository uses modern automation tools for code quality and continuous integration:
+
+- ✅ **GitHub Actions CI** - Automated testing, linting, and builds
+- ✅ **Codecov** - Test coverage tracking
+- ✅ **Issue Label Bot** - Automatic issue labeling
+- ✅ **Husky + lint-staged** - Pre-commit code quality checks
+
+**Want to add AI code reviews?** See **[GITHUB_MARKETPLACE_SETUP.md](GITHUB_MARKETPLACE_SETUP.md)** for:
+- 🤖 Qodo Merge installation (AI code review + test generation, free for open source)
+- 🔧 Alternative tools (CodeRabbit, Codacy, SonarCloud, DeepSource)
+- ✅ Complete automation verification checklist
+- 📚 Beginner-friendly setup instructions
+
 ## License
 
 MIT

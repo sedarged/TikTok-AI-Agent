@@ -58,6 +58,7 @@ W folderze **`.cursor/plans/`** są plany robocze. Żaden nie zastępuje DEVELOP
 
 | Dokument                                                                       | Temat                                              |
 | ------------------------------------------------------------------------------ | -------------------------------------------------- |
+| [GITHUB_MARKETPLACE_SETUP.md](GITHUB_MARKETPLACE_SETUP.md)                     | **GitHub Marketplace i automatyzacja** (Qodo Merge, CI, Codecov, alternatywy). |
 | [COST_ANALYSIS_60SEC_VIDEO.md](COST_ANALYSIS_60SEC_VIDEO.md)                   | Analiza kosztów 60 s wideo.                        |
 | [COST_VISIBILITY_AND_REDUCTION.md](COST_VISIBILITY_AND_REDUCTION.md)           | Widoczność i redukcja kosztów.                     |
 | [LOCAL_PROVIDERS_AND_COST_REDUCTION.md](LOCAL_PROVIDERS_AND_COST_REDUCTION.md) | Lokalni providerzy i obniżanie kosztów.            |
