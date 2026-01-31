@@ -4,6 +4,7 @@ node_modules/
 # Build outputs
 dist/
 build/
+coverage/
 
 # Environment files
 .env
@@ -35,3 +36,7 @@ playwright-report/
 
 # TypeScript
 *.tsbuildinfo
+
+# Test coverage
+coverage/
+.nyc_output/

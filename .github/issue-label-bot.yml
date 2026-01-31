@@ -1,0 +1,24 @@
+label-rules:
+  - label: 'bug'
+    keywords: ['bug', 'error', 'crash', 'broken', 'fail', 'not working', 'issue', 'problem']
+  
+  - label: 'feature'
+    keywords: ['feature', 'enhancement', 'add', 'new', 'improve', 'request']
+  
+  - label: 'render'
+    keywords: ['render', 'video', 'ffmpeg', 'pipeline', 'scene', 'mp4', 'generation']
+  
+  - label: 'frontend'
+    keywords: ['ui', 'frontend', 'react', 'button', 'page', 'display', 'interface', 'web']
+  
+  - label: 'backend'
+    keywords: ['api', 'server', 'backend', 'database', 'prisma', 'endpoint']
+  
+  - label: 'ai'
+    keywords: ['openai', 'gpt', 'prompt', 'ai', 'tts', 'caption', 'llm', 'generation']
+  
+  - label: 'performance'
+    keywords: ['slow', 'performance', 'speed', 'optimize', 'memory', 'cpu']
+  
+  - label: 'documentation'
+    keywords: ['docs', 'documentation', 'readme', 'guide', 'example', 'tutorial']
