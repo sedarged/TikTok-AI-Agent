@@ -180,9 +180,9 @@ Run `npm audit` regularly and update dependencies.
 
 ## Security Audit History
 
-| Date       | Auditor                      | Findings                    | Status              |
-| ---------- | ---------------------------- | --------------------------- | ------------------- |
-| 2026-01-29 | Comprehensive Security Audit | 85+ issues found, 25+ fixed | See AUDIT_REPORT.md |
+| Date       | Auditor                      | Findings                    | Status                      |
+| ---------- | ---------------------------- | --------------------------- | --------------------------- |
+| 2026-01-29 | Comprehensive Security Audit | 85+ issues found, 25+ fixed | Major issues fixed (CORS, path traversal, JSON parsing, input validation) |
 
 ---
 

@@ -441,4 +441,4 @@ See `.env.example` for complete list.
 - Enhanced Zod input validation with length/range constraints
 - Fixed memory leaks in React components
 
-See [FIX_SUMMARY.md](FIX_SUMMARY.md) and [AUDIT_REPORT.md](AUDIT_REPORT.md) for full details.
+See [SECURITY.md](SECURITY.md) for security best practices and [CHANGELOG.md](CHANGELOG.md) for version history.
