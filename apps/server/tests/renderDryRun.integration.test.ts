@@ -32,6 +32,22 @@ async function waitForRunStatus(
   throw new Error(`Timed out waiting for status ${expectedStatus}`);
 }
 
+async function waitForProjectStatus(
+  projectId: string,
+  expectedStatus: string,
+  timeoutMs: number = 5000
+) {
+  const start = Date.now();
+  while (Date.now() - start < timeoutMs) {
+    const project = await prisma.project.findUnique({ where: { id: projectId } });
+    if (project?.status === expectedStatus) {
+      return project;
+    }
+    await new Promise((resolve) => setTimeout(resolve, 100));
+  }
+  throw new Error(`Timed out waiting for project status ${expectedStatus}`);
+}
+
 async function createProjectWithPlan() {
   const createRes = await request(app)
     .post('/api/project')
@@ -92,10 +108,9 @@ describeIfDryRun('Render dry-run pipeline', () => {
     const reportPath = path.join(env.ARTIFACTS_DIR, artifacts.dryRunReportPath);
     expect(fs.existsSync(reportPath)).toBe(true);
 
-    // Wait a bit for project status to be updated (done after run status update)
-    await new Promise((resolve) => setTimeout(resolve, 100));
-    const project = await prisma.project.findUnique({ where: { id: projectId } });
-    expect(project?.status).toBe('DONE');
+    // Wait for project status to be updated (done after run status update)
+    const project = await waitForProjectStatus(projectId, 'DONE');
+    expect(project.status).toBe('DONE');
 
     const verifyRes = await request(app).get(`/api/run/${runId}/verify`);
     expect(verifyRes.status).toBe(200);
@@ -161,10 +176,10 @@ describeIfDryRun('Render dry-run pipeline', () => {
 
     const { projectId, planVersionId, runId } = automateRes.body;
 
-    // Verify project was created
+    // Verify project was created (status could be APPROVED if queued, or RENDERING if started immediately)
     const project = await prisma.project.findUnique({ where: { id: projectId } });
     expect(project).toBeTruthy();
-    expect(project?.status).toBe('APPROVED');
+    expect(['APPROVED', 'RENDERING', 'DONE']).toContain(project?.status);
     expect(project?.latestPlanVersionId).toBe(planVersionId);
 
     // Verify plan was created
@@ -185,6 +200,10 @@ describeIfDryRun('Render dry-run pipeline', () => {
     const doneRun = await waitForRunStatus(runId, 'done');
     expect(doneRun.status).toBe('done');
     expect(doneRun.progress).toBe(100);
+
+    // Wait for project status to be updated to DONE
+    const doneProject = await waitForProjectStatus(projectId, 'DONE');
+    expect(doneProject.status).toBe('DONE');
   });
 
   it('POST /api/automate validates required fields', async () => {
@@ -251,16 +270,15 @@ describeIfDryRun('Render dry-run pipeline', () => {
       expect(doneRun.status).toBe('done');
     }
 
-    // Wait a bit for project status updates to complete (done after run status update)
-    await new Promise((resolve) => setTimeout(resolve, 100));
-
-    // Verify all projects reached DONE status after render completion
+    // Wait for all project statuses to be updated to DONE
     for (const runId of runIds) {
       const run = await prisma.run.findUnique({
         where: { id: runId },
-        include: { project: true },
       });
-      expect(run?.project.status).toBe('DONE');
+      if (run?.projectId) {
+        const project = await waitForProjectStatus(run.projectId, 'DONE');
+        expect(project.status).toBe('DONE');
+      }
     }
   });
 
