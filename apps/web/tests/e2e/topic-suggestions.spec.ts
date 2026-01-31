@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { E2E_API_BASE } from './api-base.js';
 
 /**
  * E2E test for topic suggestions feature in QuickCreate page.
@@ -44,7 +45,7 @@ test.describe('Topic Suggestions', () => {
 
   test('should be disabled when OpenAI is not configured', async ({ page, request }) => {
     // Check the status endpoint to determine expected button state
-    const statusRes = await request.get('/api/status');
+    const statusRes = await request.get(`${E2E_API_BASE}/api/status`);
     expect(statusRes.ok()).toBeTruthy();
     const status = await statusRes.json();
 
