@@ -292,10 +292,8 @@ function setupGracefulShutdown(server: Server) {
 
   // Enforce shutdown timeout
   const shutdownTimeout = setTimeout(() => {
-    if (isShuttingDown) {
-      logError('Graceful shutdown timeout exceeded, forcing exit');
-      process.exit(1);
-    }
+    logError('Graceful shutdown timeout exceeded, forcing exit');
+    process.exit(1);
   }, GRACEFUL_SHUTDOWN_TIMEOUT_MS);
 
   // Don't let the timeout prevent shutdown

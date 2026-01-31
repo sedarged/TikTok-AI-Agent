@@ -1,4 +1,4 @@
-import { beforeAll, afterAll, describe, expect, it, vi } from 'vitest';
+import { beforeAll, afterAll, describe, expect, it } from 'vitest';
 import type { Server } from 'http';
 import { prisma } from '../src/db/client.js';
 
@@ -38,6 +38,14 @@ describe('Graceful Shutdown', () => {
         resolve();
       });
     });
+
+    // Remove added signal handlers to avoid interference with other tests
+    const addedListeners = newListeners.filter(
+      (listener) => !originalListeners.includes(listener)
+    );
+    addedListeners.forEach((listener) => {
+      process.removeListener('SIGTERM', listener as NodeJS.SignalsListener);
+    });
   });
 
   it('should set up SIGINT handler when server starts', async () => {
@@ -59,6 +67,14 @@ describe('Graceful Shutdown', () => {
         resolve();
       });
     });
+
+    // Remove added signal handlers to avoid interference with other tests
+    const addedListeners = newListeners.filter(
+      (listener) => !originalListeners.includes(listener)
+    );
+    addedListeners.forEach((listener) => {
+      process.removeListener('SIGINT', listener as NodeJS.SignalsListener);
+    });
   });
 
   it('should have exports for SSE cleanup', async () => {
@@ -75,17 +91,13 @@ describe('Graceful Shutdown', () => {
     expect(typeof renderModule.cancelAllActiveRuns).toBe('function');
   });
 
-  it('drainSseConnections should be callable without errors', () => {
+  it('drainSseConnections should be callable without errors', async () => {
     // Import the function
-    const runModule =
-      vi.importActual<typeof import('../src/routes/run.js')>('../src/routes/run.js');
+    const runModule = await import('../src/routes/run.js');
 
     // Should not throw even if there are no connections
     expect(() => {
-      if (runModule && typeof runModule === 'object' && 'drainSseConnections' in runModule) {
-        const fn = runModule.drainSseConnections as () => void;
-        fn();
-      }
+      runModule.drainSseConnections();
     }).not.toThrow();
   });
 
