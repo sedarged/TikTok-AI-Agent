@@ -40,6 +40,31 @@ const SSE_MAX_CONNECTIONS_PER_RUN = 100;
 const SSE_HEARTBEAT_INTERVAL_MS = 25000;
 const sseHeartbeatIntervals = new Map<string, ReturnType<typeof setInterval>>();
 
+// Export for graceful shutdown
+export function drainSseConnections(): void {
+  for (const [runId, connections] of sseConnections) {
+    const message = 'data: {"type":"shutdown","message":"Server is shutting down"}\n\n';
+    for (const res of connections) {
+      try {
+        if (!res.writableEnded) {
+          res.write(message);
+          res.end();
+        }
+      } catch {
+        // Ignore errors during shutdown
+      }
+    }
+    connections.clear();
+    sseConnections.delete(runId);
+
+    const interval = sseHeartbeatIntervals.get(runId);
+    if (interval) {
+      clearInterval(interval);
+      sseHeartbeatIntervals.delete(runId);
+    }
+  }
+}
+
 function startHeartbeat(runId: string): void {
   if (sseHeartbeatIntervals.has(runId)) return;
   const interval = setInterval(() => {

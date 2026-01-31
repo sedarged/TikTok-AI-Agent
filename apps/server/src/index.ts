@@ -4,6 +4,7 @@ import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
 import path from 'path';
 import fs from 'fs';
+import type { Server } from 'http';
 import { env, isRenderDryRun, isTestMode, isNodeTest } from './env.js';
 import { projectRoutes } from './routes/project.js';
 import { automateRoutes } from './routes/automate.js';
@@ -18,8 +19,14 @@ import { channelPresetsRoutes } from './routes/channelPresets.js';
 import { scriptTemplatesRoutes } from './routes/scriptTemplates.js';
 import { testRoutes } from './routes/test.js';
 import { ensureConnection } from './db/client.js';
-import { resetStuckRuns } from './services/render/renderPipeline.js';
+import {
+  resetStuckRuns,
+  getActiveRuns,
+  cancelAllActiveRuns,
+} from './services/render/renderPipeline.js';
 import { logError, logWarn, logInfo, logDebug } from './utils/logger.js';
+import { drainSseConnections } from './routes/run.js';
+import { prisma } from './db/client.js';
 
 function getAppVersion(): string {
   if (env.APP_VERSION) {
@@ -112,7 +119,7 @@ export function createApp() {
         if (!origin) return callback(null, true);
 
         // In development/test, allow all origins for local network access
-        if (isDevelopment) return callback(null, true);
+        if (isDevLikeForSecurityHeaders) return callback(null, true);
 
         // In production, check against whitelist
         if (allowedOrigins.length > 0 && allowedOrigins.includes(origin)) {
@@ -195,7 +202,7 @@ export function createApp() {
 
 export function startServer() {
   const app = createApp();
-  return app.listen(env.PORT, '0.0.0.0', () => {
+  const server = app.listen(env.PORT, '0.0.0.0', () => {
     logInfo(`Server running on http://localhost:${env.PORT}`, {
       port: env.PORT,
       environment: env.NODE_ENV,
@@ -205,6 +212,92 @@ export function startServer() {
     logInfo(`Server also available on http://0.0.0.0:${env.PORT}`);
     resetStuckRuns().catch((err) => logError('Failed to reset stuck runs', err));
   });
+
+  // Setup graceful shutdown handlers
+  setupGracefulShutdown(server);
+
+  return server;
+}
+
+// Graceful shutdown handler
+let isShuttingDown = false;
+const GRACEFUL_SHUTDOWN_TIMEOUT_MS = 30000; // 30 seconds
+
+function setupGracefulShutdown(server: Server) {
+  const shutdown = async (signal: string) => {
+    if (isShuttingDown) {
+      logWarn('Already shutting down, ignoring signal', { signal });
+      return;
+    }
+    isShuttingDown = true;
+    logInfo(`Received ${signal}, starting graceful shutdown...`);
+
+    // Step 1: Stop accepting new connections
+    logInfo('Step 1: Stopping server from accepting new connections');
+    server.close(() => {
+      logInfo('HTTP server closed');
+    });
+
+    // Step 2: Cancel active renders (or wait with timeout)
+    const activeRuns = getActiveRuns();
+    if (activeRuns.length > 0) {
+      logInfo(`Step 2: Cancelling ${activeRuns.length} active render(s)`, { activeRuns });
+      try {
+        await cancelAllActiveRuns();
+        logInfo('Active renders cancelled successfully');
+      } catch (error) {
+        logError('Failed to cancel some active renders', error);
+      }
+    } else {
+      logInfo('Step 2: No active renders to cancel');
+    }
+
+    // Step 3: Drain SSE connections
+    logInfo('Step 3: Draining SSE connections');
+    try {
+      drainSseConnections();
+      logInfo('SSE connections drained successfully');
+    } catch (error) {
+      logError('Failed to drain SSE connections', error);
+    }
+
+    // Step 4: Close database connection
+    logInfo('Step 4: Closing database connection');
+    try {
+      await prisma.$disconnect();
+      logInfo('Database connection closed successfully');
+    } catch (error) {
+      logError('Failed to close database connection', error);
+    }
+
+    logInfo('Graceful shutdown completed');
+    process.exit(0);
+  };
+
+  // Handle SIGTERM (docker, kubernetes, cloud platforms)
+  process.on('SIGTERM', () => {
+    shutdown('SIGTERM').catch((err) => {
+      logError('Error during SIGTERM shutdown:', err);
+      process.exit(1);
+    });
+  });
+
+  // Handle SIGINT (Ctrl+C)
+  process.on('SIGINT', () => {
+    shutdown('SIGINT').catch((err) => {
+      logError('Error during SIGINT shutdown:', err);
+      process.exit(1);
+    });
+  });
+
+  // Enforce shutdown timeout
+  const shutdownTimeout = setTimeout(() => {
+    logError('Graceful shutdown timeout exceeded, forcing exit');
+    process.exit(1);
+  }, GRACEFUL_SHUTDOWN_TIMEOUT_MS);
+
+  // Don't let the timeout prevent shutdown
+  shutdownTimeout.unref();
 }
 
 // Check if this module is being run directly (ES Module compatible)
