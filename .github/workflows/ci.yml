@@ -95,3 +95,6 @@ jobs:
         run: npx playwright install --with-deps
       - name: Run Playwright tests
         run: npm run test:e2e
+        env:                              
+          DATABASE_URL: "file:./test.db"  
+          NODE_ENV: "test"
