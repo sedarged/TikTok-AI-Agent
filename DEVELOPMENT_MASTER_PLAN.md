@@ -126,10 +126,8 @@
 ## 5. References
 
 - **Cursor:** [Rules](https://cursor.com/docs/context/rules), [Commands](https://cursor.com/docs/context/commands), [Skills](https://cursor.com/docs/context/skills), [Ignore](https://cursor.com/docs/context/ignore-files), [Bugbot](https://cursor.com/docs/bugbot), [Hooks](https://cursor.com/docs/agent/hooks), [Semantic Search](https://cursor.com/docs/context/semantic-search), [@ Mentions](https://cursor.com/docs/context/mentions)
-- **Project:** `AUDIT_REPORT.md`, `tiktok-ai-master-plan-ostateczny.md`, `.github/copilot-instructions.md`
-- **Mapa dokumentów (START HERE):** [DOCUMENTATION_INDEX.md](DOCUMENTATION_INDEX.md) – który plik jest główny, co dla AI, plany w .cursor/plans.
-- **Development setup checklist:** [.cursor/plans/development-setup-masterpiece.plan.md](.cursor/plans/development-setup-masterpiece.plan.md) (step-by-step task list; all phases ✅)
-- **Kolejne kroki (propozycja):** [.cursor/plans/next-steps-proposal.plan.md](.cursor/plans/next-steps-proposal.plan.md) (Tier 1–4, D3/H1/C1 → D2/C2/E3 → D4/D5/F\* → opcjonalne)
+- **Project:** `.github/copilot-instructions.md`, [SECURITY.md](SECURITY.md), [TESTING_GUIDE.md](TESTING_GUIDE.md)
+- **Mapa dokumentów (START HERE):** [DOCUMENTATION_INDEX.md](DOCUMENTATION_INDEX.md) – który plik jest główny, co dla AI
 
 ---
 

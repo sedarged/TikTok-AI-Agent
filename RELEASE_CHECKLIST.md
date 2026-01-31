@@ -8,10 +8,10 @@
 
 ## Quick Links
 
-- 📊 **Full Audit Report:** [COMPREHENSIVE_AUDIT_2026.md](COMPREHENSIVE_AUDIT_2026.md)
-- 🔧 **Quick Fix Guide:** [QUICK_FIX_GUIDE.md](QUICK_FIX_GUIDE.md)
 - 📝 **Master Plan:** [DEVELOPMENT_MASTER_PLAN.md](DEVELOPMENT_MASTER_PLAN.md)
+- 🔧 **Quick Fix Guide:** [QUICK_FIX_GUIDE.md](QUICK_FIX_GUIDE.md)
 - 🧪 **Testing Guide:** [TESTING_GUIDE.md](TESTING_GUIDE.md)
+- 🔒 **Security:** [SECURITY.md](SECURITY.md)
 
 ---
 
