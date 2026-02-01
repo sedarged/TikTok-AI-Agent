@@ -1,6 +1,7 @@
 import { describe, expect, it, beforeEach, afterEach } from 'vitest';
 import fs from 'fs';
 import path from 'path';
+import { ROOT_DIR } from '../src/env.js';
 import {
   buildCaptionsASS,
   buildCaptionsFromWords,
@@ -21,7 +22,7 @@ const testStyle: CaptionStyle = {
 };
 
 // Test output directory
-const TEST_OUTPUT_DIR = path.join(process.cwd(), 'tests', 'tmp', 'captions');
+const TEST_OUTPUT_DIR = path.join(ROOT_DIR, 'apps', 'server', 'tests', 'tmp', 'captions');
 
 describe('captionsBuilder', () => {
   beforeEach(() => {

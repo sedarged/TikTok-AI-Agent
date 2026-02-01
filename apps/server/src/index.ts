@@ -4,7 +4,7 @@ import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
 import path from 'path';
 import fs from 'fs';
-import { env, isRenderDryRun, isTestMode, isNodeTest, isDevelopment } from './env.js';
+import { env, ROOT_DIR, isRenderDryRun, isTestMode, isNodeTest, isDevelopment } from './env.js';
 import { projectRoutes } from './routes/project.js';
 import { automateRoutes } from './routes/automate.js';
 import { batchRoutes } from './routes/batch.js';
@@ -27,8 +27,8 @@ function getAppVersion(): string {
   }
 
   const possiblePaths = [
-    path.join(process.cwd(), 'package.json'),
-    path.join(process.cwd(), 'apps', 'server', 'package.json'),
+    path.join(ROOT_DIR, 'package.json'),
+    path.join(ROOT_DIR, 'apps', 'server', 'package.json'),
   ];
 
   for (const pkgPath of possiblePaths) {
@@ -46,14 +46,6 @@ function getAppVersion(): string {
   }
 
   return 'unknown';
-}
-
-function getRepoRootDir(): string {
-  // If we're executed from apps/server, go up two levels to repo root
-  if (process.cwd().includes('apps/server') || process.cwd().includes('apps\\server')) {
-    return path.resolve(process.cwd(), '..', '..');
-  }
-  return process.cwd();
 }
 
 export function createApp() {
@@ -134,7 +126,7 @@ export function createApp() {
   }
 
   // Serve frontend in production
-  const frontendDistPath = path.join(getRepoRootDir(), 'apps', 'web', 'dist');
+  const frontendDistPath = path.join(ROOT_DIR, 'apps', 'web', 'dist');
   if (fs.existsSync(frontendDistPath)) {
     app.use(express.static(frontendDistPath));
   }

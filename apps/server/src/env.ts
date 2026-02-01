@@ -24,6 +24,12 @@ function getRootDir(): string {
 
 const rootDir = getRootDir();
 
+/**
+ * Root directory of the project (repository root).
+ * Use this constant instead of process.cwd() for consistent path resolution.
+ */
+export const ROOT_DIR = rootDir;
+
 // Validate critical environment variables
 function validateEnv() {
   const isProduction = process.env.NODE_ENV === 'production';
