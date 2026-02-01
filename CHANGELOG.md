@@ -36,6 +36,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- Parallel image generation for scene pipeline
+  - Images are now generated concurrently (default: 3 concurrent requests) using p-limit
+  - Configurable concurrency via `MAX_CONCURRENT_IMAGE_GENERATION` environment variable
+  - Reduces end-to-end render time for multi-scene projects
+  - Maintains all existing features: caching, dry-run mode, cancellation, error handling
 - Comprehensive documentation suite
   - LICENSE file (MIT License)
   - CONTRIBUTING.md with contribution guidelines
