@@ -5,6 +5,34 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 1.0.0 (2026-02-01)
+
+
+### Features
+
+* Add database logging and CHANGELOG ([3abdfc4](https://github.com/sedarged/TikTok-AI-Agent/commit/3abdfc49eeb26337c07f0621df4410a52c2e1fff))
+* Add GitHub Codespaces configuration for mobile testing ([f5ab25d](https://github.com/sedarged/TikTok-AI-Agent/commit/f5ab25dfce0d4226f85ead50e92f6d0a80d66b16))
+* Add Railway/Render deployment configuration ([a793eab](https://github.com/sedarged/TikTok-AI-Agent/commit/a793eab2f75cae7d4b920d3c6f1d59e99e05c465))
+* **ci:** add development automation improvements ([f7b3239](https://github.com/sedarged/TikTok-AI-Agent/commit/f7b323954eba6d2c5cdb43cc67d15c4edfca88f2))
+* Complete TikTok AI video generator app ([0489001](https://github.com/sedarged/TikTok-AI-Agent/commit/0489001b8070ba7fbf09ba2f9e0023d7f8e3b190))
+* Enable network access for mobile testing ([c72e65c](https://github.com/sedarged/TikTok-AI-Agent/commit/c72e65c1e33b74ae998bcf6b75967ffe0460832b))
+* **PR1:** Add automation + STATUS SSOT system ([4738cd4](https://github.com/sedarged/TikTok-AI-Agent/commit/4738cd411356128da95e2fbb7976806dd65e4339))
+* **PR2:** Add AI docs structure and reduce duplication ([1b61bda](https://github.com/sedarged/TikTok-AI-Agent/commit/1b61bdaeb4884b553358a8f0909528021367653d))
+* **PR3:** Move cost and proposal docs with migration log ([f0e3e65](https://github.com/sedarged/TikTok-AI-Agent/commit/f0e3e65ed57418a538b5d14f2740dafff54e538c))
+* **PR4:** Clean up old docs after migration verification ([5f361fc](https://github.com/sedarged/TikTok-AI-Agent/commit/5f361fcad9935692dd80b4dbf0c94d77060f17da))
+
+
+### Bug Fixes
+
+* Add JSON.parse protection and rate limiting ([d74541a](https://github.com/sedarged/TikTok-AI-Agent/commit/d74541adb517b4ace188e1e15f3a6e5aad82ce68))
+* Add Procfile for Railway deployment ([a3bde29](https://github.com/sedarged/TikTok-AI-Agent/commit/a3bde2951902f7fd62713f3a24eece6a10cd506f))
+* Add railway.toml and node version files ([701fc77](https://github.com/sedarged/TikTok-AI-Agent/commit/701fc771157228833d53dc410df6516a3dc1d197))
+* Address code review feedback ([fbbe69d](https://github.com/sedarged/TikTok-AI-Agent/commit/fbbe69dabe6f54e75e9087fb6cd913a4640475a0))
+* **ci:** address PR review feedback for automation workflows ([9991600](https://github.com/sedarged/TikTok-AI-Agent/commit/9991600cfd4606a4bb7a10b049e29ab6805c718e))
+* correct relative path to STATUS.md in always-project-standards.mdc ([2593914](https://github.com/sedarged/TikTok-AI-Agent/commit/25939148a8693af5311e5425f57efba047f4a1a7))
+* Improve env file path resolution ([208daf5](https://github.com/sedarged/TikTok-AI-Agent/commit/208daf5411997ee250b7a7d7fbdc52d90175bfe0))
+* Remove incorrect fallback logic in channelPresets.ts ([57fcad9](https://github.com/sedarged/TikTok-AI-Agent/commit/57fcad9b07118269de164dce0570bf8ccc132825))
+
 ## [Unreleased]
 
 ### Added
