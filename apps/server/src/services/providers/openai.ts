@@ -1,6 +1,6 @@
 import OpenAI from 'openai';
 import { logError, logDebug, logWarn } from '../../utils/logger.js';
-import pRetry, { type FailedAttemptError } from 'p-retry';
+import pRetry, { type RetryContext } from 'p-retry';
 import { env, isOpenAIConfigured } from '../../env.js';
 import { prisma } from '../../db/client.js';
 import { getMediaDuration } from '../ffmpeg/ffmpegUtils.js';
@@ -18,9 +18,9 @@ const COST = {
 const RETRY_OPTIONS = {
   retries: 3,
   minTimeout: 2000,
-  onFailedAttempt: (err: FailedAttemptError) => {
+  onFailedAttempt: (ctx: RetryContext) => {
     logWarn(
-      `OpenAI call failed (attempt ${err.attemptNumber}/${err.attemptNumber + err.retriesLeft}): ${err.message}`
+      `OpenAI call failed (attempt ${ctx.attemptNumber}/${ctx.attemptNumber + ctx.retriesLeft}): ${ctx.error.message}`
     );
   },
 };

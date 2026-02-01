@@ -174,8 +174,9 @@ export function createApp() {
   );
 
   // SPA fallback - serve index.html for all non-API routes in production
+  // Express 5 requires named wildcards instead of plain '*'
   if (fs.existsSync(frontendDistPath)) {
-    app.get('*', (req, res) => {
+    app.get('/{*splat}', (req, res) => {
       if (!req.path.startsWith('/api') && !req.path.startsWith('/artifacts')) {
         res.sendFile(path.join(frontendDistPath, 'index.html'));
       }

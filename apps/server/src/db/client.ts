@@ -1,67 +1,31 @@
 import { PrismaClient } from '@prisma/client';
+import { PrismaBetterSqlite3 } from '@prisma/adapter-better-sqlite3';
 import { env } from '../env.js';
 import { logError, logWarn } from '../utils/logger.js';
 
-// Detect database type from DATABASE_URL
-function getDatabaseType(): 'sqlite' | 'postgresql' | 'unknown' {
-  const url = env.DATABASE_URL.toLowerCase();
-  if (url.startsWith('file:')) {
-    return 'sqlite';
-  }
-  if (url.startsWith('postgres://') || url.startsWith('postgresql://')) {
-    return 'postgresql';
-  }
-  return 'unknown';
-}
-
-const dbType = getDatabaseType();
-
-// Warn if connection pooling is configured but database type is unknown
-if (
-  dbType === 'unknown' &&
-  (process.env.DATABASE_CONNECTION_LIMIT || process.env.DATABASE_POOL_TIMEOUT)
-) {
+// Warn if connection pooling variables are set (no longer used with Prisma 7 adapter)
+if (env.DATABASE_CONNECTION_LIMIT !== 10 || env.DATABASE_POOL_TIMEOUT !== 10) {
   logWarn(
-    `DATABASE_CONNECTION_LIMIT or DATABASE_POOL_TIMEOUT is set, but database type could not be determined from DATABASE_URL: ${env.DATABASE_URL}. Connection pooling configuration will be ignored.`
+    'DATABASE_CONNECTION_LIMIT and DATABASE_POOL_TIMEOUT are no longer used with Prisma 7 better-sqlite3 adapter. ' +
+      'These settings are ignored. Consider removing them from your environment or configuring connection pooling via the better-sqlite3 adapter options if needed.'
   );
 }
 
-// Get connection pooling configuration from env
-const CONNECTION_LIMIT = env.DATABASE_CONNECTION_LIMIT;
-const POOL_TIMEOUT = env.DATABASE_POOL_TIMEOUT;
+// Create database adapter for Prisma 7
+// The adapter is required because Prisma 7 separates connection config
+// from the schema file to prisma.config.ts (for migrations) and runtime (here)
+// Pass the database URL directly to the adapter
+const adapter = new PrismaBetterSqlite3({ url: env.DATABASE_URL });
 
-// Create Prisma client with logging and connection pooling configuration
+// Create Prisma client with adapter and logging configuration
 export const prisma = new PrismaClient({
+  adapter,
   log:
     env.NODE_ENV === 'development'
       ? ['query', 'error', 'warn']
       : env.NODE_ENV === 'test'
         ? ['error']
         : ['error', 'warn'],
-  // SQLite-specific connection configuration
-  ...(dbType === 'sqlite' && {
-    // SQLite connection_limit and pool_timeout are configured via URL params
-    // See: https://www.prisma.io/docs/concepts/database-connectors/sqlite
-    datasources: {
-      db: {
-        url: env.DATABASE_URL.includes('?')
-          ? `${env.DATABASE_URL}&connection_limit=${CONNECTION_LIMIT}&pool_timeout=${POOL_TIMEOUT}`
-          : `${env.DATABASE_URL}?connection_limit=${CONNECTION_LIMIT}&pool_timeout=${POOL_TIMEOUT}`,
-      },
-    },
-  }),
-  // PostgreSQL-specific connection configuration
-  ...(dbType === 'postgresql' && {
-    // PostgreSQL connection pooling is configured via URL params
-    // See: https://www.prisma.io/docs/concepts/database-connectors/postgresql
-    datasources: {
-      db: {
-        url: env.DATABASE_URL.includes('?')
-          ? `${env.DATABASE_URL}&connection_limit=${CONNECTION_LIMIT}&pool_timeout=${POOL_TIMEOUT}`
-          : `${env.DATABASE_URL}?connection_limit=${CONNECTION_LIMIT}&pool_timeout=${POOL_TIMEOUT}`,
-      },
-    },
-  }),
 });
 
 export async function ensureConnection() {
