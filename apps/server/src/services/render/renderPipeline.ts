@@ -305,6 +305,7 @@ async function executePipeline(run: Run, planVersion: PlanWithDetails) {
         sceneAudioPaths.push(audioPath);
 
         // Measure actual audio duration
+        // Note: In dry-run mode, we skip measurement since placeholder files don't have accurate audio data
         let audioDuration = scene.durationTargetSec;
         if (!dryRun && fs.existsSync(audioPath)) {
           try {
@@ -325,6 +326,7 @@ async function executePipeline(run: Run, planVersion: PlanWithDetails) {
       }
 
       // Update scene durations and recalculate timings based on measured audio
+      // Note: This will always execute if any scenes exist, as we push a duration for each scene above
       if (sceneAudioDurations.length > 0) {
         await addLog(runId, 'Updating scene durations based on audio...');
         let currentTime = 0;

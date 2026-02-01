@@ -329,7 +329,7 @@ describeIfDryRun('Render dry-run pipeline', () => {
   });
 
   it('updates scene durations based on measured TTS audio duration', async () => {
-    const { projectId, planId } = await createProjectWithPlan();
+    const { planId } = await createProjectWithPlan();
 
     // Get initial scene durations
     const initialScenes = await prisma.scene.findMany({
@@ -337,10 +337,6 @@ describeIfDryRun('Render dry-run pipeline', () => {
       orderBy: { idx: 'asc' },
     });
     expect(initialScenes.length).toBeGreaterThan(0);
-
-    const initialDurations = initialScenes.map((s) => s.durationTargetSec);
-    const initialStartTimes = initialScenes.map((s) => s.startTimeSec);
-    const initialEndTimes = initialScenes.map((s) => s.endTimeSec);
 
     // Start render
     const runId = await startDryRun(planId);
