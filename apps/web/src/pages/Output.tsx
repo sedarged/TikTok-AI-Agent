@@ -7,6 +7,7 @@ import {
   duplicateProject,
   subscribeToRun,
   retryRun,
+  cancelRun,
 } from '../api/client';
 import type {
   Run,
@@ -37,6 +38,7 @@ export default function Output({ status }: OutputProps) {
   const [showArtifactsExpanded, setShowArtifactsExpanded] = useState(false);
   const [retrying, setRetrying] = useState(false);
   const [retryFromStep, setRetryFromStep] = useState<string>('');
+  const [canceling, setCanceling] = useState(false);
   const moreMenuRef = useRef<HTMLDivElement>(null);
 
   const RENDER_STEPS = [
@@ -162,6 +164,19 @@ export default function Output({ status }: OutputProps) {
     }
   };
 
+  const handleCancel = async () => {
+    if (!runId) return;
+    setCanceling(true);
+    try {
+      await cancelRun(runId);
+      setError('');
+    } catch (err) {
+      setError(getErrorMessage(err));
+    } finally {
+      setCanceling(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
@@ -265,12 +280,23 @@ export default function Output({ status }: OutputProps) {
             <span>{run.currentStep || 'Starting...'}</span>
             <span>{run.progress}%</span>
           </div>
-          <div className="w-full rounded-full h-3" style={{ background: 'var(--color-surface-2)' }}>
+          <div
+            className="w-full rounded-full h-3 mb-4"
+            style={{ background: 'var(--color-surface-2)' }}
+          >
             <div
               className="h-3 rounded-full transition-all duration-300"
               style={{ width: `${run.progress}%`, background: 'var(--color-primary)' }}
             />
           </div>
+          <button
+            onClick={handleCancel}
+            disabled={canceling}
+            className="btn btn-secondary"
+            aria-label="Cancel render"
+          >
+            {canceling ? 'Canceling...' : 'Cancel'}
+          </button>
         </div>
       )}
 
