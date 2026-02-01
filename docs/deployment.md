@@ -757,6 +757,54 @@ psql tiktok_ai
 SELECT COUNT(*) FROM "Project";
 ```
 
+### Database Connection Pooling
+
+The application automatically configures connection pooling based on the database type (SQLite or PostgreSQL).
+
+**Environment Variables:**
+
+```bash
+# Optional - defaults to 10 connections
+DATABASE_CONNECTION_LIMIT=10
+
+# Optional - connection timeout in seconds, defaults to 10
+DATABASE_POOL_TIMEOUT=10
+```
+
+**SQLite Configuration:**
+
+For SQLite databases, the connection pooling is automatically configured to prevent "database is locked" errors:
+
+```bash
+DATABASE_URL=file:./prod.db
+DATABASE_CONNECTION_LIMIT=5  # Lower limit for SQLite
+DATABASE_POOL_TIMEOUT=10
+```
+
+**PostgreSQL Configuration:**
+
+For PostgreSQL, connection pooling is configured with pgbouncer support:
+
+```bash
+DATABASE_URL=postgresql://user:pass@host:5432/dbname
+DATABASE_CONNECTION_LIMIT=20  # Higher limit for PostgreSQL
+DATABASE_POOL_TIMEOUT=10
+```
+
+**Troubleshooting:**
+
+- **"Too many connections"** - Reduce `DATABASE_CONNECTION_LIMIT`
+- **"Database is locked"** (SQLite) - Ensure `pool_timeout` is set and connection_limit is reasonable (5-10)
+- **Connection timeouts** - Increase `DATABASE_POOL_TIMEOUT`
+- **Performance issues** - Monitor database connections and adjust limits based on your server capacity
+
+**Best Practices:**
+
+- **SQLite**: Use connection_limit of 5-10 for development/small deployments
+- **PostgreSQL**: Use connection_limit based on your database server capacity (typically 10-100)
+- **Production**: Always set explicit DATABASE_URL with connection parameters
+- **Scaling**: Monitor connection pool usage and adjust limits as needed
+
 ---
 
 ## Post-Deployment
