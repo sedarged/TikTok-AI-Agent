@@ -349,9 +349,10 @@ describeIfDryRun('Render dry-run pipeline', () => {
       orderBy: { idx: 'asc' },
     });
 
-    // In dry-run mode, durations may stay the same since we use placeholder files
-    // But the mechanism to update them should be in place
-    // Verify scenes still have proper timing structure
+    // In dry-run mode, audio duration measurement is skipped and
+    // scene.durationTargetSec is reused as the "measured" duration.
+    // The timing update logic still runs, so start/end times are recomputed
+    // but resulting durations match the original targets. Verify scenes still have proper timing structure.
     let expectedStartTime = 0;
     for (let i = 0; i < updatedScenes.length; i++) {
       const scene = updatedScenes[i];

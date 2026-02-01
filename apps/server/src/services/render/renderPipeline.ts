@@ -326,32 +326,59 @@ async function executePipeline(run: Run, planVersion: PlanWithDetails) {
       }
 
       // Update scene durations and recalculate timings based on measured audio
-      // Note: This will always execute if any scenes exist, as we push a duration for each scene above
-      if (sceneAudioDurations.length > 0) {
+      // Note: This executes whenever at least one scene had audio generated (i.e., a duration was pushed above)
+      if (sceneAudioDurations.length > 0 && isActive(runId)) {
         await addLog(runId, 'Updating scene durations based on audio...');
+
+        // Precompute all updated timing data so we can apply it atomically
         let currentTime = 0;
-        for (let i = 0; i < scenes.length; i++) {
+        const updatedScenesData = [];
+
+        // Only update scenes for which audio was actually generated
+        for (let i = 0; i < sceneAudioDurations.length; i++) {
           const scene = scenes[i];
           const newDuration = sceneAudioDurations[i];
-          const newEndTime = currentTime + newDuration;
+          const startTimeSec = currentTime;
+          const endTimeSec = currentTime + newDuration;
 
-          await prisma.scene.update({
-            where: { id: scene.id },
-            data: {
-              durationTargetSec: newDuration,
-              startTimeSec: currentTime,
-              endTimeSec: newEndTime,
-            },
+          currentTime = endTimeSec;
+
+          updatedScenesData.push({
+            id: scene.id,
+            durationTargetSec: newDuration,
+            startTimeSec,
+            endTimeSec,
           });
-
-          // Update local scene object for subsequent steps
-          scene.durationTargetSec = newDuration;
-          scene.startTimeSec = currentTime;
-          scene.endTimeSec = newEndTime;
-
-          currentTime = newEndTime;
         }
-        await addLog(runId, `Updated ${scenes.length} scene(s) with measured audio durations`);
+
+        // Apply all scene updates in a single transaction to avoid partial updates
+        await prisma.$transaction(async (tx) => {
+          for (const updated of updatedScenesData) {
+            await tx.scene.update({
+              where: { id: updated.id },
+              data: {
+                durationTargetSec: updated.durationTargetSec,
+                startTimeSec: updated.startTimeSec,
+                endTimeSec: updated.endTimeSec,
+              },
+            });
+          }
+        });
+
+        // Only update local scene objects after the transaction has succeeded
+        for (let i = 0; i < updatedScenesData.length; i++) {
+          const scene = scenes[i];
+          const updated = updatedScenesData[i];
+
+          scene.durationTargetSec = updated.durationTargetSec;
+          scene.startTimeSec = updated.startTimeSec;
+          scene.endTimeSec = updated.endTimeSec;
+        }
+
+        await addLog(
+          runId,
+          `Updated ${updatedScenesData.length} scene(s) with measured audio durations`
+        );
       }
 
       // Concatenate audio
