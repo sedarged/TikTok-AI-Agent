@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { getNichePacks, getScriptTemplates, postBatch, type ScriptTemplate } from '../api/client';
 import type { NichePack, ProviderStatus } from '../api/types';
@@ -58,22 +58,34 @@ export default function BatchCreate({ status }: BatchCreateProps) {
       .catch(() => setScriptTemplates([]));
   }, []);
 
+  // Parse topics once using useMemo to avoid repeated parsing on every render
+  const topics = useMemo(
+    () =>
+      batchTopics
+        .split('\n')
+        .map((t) => t.trim())
+        .filter(Boolean),
+    [batchTopics]
+  );
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
 
-    const topics = batchTopics
-      .split('\n')
-      .map((t) => t.trim())
-      .filter(Boolean);
-
     if (topics.length === 0) {
-      setError('Please enter at least one topic (one per line)');
+      setError('Enter at least one topic (one per line)');
       return;
     }
 
     if (topics.length > 50) {
       setError('Maximum 50 topics per batch');
+      return;
+    }
+
+    // Validate individual topic length (backend enforces 500 char max)
+    const longTopicIndex = topics.findIndex((t) => t.length > 500);
+    if (longTopicIndex !== -1) {
+      setError(`Topic ${longTopicIndex + 1} is too long (maximum 500 characters)`);
       return;
     }
 
@@ -110,13 +122,10 @@ export default function BatchCreate({ status }: BatchCreateProps) {
     }
   };
 
-  const canGenerate = status?.ready ?? false;
+  const canGenerate = status?.providers.openai || true; // Allow template mode
   const isLoading = loading;
 
-  const topicCount = batchTopics
-    .split('\n')
-    .map((t) => t.trim())
-    .filter(Boolean).length;
+  const topicCount = topics.length;
 
   return (
     <div className="max-w-3xl mx-auto">
