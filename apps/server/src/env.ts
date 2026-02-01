@@ -44,6 +44,26 @@ function validateEnv() {
   if (isNaN(port) || port < 1 || port > 65535) {
     throw new Error(`Invalid PORT: ${process.env.PORT}. Must be between 1 and 65535.`);
   }
+
+  // Validate DATABASE_CONNECTION_LIMIT if provided
+  if (process.env.DATABASE_CONNECTION_LIMIT) {
+    const limit = parseInt(process.env.DATABASE_CONNECTION_LIMIT, 10);
+    if (isNaN(limit) || limit < 1 || limit > 1000) {
+      throw new Error(
+        `Invalid DATABASE_CONNECTION_LIMIT: ${process.env.DATABASE_CONNECTION_LIMIT}. Must be an integer between 1 and 1000.`
+      );
+    }
+  }
+
+  // Validate DATABASE_POOL_TIMEOUT if provided
+  if (process.env.DATABASE_POOL_TIMEOUT) {
+    const timeout = parseInt(process.env.DATABASE_POOL_TIMEOUT, 10);
+    if (isNaN(timeout) || timeout < 1 || timeout > 600) {
+      throw new Error(
+        `Invalid DATABASE_POOL_TIMEOUT: ${process.env.DATABASE_POOL_TIMEOUT}. Must be an integer between 1 and 600.`
+      );
+    }
+  }
 }
 
 validateEnv();
@@ -52,6 +72,8 @@ export const env = {
   PORT: parseInt(process.env.PORT || '3001', 10),
   NODE_ENV: process.env.NODE_ENV || 'development',
   DATABASE_URL: process.env.DATABASE_URL || 'file:./dev.db',
+  DATABASE_CONNECTION_LIMIT: parseInt(process.env.DATABASE_CONNECTION_LIMIT || '10', 10),
+  DATABASE_POOL_TIMEOUT: parseInt(process.env.DATABASE_POOL_TIMEOUT || '10', 10),
   OPENAI_API_KEY: process.env.OPENAI_API_KEY || '',
   ELEVENLABS_API_KEY: process.env.ELEVENLABS_API_KEY || '',
   MUSIC_LIBRARY_DIR: process.env.MUSIC_LIBRARY_DIR || path.resolve(rootDir, 'assets', 'music'),

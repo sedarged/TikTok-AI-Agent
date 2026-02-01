@@ -783,7 +783,7 @@ DATABASE_POOL_TIMEOUT=10
 
 **PostgreSQL Configuration:**
 
-For PostgreSQL, connection pooling is configured with pgbouncer support:
+For PostgreSQL, connection pooling is configured and is compatible with pgbouncer:
 
 ```bash
 DATABASE_URL=postgresql://user:pass@host:5432/dbname
