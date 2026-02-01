@@ -1,6 +1,6 @@
 ---
 name: plan-to-tasks
-description: Turn product plan or requirements into a checklist or task list (e.g. for DEVELOPMENT_MASTER_PLAN). Use when given a plan fragment, roadmap, or requirements to break down into concrete tasks.
+description: Turn product plan or requirements into a checklist or task list (e.g. for STATUS.md). Use when given a plan fragment, roadmap, or requirements to break down into concrete tasks.
 compatibility: TikTok-AI-Agent. General.
 ---
 
@@ -10,7 +10,7 @@ Convert product plan or requirements into an ordered checklist or task list.
 
 ## Input
 
-- A fragment of a plan, roadmap, or requirements (e.g. from DEVELOPMENT_MASTER_PLAN, tiktok-ai-master-plan-ostateczny, or user-provided text).
+- A fragment of a plan, roadmap, or requirements (e.g. from STATUS.md, issues, or user-provided text).
 
 ## Steps
 
@@ -25,5 +25,4 @@ Convert product plan or requirements into an ordered checklist or task list.
 
 ## References
 
-- [DEVELOPMENT_MASTER_PLAN.md](DEVELOPMENT_MASTER_PLAN.md) – main checklist, task IDs
-- [.cursor/plans/next-steps-proposal.plan.md](.cursor/plans/next-steps-proposal.plan.md) – Tier 1–4 proposal
+- [STATUS.md](../../STATUS.md) – current priorities and active work

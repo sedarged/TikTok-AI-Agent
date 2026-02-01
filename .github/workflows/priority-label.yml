@@ -1,0 +1,82 @@
+name: Priority Label Management
+
+on:
+  issues:
+    types: [opened, edited]
+
+permissions:
+  issues: write
+
+jobs:
+  manage-priority-label:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Parse and apply priority label
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const issue = context.payload.issue;
+            const issueNumber = issue.number;
+            const body = issue.body || '';
+            
+            // Extract priority from issue body
+            // Issue Forms format: "### Priority\n\nP0 (Critical...)"
+            const priorityMatch = body.match(/###\s*Priority\s*\n+([^\n]+)/i);
+            
+            if (!priorityMatch) {
+              console.log('No priority field found in issue body');
+              return;
+            }
+            
+            const priorityText = priorityMatch[1].trim();
+            console.log('Found priority text:', priorityText);
+            
+            // Map priority text to label
+            let targetLabel = null;
+            if (priorityText.startsWith('P0')) {
+              targetLabel = 'P0';
+            } else if (priorityText.startsWith('P1')) {
+              targetLabel = 'P1';
+            } else if (priorityText.startsWith('P2')) {
+              targetLabel = 'P2';
+            }
+            
+            if (!targetLabel) {
+              console.log('Could not determine priority label from text:', priorityText);
+              return;
+            }
+            
+            console.log('Target label:', targetLabel);
+            
+            // Get current labels
+            const currentLabels = issue.labels.map(l => l.name);
+            console.log('Current labels:', currentLabels);
+            
+            // Remove other P labels
+            const priorityLabels = ['P0', 'P1', 'P2'];
+            const labelsToRemove = priorityLabels.filter(l => l !== targetLabel && currentLabels.includes(l));
+            
+            if (labelsToRemove.length > 0) {
+              console.log('Removing labels:', labelsToRemove);
+              for (const label of labelsToRemove) {
+                await github.rest.issues.removeLabel({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: issueNumber,
+                  name: label
+                });
+              }
+            }
+            
+            // Add target label if not already present
+            if (!currentLabels.includes(targetLabel)) {
+              console.log('Adding label:', targetLabel);
+              await github.rest.issues.addLabels({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: issueNumber,
+                labels: [targetLabel]
+              });
+            } else {
+              console.log('Label already present:', targetLabel);
+            }

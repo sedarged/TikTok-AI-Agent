@@ -91,7 +91,7 @@ docker-compose up -d
 docker-compose logs -f
 ```
 
-📖 **See [DOCKER.md](DOCKER.md) for complete Docker deployment guide** including cloud platforms (AWS, GCP, Kubernetes).
+📖 **See [docs/deployment.md](docs/deployment.md) for complete deployment guide** including Docker, Railway, cloud platforms (AWS, GCP, Kubernetes).
 
 ---
 
@@ -157,7 +157,7 @@ npm run dev
 
 ### Production Deployment
 
-For production deployments, **Docker is recommended** (see [DOCKER.md](DOCKER.md)).
+For production deployments, **Docker is recommended** (see [docs/deployment.md](docs/deployment.md)).
 
 **Important environment variables:**
 - **DATABASE_URL**: set this explicitly for production deployments (SQLite file or PostgreSQL). Do not rely on the default.
@@ -176,7 +176,7 @@ docker build -t tiktok-ai-agent .
 docker run -p 3001:3001 -e OPENAI_API_KEY=your_key tiktok-ai-agent
 ```
 
-See [DOCKER.md](DOCKER.md) for AWS, GCP, Kubernetes, and Docker Compose examples.
+See [docs/deployment.md](docs/deployment.md) for AWS, GCP, Kubernetes, and Docker Compose examples.
 
 ### Local PC (Dry-Run only, no API keys)
 

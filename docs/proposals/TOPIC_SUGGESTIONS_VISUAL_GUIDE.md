@@ -194,4 +194,4 @@ Suggestions cleared
 - ✅ Frontend: `apps/web/src/pages/QuickCreate.tsx` (already existed)
 - ✅ API Client: `apps/web/src/api/client.ts` (already existed)
 - ✅ E2E Test: `apps/web/tests/e2e/topic-suggestions.spec.ts` (newly created)
-- ✅ Documentation: `TOPIC_SUGGESTIONS_IMPLEMENTATION.md` (newly created)
+- ✅ Documentation: `TOPIC_SUGGESTIONS_IMPLEMENTATION.md` (same directory)
