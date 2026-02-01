@@ -16,8 +16,9 @@ process.env.APP_RENDER_DRY_RUN = '1';
 process.env.NODE_ENV = 'e2e';
 process.env.DATABASE_URL = `file:${e2eDbPath}`;
 
-execSync('npx prisma migrate deploy --schema apps/server/prisma/schema.prisma', {
-  cwd: root,
+// Run migrations from apps/server directory for Prisma 7 config file location
+execSync('npx prisma migrate deploy', {
+  cwd: path.join(root, 'apps', 'server'),
   stdio: 'inherit',
   env: process.env,
 });
