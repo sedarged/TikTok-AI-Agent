@@ -279,6 +279,7 @@ async function executePipeline(run: Run, planVersion: PlanWithDetails) {
       await updateStep(runId, 'tts_generate', 'Generating voice-over audio...');
 
       const sceneAudioPaths: string[] = [];
+      const sceneAudioDurations: number[] = [];
 
       for (let i = 0; i < scenes.length; i++) {
         if (!isActive(runId)) break;
@@ -303,9 +304,81 @@ async function executePipeline(run: Run, planVersion: PlanWithDetails) {
 
         sceneAudioPaths.push(audioPath);
 
+        // Measure actual audio duration
+        // Note: In dry-run mode, we skip measurement since placeholder files don't have accurate audio data
+        let audioDuration = scene.durationTargetSec;
+        if (!dryRun && fs.existsSync(audioPath)) {
+          try {
+            audioDuration = await getMediaDuration(audioPath);
+            await addLog(
+              runId,
+              `Scene ${i + 1} audio duration: ${audioDuration.toFixed(2)}s (target: ${scene.durationTargetSec.toFixed(2)}s)`
+            );
+          } catch (error) {
+            logWarn(`Failed to get audio duration for scene ${i}, using target duration:`, error);
+          }
+        }
+        sceneAudioDurations.push(audioDuration);
+
         // Update progress within step
         const stepProgress = ((i + 1) / scenes.length) * STEP_WEIGHTS.tts_generate;
         await updateProgress(runId, Math.round(stepProgress));
+      }
+
+      // Update scene durations and recalculate timings based on measured audio
+      // Note: This executes whenever at least one scene had audio generated (i.e., a duration was pushed above)
+      if (sceneAudioDurations.length > 0 && isActive(runId)) {
+        await addLog(runId, 'Updating scene durations based on audio...');
+
+        // Precompute all updated timing data so we can apply it atomically
+        let currentTime = 0;
+        const updatedScenesData = [];
+
+        // Only update scenes for which audio was actually generated
+        for (let i = 0; i < sceneAudioDurations.length; i++) {
+          const scene = scenes[i];
+          const newDuration = sceneAudioDurations[i];
+          const startTimeSec = currentTime;
+          const endTimeSec = currentTime + newDuration;
+
+          currentTime = endTimeSec;
+
+          updatedScenesData.push({
+            id: scene.id,
+            durationTargetSec: newDuration,
+            startTimeSec,
+            endTimeSec,
+          });
+        }
+
+        // Apply all scene updates in a single transaction to avoid partial updates
+        await prisma.$transaction(async (tx) => {
+          for (const updated of updatedScenesData) {
+            await tx.scene.update({
+              where: { id: updated.id },
+              data: {
+                durationTargetSec: updated.durationTargetSec,
+                startTimeSec: updated.startTimeSec,
+                endTimeSec: updated.endTimeSec,
+              },
+            });
+          }
+        });
+
+        // Only update local scene objects after the transaction has succeeded
+        for (let i = 0; i < updatedScenesData.length; i++) {
+          const scene = scenes[i];
+          const updated = updatedScenesData[i];
+
+          scene.durationTargetSec = updated.durationTargetSec;
+          scene.startTimeSec = updated.startTimeSec;
+          scene.endTimeSec = updated.endTimeSec;
+        }
+
+        await addLog(
+          runId,
+          `Updated ${updatedScenesData.length} scene(s) with measured audio durations`
+        );
       }
 
       // Concatenate audio
