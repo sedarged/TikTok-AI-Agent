@@ -1,18 +1,21 @@
 import { describe, expect, it } from 'vitest';
 
+// This should match the composition requirements in renderPipeline.ts
+const COMPOSITION_REQUIREMENTS_ARRAY = [
+  'vertical 9:16 aspect ratio composition',
+  'subject centered or following rule of thirds',
+  'clear focal point',
+  'professional framing with balanced negative space',
+  'high quality',
+  'detailed',
+  'sharp focus',
+  'suitable for mobile viewing',
+];
+
 describe('Composition Prompt Generation', () => {
   it('builds composition requirements string correctly', () => {
     // This test verifies the composition requirements that will be added to image prompts
-    const compositionRequirements = [
-      'vertical 9:16 aspect ratio composition',
-      'subject centered or following rule of thirds',
-      'clear focal point',
-      'professional framing with balanced negative space',
-      'high quality',
-      'detailed',
-      'sharp focus',
-      'suitable for mobile viewing',
-    ].join(', ');
+    const compositionRequirements = COMPOSITION_REQUIREMENTS_ARRAY.join(', ');
 
     // Verify all key composition elements are present
     expect(compositionRequirements).toContain('vertical 9:16 aspect ratio');
@@ -26,16 +29,7 @@ describe('Composition Prompt Generation', () => {
   it('simulates full prompt construction with style and composition', () => {
     const styleBiblePrompt = 'Dark, eerie, cinematic horror style';
     const visualPrompt = 'Abandoned hospital corridor with flickering lights';
-    const compositionRequirements = [
-      'vertical 9:16 aspect ratio composition',
-      'subject centered or following rule of thirds',
-      'clear focal point',
-      'professional framing with balanced negative space',
-      'high quality',
-      'detailed',
-      'sharp focus',
-      'suitable for mobile viewing',
-    ].join(', ');
+    const compositionRequirements = COMPOSITION_REQUIREMENTS_ARRAY.join(', ');
 
     const fullPrompt = [styleBiblePrompt, visualPrompt, compositionRequirements]
       .filter(Boolean)
@@ -53,16 +47,7 @@ describe('Composition Prompt Generation', () => {
   it('handles empty style prompt gracefully', () => {
     const styleBiblePrompt = '';
     const visualPrompt = 'Mountain landscape at sunset';
-    const compositionRequirements = [
-      'vertical 9:16 aspect ratio composition',
-      'subject centered or following rule of thirds',
-      'clear focal point',
-      'professional framing with balanced negative space',
-      'high quality',
-      'detailed',
-      'sharp focus',
-      'suitable for mobile viewing',
-    ].join(', ');
+    const compositionRequirements = COMPOSITION_REQUIREMENTS_ARRAY.join(', ');
 
     const fullPrompt = [styleBiblePrompt, visualPrompt, compositionRequirements]
       .filter(Boolean)
@@ -73,5 +58,17 @@ describe('Composition Prompt Generation', () => {
     expect(fullPrompt).toContain('vertical 9:16 aspect ratio');
     expect(fullPrompt).toContain('clear focal point');
     expect(fullPrompt).not.toContain('.. '); // No double dots from empty style
+  });
+
+  it('verifies all required composition elements are present', () => {
+    const compositionRequirements = COMPOSITION_REQUIREMENTS_ARRAY.join(', ');
+
+    // Verify every element from the requirements array is in the final string
+    COMPOSITION_REQUIREMENTS_ARRAY.forEach((requirement) => {
+      expect(compositionRequirements).toContain(requirement);
+    });
+
+    // Verify minimum length to ensure meaningful content
+    expect(compositionRequirements.length).toBeGreaterThan(100);
   });
 });
