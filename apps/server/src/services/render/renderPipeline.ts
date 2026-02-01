@@ -13,6 +13,7 @@ import {
 import { getNichePack } from '../nichePacks.js';
 import { generateTTS, transcribeAudio, generateImage } from '../providers/openai.js';
 import { buildCaptionsFromWords, buildCaptionsFromScenes } from '../captions/captionsBuilder.js';
+import { COMPOSITION_REQUIREMENTS } from './compositionRequirements.js';
 import {
   createSceneVideo,
   concatenateVideos,
@@ -467,21 +468,10 @@ async function executePipeline(run: Run, planVersion: PlanWithDetails) {
           await addLog(runId, `Generating image for scene ${i + 1}/${scenes.length}...`);
 
           // Build full prompt with explicit composition requirements
-          const compositionRequirements = [
-            'vertical 9:16 aspect ratio composition',
-            'subject centered or following rule of thirds',
-            'clear focal point',
-            'professional framing with balanced negative space',
-            'high quality',
-            'detailed',
-            'sharp focus',
-            'suitable for mobile viewing',
-          ].join(', ');
-
           const fullPrompt = [
             pack?.styleBiblePrompt || '',
             scene.visualPrompt,
-            compositionRequirements,
+            COMPOSITION_REQUIREMENTS,
           ]
             .filter(Boolean)
             .join('. ');

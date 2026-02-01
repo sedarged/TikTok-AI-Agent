@@ -1,16 +1,5 @@
 import { describe, expect, it } from 'vitest';
-
-// This should match the composition requirements in renderPipeline.ts
-const COMPOSITION_REQUIREMENTS_ARRAY = [
-  'vertical 9:16 aspect ratio composition',
-  'subject centered or following rule of thirds',
-  'clear focal point',
-  'professional framing with balanced negative space',
-  'high quality',
-  'detailed',
-  'sharp focus',
-  'suitable for mobile viewing',
-];
+import { COMPOSITION_REQUIREMENTS_ARRAY } from '../src/services/render/compositionRequirements.js';
 
 describe('Composition Prompt Generation', () => {
   it('builds composition requirements string correctly', () => {
