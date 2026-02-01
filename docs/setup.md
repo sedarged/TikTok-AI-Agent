@@ -365,7 +365,7 @@ ELEVENLABS_API_KEY=
 3. Copy key (starts with `sk-proj-` or `sk-`)
 4. Add to `.env`: `OPENAI_API_KEY=sk-proj-...`
 
-**Cost Estimate:** A 60-second video costs ~$0.50-$1.00 (GPT-4 + DALL-E 3 + TTS + Whisper). See [COST_ANALYSIS_60SEC_VIDEO.md](../COST_ANALYSIS_60SEC_VIDEO.md).
+**Cost Estimate:** A 60-second video costs ~$0.50-$1.00 (GPT-4 + DALL-E 3 + TTS + Whisper). See [COST_ANALYSIS_60SEC_VIDEO.md](cost/COST_ANALYSIS_60SEC_VIDEO.md).
 
 ---
 

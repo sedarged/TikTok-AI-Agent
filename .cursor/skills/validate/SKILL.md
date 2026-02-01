@@ -15,7 +15,7 @@ Mirrors the **validate** command: run the full validation pipeline and summarize
 3. **Tests:** `npm run test`, then `npm run test:render` if available. Note failing tests.
 4. **Summarize:** List which steps passed or failed and the first few error messages for any failure. Do not commit if any step fails unless the user explicitly asks to ignore.
 
-If `lint` or `typecheck` scripts are missing, say so and suggest adding them (see DEVELOPMENT_MASTER_PLAN.md).
+If `lint` or `typecheck` scripts are missing, say so and suggest adding them (see [STATUS.md](../../STATUS.md)).
 
 ## References
 

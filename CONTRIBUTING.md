@@ -438,7 +438,7 @@ TikTok-AI-Agent/
 - [Architecture Documentation](docs/architecture.md)
 - [API Reference](docs/api.md)
 - [Testing Guide](TESTING_GUIDE.md)
-- [Development Master Plan](DEVELOPMENT_MASTER_PLAN.md)
+- [Project Status](STATUS.md) - Current priorities and active work
 - [Cursor AI Guidelines](AGENTS.md)
 
 ---

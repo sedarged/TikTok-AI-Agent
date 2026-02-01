@@ -271,7 +271,7 @@ export async function generateTextLocal(prompt: string): Promise<string> {
 **Effort:** 2-3 weeks  
 **Dependencies:** Ollama/LocalAI setup, model selection
 
-See [LOCAL_PROVIDERS_AND_COST_REDUCTION.md](../LOCAL_PROVIDERS_AND_COST_REDUCTION.md)
+See [LOCAL_PROVIDERS_AND_COST_REDUCTION.md](cost/LOCAL_PROVIDERS_AND_COST_REDUCTION.md)
 
 ### 10. Webhook Notifications
 
@@ -507,9 +507,9 @@ const images = await generateImagesBatch(imagePrompts);
 
 ## Related Documentation
 
-- [DEVELOPMENT_MASTER_PLAN.md](../DEVELOPMENT_MASTER_PLAN.md) - Original master plan
-- [LOCAL_PROVIDERS_AND_COST_REDUCTION.md](../LOCAL_PROVIDERS_AND_COST_REDUCTION.md) - Cost optimization
-- [COST_ANALYSIS_60SEC_VIDEO.md](../COST_ANALYSIS_60SEC_VIDEO.md) - Current costs
+- [STATUS.md](../STATUS.md) - Current priorities and active work
+- [LOCAL_PROVIDERS_AND_COST_REDUCTION.md](cost/LOCAL_PROVIDERS_AND_COST_REDUCTION.md) - Cost optimization
+- [COST_ANALYSIS_60SEC_VIDEO.md](cost/COST_ANALYSIS_60SEC_VIDEO.md) - Current costs
 
 ---
 

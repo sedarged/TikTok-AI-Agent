@@ -58,19 +58,25 @@ Essential documentation at the repository root:
 ### Development Resources
 
 - [TESTING_GUIDE.md](../TESTING_GUIDE.md) - Comprehensive testing guide
-- [DEVELOPMENT_MASTER_PLAN.md](../DEVELOPMENT_MASTER_PLAN.md) - Project task tracking
+- [STATUS.md](../STATUS.md) - Current priorities and active work (single source of truth)
 - [AGENTS.md](../AGENTS.md) - AI agent instructions (Cursor, Copilot)
-- [DOCUMENTATION_INDEX.md](../DOCUMENTATION_INDEX.md) - Polish language documentation map
+- [DOCUMENTATION_INDEX.md](../DOCUMENTATION_INDEX.md) - Quick links documentation map
 
 ### Cost & Performance
 
-- [COST_ANALYSIS_60SEC_VIDEO.md](../COST_ANALYSIS_60SEC_VIDEO.md) - OpenAI API cost breakdown
-- [COST_VISIBILITY_AND_REDUCTION.md](../COST_VISIBILITY_AND_REDUCTION.md) - Cost optimization strategies
-- [LOCAL_PROVIDERS_AND_COST_REDUCTION.md](../LOCAL_PROVIDERS_AND_COST_REDUCTION.md) - Local AI provider options
+- [COST_ANALYSIS_60SEC_VIDEO.md](cost/COST_ANALYSIS_60SEC_VIDEO.md) - OpenAI API cost breakdown
+- [COST_VISIBILITY_AND_REDUCTION.md](cost/COST_VISIBILITY_AND_REDUCTION.md) - Cost optimization strategies
+- [LOCAL_PROVIDERS_AND_COST_REDUCTION.md](cost/LOCAL_PROVIDERS_AND_COST_REDUCTION.md) - Local AI provider options
+
+### Proposals
+
+- [CONTROL_PANEL_PROPOSAL.md](proposals/CONTROL_PANEL_PROPOSAL.md) - Control panel feature proposal
+- [TOPIC_SUGGESTIONS_IMPLEMENTATION.md](proposals/TOPIC_SUGGESTIONS_IMPLEMENTATION.md) - Topic suggestions implementation
+- [TOPIC_SUGGESTIONS_VISUAL_GUIDE.md](proposals/TOPIC_SUGGESTIONS_VISUAL_GUIDE.md) - Topic suggestions visual guide
 
 ### Deployment Specific
 
-- [DOCKER.md](../DOCKER.md) - Detailed Docker deployment guide
+- [Deployment Guide](deployment.md) - Docker, Railway, cloud platforms
 - [RELEASE_CHECKLIST.md](../RELEASE_CHECKLIST.md) - Pre-release verification
 
 ## 📖 Documentation by Role

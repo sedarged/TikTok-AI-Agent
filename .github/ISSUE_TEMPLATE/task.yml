@@ -1,0 +1,49 @@
+name: Task / Feature
+description: Create a task or feature request with priority
+title: "[TASK]: "
+labels: []
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for creating a task! Please fill out the information below.
+
+  - type: textarea
+    id: description
+    attributes:
+      label: Description
+      description: A clear description of what needs to be done
+      placeholder: Describe the task or feature...
+    validations:
+      required: true
+
+  - type: dropdown
+    id: priority
+    attributes:
+      label: Priority
+      description: Select the priority level for this task
+      options:
+        - P0 (Critical - blocks release/production)
+        - P1 (High - important for next milestone)
+        - P2 (Medium - nice to have)
+    validations:
+      required: true
+
+  - type: textarea
+    id: acceptance-criteria
+    attributes:
+      label: Acceptance Criteria
+      description: What defines this task as complete?
+      placeholder: |
+        - [ ] Criterion 1
+        - [ ] Criterion 2
+    validations:
+      required: false
+
+  - type: textarea
+    id: additional-context
+    attributes:
+      label: Additional Context
+      description: Any additional information, links, or context
+    validations:
+      required: false

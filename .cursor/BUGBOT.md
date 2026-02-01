@@ -24,4 +24,4 @@ Project-specific rules for Cursor Bugbot (PR review). See [Cursor Bugbot](https:
 
 ## References
 
-- [AGENTS.md](../AGENTS.md), [.cursor/rules/](../.cursor/rules/), [DEVELOPMENT_MASTER_PLAN.md](../DEVELOPMENT_MASTER_PLAN.md)
+- [AGENTS.md](../AGENTS.md), [.cursor/rules/](../.cursor/rules/), [STATUS.md](../STATUS.md)

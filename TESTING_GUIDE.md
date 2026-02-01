@@ -90,7 +90,7 @@ npm run check         # lint + typecheck
 npm run audit         # npm audit (dependency vulnerabilities); CI runs this too
 ```
 
-Pre-commit (Husky + lint-staged) runs `eslint --fix` and `prettier --write` on staged files. Run `npm run audit` periodically (e.g. before release); CI runs it in the lint-typecheck-build job. See [DEVELOPMENT_MASTER_PLAN.md](DEVELOPMENT_MASTER_PLAN.md) and [AGENTS.md](AGENTS.md). **AI agents:** run `npm run test` before pushing; see [AGENTS.md](AGENTS.md) for full workflow.
+Pre-commit (Husky + lint-staged) runs `eslint --fix` and `prettier --write` on staged files. Run `npm run audit` periodically (e.g. before release); CI runs it in the lint-typecheck-build job. See [STATUS.md](STATUS.md) and [AGENTS.md](AGENTS.md). **AI agents:** run `npm run test` before pushing; see [AGENTS.md](AGENTS.md) for full workflow.
 
 ### 2. Backend Tests (No Frontend)
 

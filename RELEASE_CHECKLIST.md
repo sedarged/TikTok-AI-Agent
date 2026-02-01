@@ -8,8 +8,8 @@
 
 ## Quick Links
 
-- 📝 **Master Plan:** [DEVELOPMENT_MASTER_PLAN.md](DEVELOPMENT_MASTER_PLAN.md)
-- 🔧 **Quick Fix Guide:** [QUICK_FIX_GUIDE.md](QUICK_FIX_GUIDE.md)
+- 📝 **Current Status:** [STATUS.md](STATUS.md)
+- 🔧 **Common Pitfalls:** [.cursor/docs/common-pitfalls.md](.cursor/docs/common-pitfalls.md)
 - 🧪 **Testing Guide:** [TESTING_GUIDE.md](TESTING_GUIDE.md)
 - 🔒 **Security:** [SECURITY.md](SECURITY.md)
 
