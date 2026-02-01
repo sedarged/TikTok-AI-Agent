@@ -2,6 +2,7 @@ import { Routes, Route, Navigate } from 'react-router-dom';
 import { useEffect, useState } from 'react';
 import Layout from './components/Layout';
 import QuickCreate from './pages/QuickCreate';
+import BatchCreate from './pages/BatchCreate';
 import PlanStudio from './pages/PlanStudio';
 import RenderQueue from './pages/RenderQueue';
 import Output from './pages/Output';
@@ -53,6 +54,7 @@ function App() {
       <Routes>
         <Route path="/" element={<Navigate to="/create" replace />} />
         <Route path="/create" element={<QuickCreate status={status} />} />
+        <Route path="/batch-create" element={<BatchCreate status={status} />} />
         <Route path="/projects" element={<Projects />} />
         <Route path="/project/:projectId/plan" element={<PlanStudio status={status} />} />
         <Route path="/project/:projectId/runs" element={<RenderQueue />} />
