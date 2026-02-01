@@ -279,6 +279,7 @@ async function executePipeline(run: Run, planVersion: PlanWithDetails) {
       await updateStep(runId, 'tts_generate', 'Generating voice-over audio...');
 
       const sceneAudioPaths: string[] = [];
+      const sceneAudioDurations: number[] = [];
 
       for (let i = 0; i < scenes.length; i++) {
         if (!isActive(runId)) break;
@@ -303,9 +304,52 @@ async function executePipeline(run: Run, planVersion: PlanWithDetails) {
 
         sceneAudioPaths.push(audioPath);
 
+        // Measure actual audio duration
+        let audioDuration = scene.durationTargetSec;
+        if (!dryRun && fs.existsSync(audioPath)) {
+          try {
+            audioDuration = await getMediaDuration(audioPath);
+            await addLog(
+              runId,
+              `Scene ${i + 1} audio duration: ${audioDuration.toFixed(2)}s (target: ${scene.durationTargetSec.toFixed(2)}s)`
+            );
+          } catch (error) {
+            logWarn(`Failed to get audio duration for scene ${i}, using target duration:`, error);
+          }
+        }
+        sceneAudioDurations.push(audioDuration);
+
         // Update progress within step
         const stepProgress = ((i + 1) / scenes.length) * STEP_WEIGHTS.tts_generate;
         await updateProgress(runId, Math.round(stepProgress));
+      }
+
+      // Update scene durations and recalculate timings based on measured audio
+      if (sceneAudioDurations.length > 0) {
+        await addLog(runId, 'Updating scene durations based on audio...');
+        let currentTime = 0;
+        for (let i = 0; i < scenes.length; i++) {
+          const scene = scenes[i];
+          const newDuration = sceneAudioDurations[i];
+          const newEndTime = currentTime + newDuration;
+
+          await prisma.scene.update({
+            where: { id: scene.id },
+            data: {
+              durationTargetSec: newDuration,
+              startTimeSec: currentTime,
+              endTimeSec: newEndTime,
+            },
+          });
+
+          // Update local scene object for subsequent steps
+          scene.durationTargetSec = newDuration;
+          scene.startTimeSec = currentTime;
+          scene.endTimeSec = newEndTime;
+
+          currentTime = newEndTime;
+        }
+        await addLog(runId, `Updated ${scenes.length} scene(s) with measured audio durations`);
       }
 
       // Concatenate audio
