@@ -244,7 +244,14 @@ ${structureLine}${seoKeywordsLine}
 For each scene provide:
 1. narrationText: What the narrator says (clear, engaging, match the tempo)
 2. onScreenText: Short text shown on screen (2-5 words max, key point)
-3. visualPrompt: Detailed image generation prompt describing the visual
+3. visualPrompt: Detailed image generation prompt describing the visual composition. Include:
+   - Main subject and action
+   - Specific composition (centered, rule of thirds, etc.)
+   - Lighting and atmosphere
+   - Color palette hints
+   - Camera angle (eye-level, low angle, high angle, etc.)
+   - Framing (close-up, medium shot, wide shot)
+   Must work well in vertical 9:16 format for mobile viewing
 4. durationTargetSec: Duration in seconds for this scene
 
 Available effect presets: ${EFFECT_PRESETS.join(', ')}
@@ -263,7 +270,8 @@ Return ONLY valid JSON array:
 
 Requirements:
 - No copyrighted/brand references
-- Visual prompts should be detailed and match the niche style
+- Visual prompts should be detailed, specific, and match the niche style: ${pack.styleBiblePrompt}
+- Each visual prompt must describe a clear, well-composed scene suitable for vertical mobile video
 - Scene durations should sum to approximately ${project.targetLengthSec} seconds
 - First scene: ${HOOK_FIRST_3_SECONDS} Keep first scene under 5 seconds.`;
 
@@ -547,7 +555,7 @@ function generateTemplateScenes(
       idx: i,
       narrationText: point.narration,
       onScreenText: point.onScreen,
-      visualPrompt: `${pack.styleBiblePrompt}, ${point.visual}, related to ${project.topic}`,
+      visualPrompt: `${pack.styleBiblePrompt}, ${point.visual}, related to ${project.topic}, vertical composition with centered subject`,
       negativePrompt: pack.globalNegativePrompt,
       effectPreset: pack.effectsProfile.defaultEffect as EffectPreset,
       durationTargetSec: avgDuration,

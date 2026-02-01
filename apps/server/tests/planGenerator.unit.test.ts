@@ -646,3 +646,53 @@ describe('planGenerator - Scene Pacing Logic', () => {
     expect(pacing.maxScenes).toBe(14);
   });
 });
+
+describe('planGenerator - Visual Prompt Composition', () => {
+  beforeEach(async () => {
+    await cleanDb();
+    vi.spyOn(envModule, 'isOpenAIConfigured').mockReturnValue(false);
+    vi.spyOn(envModule, 'isTestMode').mockReturnValue(true);
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('includes composition guidance in template-based visual prompts', async () => {
+    const project = await createTestProject();
+    const plan = await generatePlan(project);
+
+    const scenes = await prisma.scene.findMany({
+      where: { planVersionId: plan.id },
+      orderBy: { idx: 'asc' },
+    });
+
+    // Verify all scenes have visual prompts with composition guidance
+    scenes.forEach((scene) => {
+      expect(scene.visualPrompt).toBeTruthy();
+      expect(scene.visualPrompt).toContain('vertical composition');
+      expect(scene.visualPrompt).toContain('centered subject');
+    });
+  });
+
+  it('includes style prompt for all niche packs', async () => {
+    const packs = ['horror', 'facts', 'motivation', 'product', 'story'];
+
+    for (const packId of packs) {
+      const project = await createTestProject({ nichePackId: packId });
+      const plan = await generatePlan(project);
+
+      const scenes = await prisma.scene.findMany({
+        where: { planVersionId: plan.id },
+      });
+
+      const pack = getNichePack(packId);
+      expect(pack).toBeTruthy();
+
+      // Verify scenes include the style bible prompt
+      scenes.forEach((scene) => {
+        expect(scene.visualPrompt).toContain(pack!.styleBiblePrompt);
+      });
+    }
+  });
+});

@@ -13,6 +13,7 @@ import {
 import { getNichePack } from '../nichePacks.js';
 import { generateTTS, transcribeAudio, generateImage } from '../providers/openai.js';
 import { buildCaptionsFromWords, buildCaptionsFromScenes } from '../captions/captionsBuilder.js';
+import { COMPOSITION_REQUIREMENTS } from './compositionRequirements.js';
 import {
   createSceneVideo,
   concatenateVideos,
@@ -466,11 +467,11 @@ async function executePipeline(run: Run, planVersion: PlanWithDetails) {
         if (!fs.existsSync(imagePath)) {
           await addLog(runId, `Generating image for scene ${i + 1}/${scenes.length}...`);
 
-          // Build full prompt
+          // Build full prompt with explicit composition requirements
           const fullPrompt = [
             pack?.styleBiblePrompt || '',
             scene.visualPrompt,
-            'High quality, detailed, vertical composition suitable for TikTok',
+            COMPOSITION_REQUIREMENTS,
           ]
             .filter(Boolean)
             .join('. ');
