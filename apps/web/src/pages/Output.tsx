@@ -169,6 +169,7 @@ export default function Output({ status }: OutputProps) {
     setCanceling(true);
     try {
       await cancelRun(runId);
+      setRun((prev) => (prev ? { ...prev, status: 'canceled' as const } : null));
       setError('');
     } catch (err) {
       setError(getErrorMessage(err));
@@ -289,14 +290,16 @@ export default function Output({ status }: OutputProps) {
               style={{ width: `${run.progress}%`, background: 'var(--color-primary)' }}
             />
           </div>
-          <button
-            onClick={handleCancel}
-            disabled={canceling}
-            className="btn btn-secondary"
-            aria-label="Cancel render"
-          >
-            {canceling ? 'Canceling...' : 'Cancel'}
-          </button>
+          {!canceling && (
+            <button
+              onClick={handleCancel}
+              disabled={canceling}
+              className="btn btn-secondary"
+              aria-label="Cancel render"
+            >
+              Cancel
+            </button>
+          )}
         </div>
       )}
 
