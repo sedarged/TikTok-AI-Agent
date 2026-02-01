@@ -238,7 +238,7 @@ Opens Prisma Studio at http://localhost:5555
 - [Architecture Overview](docs/architecture.md)
 - [Data Model](docs/data-model.md)
 - [Operations Runbook](docs/operations-runbook.md)
-- [Development Master Plan](DEVELOPMENT_MASTER_PLAN.md)
+- [Project Status](STATUS.md) - Current priorities and active work
 
 ### External Documentation
 

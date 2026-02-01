@@ -76,7 +76,7 @@ Essential documentation at the repository root:
 
 ### Deployment Specific
 
-- [DOCKER.md](../DOCKER.md) - Detailed Docker deployment guide
+- [Deployment Guide](deployment.md) - Docker, Railway, cloud platforms
 - [RELEASE_CHECKLIST.md](../RELEASE_CHECKLIST.md) - Pre-release verification
 
 ## 📖 Documentation by Role
