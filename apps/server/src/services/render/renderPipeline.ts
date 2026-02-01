@@ -475,15 +475,21 @@ async function executePipeline(run: Run, planVersion: PlanWithDetails) {
             .filter(Boolean)
             .join('. ');
 
+          // Use scene negative prompt (already contains global from plan generation)
+          // Fall back to pack global if scene prompt is empty (for backward compatibility)
+          const negativePrompt =
+            scene.negativePrompt?.trim() || pack?.globalNegativePrompt?.trim() || '';
+
           if (dryRun) {
-            const dryRunContent = `[dry-run image]\nPrompt: ${fullPrompt}\nNegative Prompt: ${scene.negativePrompt || '(none)'}\n`;
+            const negativePromptDisplay = negativePrompt || '(none)';
+            const dryRunContent = `[dry-run image]\nPrompt: ${fullPrompt}\nNegative Prompt: ${negativePromptDisplay}\n`;
             writePlaceholderFile(imagePath, dryRunContent);
           } else {
             const imgResult = await generateImage(
               fullPrompt,
               imagePath,
               '1024x1792',
-              scene.negativePrompt
+              negativePrompt
             );
             totalCostUsd += imgResult.estimatedCostUsd;
           }

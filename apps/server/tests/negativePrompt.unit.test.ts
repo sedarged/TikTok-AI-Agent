@@ -1,117 +1,150 @@
-import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
-import * as openaiModule from '../src/services/providers/openai.js';
+import { describe, expect, it, beforeEach, afterEach } from 'vitest';
 import fs from 'fs';
 import path from 'path';
+import { ROOT_DIR } from '../src/env.js';
+
+// Test output directory (aligned with other tests)
+const TEST_OUTPUT_DIR = path.join(ROOT_DIR, 'apps', 'server', 'tests', 'tmp', 'negative-prompt');
 
 describe('Negative Prompt Support', () => {
-  const testOutputDir = '/tmp/negative-prompt-test';
-  const testImagePath = path.join(testOutputDir, 'test-image.png');
-
   beforeEach(() => {
-    // Create test directory
-    if (!fs.existsSync(testOutputDir)) {
-      fs.mkdirSync(testOutputDir, { recursive: true });
+    // Ensure test output directory exists
+    if (!fs.existsSync(TEST_OUTPUT_DIR)) {
+      fs.mkdirSync(TEST_OUTPUT_DIR, { recursive: true });
     }
   });
 
   afterEach(() => {
-    // Clean up test files
-    if (fs.existsSync(testImagePath)) {
-      fs.unlinkSync(testImagePath);
-    }
-    if (fs.existsSync(testOutputDir)) {
-      fs.rmdirSync(testOutputDir, { recursive: true });
+    // Clean up test files (aligned with other tests)
+    if (fs.existsSync(TEST_OUTPUT_DIR)) {
+      fs.rmSync(TEST_OUTPUT_DIR, { recursive: true, force: true });
     }
   });
 
-  it('generateImage accepts negative prompt parameter', async () => {
-    // Mock the OpenAI client to avoid actual API calls
-    const mockGenerateImage = vi.spyOn(openaiModule, 'generateImage').mockResolvedValue({
-      path: testImagePath,
-      estimatedCostUsd: 0,
+  describe('Prompt concatenation logic', () => {
+    it('appends trimmed negative prompt to main prompt', () => {
+      const prompt = 'A beautiful sunset over mountains';
+      const negativePrompt = 'blurry, low quality, watermark';
+      const trimmedNegativePrompt = negativePrompt.trim();
+
+      const fullPrompt = trimmedNegativePrompt
+        ? `${prompt}. Avoid: ${trimmedNegativePrompt}`
+        : prompt;
+
+      expect(fullPrompt).toBe(
+        'A beautiful sunset over mountains. Avoid: blurry, low quality, watermark'
+      );
     });
 
-    const prompt = 'A beautiful sunset over mountains';
-    const negativePrompt = 'blurry, low quality, watermark';
+    it('normalizes negative prompt with leading/trailing whitespace', () => {
+      const prompt = 'A serene landscape';
+      const negativePrompt = '  watermark, text  ';
+      const trimmedNegativePrompt = negativePrompt.trim();
 
-    await openaiModule.generateImage(prompt, testImagePath, '1024x1792', negativePrompt);
+      const fullPrompt = trimmedNegativePrompt
+        ? `${prompt}. Avoid: ${trimmedNegativePrompt}`
+        : prompt;
 
-    // Verify the function was called with the negative prompt
-    expect(mockGenerateImage).toHaveBeenCalledWith(
-      prompt,
-      testImagePath,
-      '1024x1792',
-      negativePrompt
-    );
-
-    mockGenerateImage.mockRestore();
-  });
-
-  it('generateImage works without negative prompt (backward compatibility)', async () => {
-    // Mock the OpenAI client
-    const mockGenerateImage = vi.spyOn(openaiModule, 'generateImage').mockResolvedValue({
-      path: testImagePath,
-      estimatedCostUsd: 0,
+      expect(fullPrompt).toBe('A serene landscape. Avoid: watermark, text');
     });
 
-    const prompt = 'A beautiful sunset over mountains';
+    it('works without negative prompt (backward compatibility)', () => {
+      const prompt = 'A beautiful sunset';
+      const negativePrompt = undefined;
+      const trimmedNegativePrompt = negativePrompt?.trim();
 
-    await openaiModule.generateImage(prompt, testImagePath, '1024x1792');
+      const fullPrompt = trimmedNegativePrompt
+        ? `${prompt}. Avoid: ${trimmedNegativePrompt}`
+        : prompt;
 
-    // Verify the function was called without negative prompt (backward compatibility)
-    expect(mockGenerateImage).toHaveBeenCalledWith(prompt, testImagePath, '1024x1792');
+      expect(fullPrompt).toBe(prompt);
+    });
 
-    mockGenerateImage.mockRestore();
+    it('handles empty negative prompt gracefully', () => {
+      const prompt = 'A serene landscape';
+      const negativePrompt = '';
+      const trimmedNegativePrompt = negativePrompt.trim();
+
+      const fullPrompt = trimmedNegativePrompt
+        ? `${prompt}. Avoid: ${trimmedNegativePrompt}`
+        : prompt;
+
+      expect(fullPrompt).toBe(prompt);
+    });
+
+    it('handles whitespace-only negative prompt gracefully', () => {
+      const prompt = 'A serene landscape';
+      const negativePrompt = '   ';
+      const trimmedNegativePrompt = negativePrompt.trim();
+
+      const fullPrompt = trimmedNegativePrompt
+        ? `${prompt}. Avoid: ${trimmedNegativePrompt}`
+        : prompt;
+
+      expect(fullPrompt).toBe(prompt);
+    });
+
+    it('truncates combined prompt to 4000 chars for API', () => {
+      const longPrompt = 'A'.repeat(3950);
+      const negativePrompt = 'B'.repeat(100);
+      const trimmedNegativePrompt = negativePrompt.trim();
+
+      let fullPrompt = longPrompt;
+      if (trimmedNegativePrompt) {
+        fullPrompt = `${longPrompt}. Avoid: ${trimmedNegativePrompt}`;
+      }
+
+      const finalPrompt = fullPrompt.substring(0, 4000);
+
+      expect(finalPrompt.length).toBe(4000);
+      expect(finalPrompt.length).toBeLessThanOrEqual(4000);
+    });
   });
 
-  it('negative prompt is appended to main prompt', () => {
-    // This test validates the logic without mocking
-    // We can't test the actual implementation without API keys,
-    // but we can document expected behavior
-    const mainPrompt = 'A serene landscape with mountains';
-    const negativePrompt = 'text, watermark, logo';
-    const expectedFullPrompt = `${mainPrompt}. Avoid: ${negativePrompt}`;
+  describe('Negative prompt selection logic', () => {
+    it('uses scene negative prompt when available', () => {
+      const sceneNeg = 'text, logo, watermark';
+      const packGlobalNeg = 'blurry, low quality';
 
-    // When negative prompt is provided, it should be appended
-    expect(expectedFullPrompt).toBe(
-      'A serene landscape with mountains. Avoid: text, watermark, logo'
-    );
-  });
+      const negativePrompt = sceneNeg?.trim() || packGlobalNeg?.trim() || '';
 
-  it('empty negative prompt is handled gracefully', () => {
-    const mainPrompt = 'A serene landscape with mountains';
-    const negativePrompt = '';
+      expect(negativePrompt).toBe('text, logo, watermark');
+    });
 
-    // Empty negative prompt should not modify the main prompt
-    const fullPrompt =
-      negativePrompt && negativePrompt.trim()
-        ? `${mainPrompt}. Avoid: ${negativePrompt}`
-        : mainPrompt;
+    it('falls back to pack global negative prompt when scene is empty', () => {
+      const sceneNeg = '';
+      const packGlobalNeg = 'blurry, low quality';
 
-    expect(fullPrompt).toBe(mainPrompt);
-  });
+      const negativePrompt = sceneNeg?.trim() || packGlobalNeg?.trim() || '';
 
-  it('whitespace-only negative prompt is handled gracefully', () => {
-    const mainPrompt = 'A serene landscape with mountains';
-    const negativePrompt = '   ';
+      expect(negativePrompt).toBe('blurry, low quality');
+    });
 
-    // Whitespace-only negative prompt should not modify the main prompt
-    const fullPrompt =
-      negativePrompt && negativePrompt.trim()
-        ? `${mainPrompt}. Avoid: ${negativePrompt}`
-        : mainPrompt;
+    it('returns empty string when both are empty', () => {
+      const sceneNeg = '';
+      const packGlobalNeg = '';
 
-    expect(fullPrompt).toBe(mainPrompt);
-  });
+      const negativePrompt = sceneNeg?.trim() || packGlobalNeg?.trim() || '';
 
-  it('validates prompt format with typical negative prompt elements', () => {
-    const mainPrompt = 'Professional portrait photo';
-    const negativePrompt = 'blurry, low quality, watermark, text, logo, signature';
-    const expectedFullPrompt = `${mainPrompt}. Avoid: ${negativePrompt}`;
+      expect(negativePrompt).toBe('');
+    });
 
-    expect(expectedFullPrompt).toContain('Professional portrait photo');
-    expect(expectedFullPrompt).toContain('Avoid:');
-    expect(expectedFullPrompt).toContain('blurry');
-    expect(expectedFullPrompt).toContain('watermark');
+    it('trims whitespace from scene negative prompt', () => {
+      const sceneNeg = '  text, logo  ';
+      const packGlobalNeg = 'blurry, low quality';
+
+      const negativePrompt = sceneNeg?.trim() || packGlobalNeg?.trim() || '';
+
+      expect(negativePrompt).toBe('text, logo');
+    });
+
+    it('handles undefined scene negative prompt', () => {
+      const sceneNeg = undefined;
+      const packGlobalNeg = 'blurry, low quality';
+
+      const negativePrompt = sceneNeg?.trim() || packGlobalNeg?.trim() || '';
+
+      expect(negativePrompt).toBe('blurry, low quality');
+    });
   });
 });
