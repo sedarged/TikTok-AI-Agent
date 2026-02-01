@@ -140,7 +140,8 @@ Paths are resolved relative to repository root if not explicitly set.
 - **Security:** In production, ensure proper access control (see [Security](#security-considerations))
 
 ```typescript
-// apps/server/src/env.ts:17-23
+// apps/server/src/env.ts
+// Root directory is determined at startup and exported as ROOT_DIR
 function getRootDir(): string {
   // If we're in apps/server, go up two levels
   if (process.cwd().includes('apps/server') || process.cwd().includes('apps\\server')) {
@@ -151,7 +152,13 @@ function getRootDir(): string {
 
 const rootDir = getRootDir();
 
-// apps/server/src/env.ts:57-58
+/**
+ * Root directory of the project (repository root).
+ * Use this constant instead of process.cwd() for consistent path resolution.
+ */
+export const ROOT_DIR = rootDir;
+
+// Usage in env configuration:
 MUSIC_LIBRARY_DIR: process.env.MUSIC_LIBRARY_DIR || path.resolve(rootDir, 'assets', 'music'),
 ARTIFACTS_DIR: process.env.ARTIFACTS_DIR || path.resolve(rootDir, 'artifacts'),
 ```

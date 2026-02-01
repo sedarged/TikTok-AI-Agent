@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import path from 'path';
 import fs from 'fs';
+import { ROOT_DIR } from '../env.js';
 
 export interface ChannelPreset {
   id: string;
@@ -13,11 +14,12 @@ export interface ChannelPreset {
 }
 
 function getPresetsPath(): string {
-  const fromCwd = path.join(process.cwd(), 'data', 'channel-presets.json');
-  if (fs.existsSync(fromCwd)) return fromCwd;
-  const fromServer = path.resolve(process.cwd(), '..', '..', 'data', 'channel-presets.json');
+  const fromRoot = path.join(ROOT_DIR, 'data', 'channel-presets.json');
+  if (fs.existsSync(fromRoot)) return fromRoot;
+  // Fallback for when ROOT_DIR is apps/server (shouldn't happen, but defensive)
+  const fromServer = path.resolve(ROOT_DIR, '..', '..', 'data', 'channel-presets.json');
   if (fs.existsSync(fromServer)) return fromServer;
-  return fromCwd;
+  return fromRoot;
 }
 
 export const channelPresetsRoutes = Router();
