@@ -466,11 +466,22 @@ async function executePipeline(run: Run, planVersion: PlanWithDetails) {
         if (!fs.existsSync(imagePath)) {
           await addLog(runId, `Generating image for scene ${i + 1}/${scenes.length}...`);
 
-          // Build full prompt
+          // Build full prompt with explicit composition requirements
+          const compositionRequirements = [
+            'vertical 9:16 aspect ratio composition',
+            'subject centered or following rule of thirds',
+            'clear focal point',
+            'professional framing with balanced negative space',
+            'high quality',
+            'detailed',
+            'sharp focus',
+            'suitable for mobile viewing',
+          ].join(', ');
+
           const fullPrompt = [
             pack?.styleBiblePrompt || '',
             scene.visualPrompt,
-            'High quality, detailed, vertical composition suitable for TikTok',
+            compositionRequirements,
           ]
             .filter(Boolean)
             .join('. ');
