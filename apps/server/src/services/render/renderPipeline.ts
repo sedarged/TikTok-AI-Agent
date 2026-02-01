@@ -476,9 +476,15 @@ async function executePipeline(run: Run, planVersion: PlanWithDetails) {
             .join('. ');
 
           if (dryRun) {
-            writePlaceholderFile(imagePath, `[dry-run image]\n${fullPrompt}\n`);
+            const dryRunContent = `[dry-run image]\nPrompt: ${fullPrompt}\nNegative Prompt: ${scene.negativePrompt}\n`;
+            writePlaceholderFile(imagePath, dryRunContent);
           } else {
-            const imgResult = await generateImage(fullPrompt, imagePath, '1024x1792');
+            const imgResult = await generateImage(
+              fullPrompt,
+              imagePath,
+              '1024x1792',
+              scene.negativePrompt
+            );
             totalCostUsd += imgResult.estimatedCostUsd;
           }
         }
