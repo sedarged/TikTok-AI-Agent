@@ -315,7 +315,9 @@ async function executePipeline(run: Run, planVersion: PlanWithDetails) {
               `Scene ${i + 1} audio duration: ${audioDuration.toFixed(2)}s (target: ${scene.durationTargetSec.toFixed(2)}s)`
             );
           } catch (error) {
-            logWarn(`Failed to get audio duration for scene ${i}, using target duration:`, error);
+            logWarn(`Failed to get audio duration for scene ${i}, using target duration:`, {
+              error: error instanceof Error ? error.message : String(error),
+            });
           }
         }
         sceneAudioDurations.push(audioDuration);
@@ -332,7 +334,12 @@ async function executePipeline(run: Run, planVersion: PlanWithDetails) {
 
         // Precompute all updated timing data so we can apply it atomically
         let currentTime = 0;
-        const updatedScenesData = [];
+        const updatedScenesData: Array<{
+          id: string;
+          durationTargetSec: number;
+          startTimeSec: number;
+          endTimeSec: number;
+        }> = [];
 
         // Only update scenes for which audio was actually generated
         for (let i = 0; i < sceneAudioDurations.length; i++) {
