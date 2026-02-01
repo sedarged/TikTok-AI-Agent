@@ -32,10 +32,10 @@ A: Common issues:
 4. Check logs for specific error messages
 
 **Q: How much does it cost to generate a video?**  
-A: See [COST_ANALYSIS_60SEC_VIDEO.md](COST_ANALYSIS_60SEC_VIDEO.md) for a detailed breakdown. Typically $0.50-$1.50 per 60-second video depending on niche pack and configuration.
+A: See [COST_ANALYSIS_60SEC_VIDEO.md](docs/cost/COST_ANALYSIS_60SEC_VIDEO.md) for a detailed breakdown. Typically $0.50-$1.50 per 60-second video depending on niche pack and configuration.
 
 **Q: Can I use local AI models instead of OpenAI?**  
-A: Not currently implemented. See [LOCAL_PROVIDERS_AND_COST_REDUCTION.md](LOCAL_PROVIDERS_AND_COST_REDUCTION.md) for future plans.
+A: Not currently implemented. See [LOCAL_PROVIDERS_AND_COST_REDUCTION.md](docs/cost/LOCAL_PROVIDERS_AND_COST_REDUCTION.md) for future plans.
 
 **Q: How do I deploy to production?**  
 A: See [docs/deployment.md](docs/deployment.md) for Docker, Railway.app, and other deployment options.
