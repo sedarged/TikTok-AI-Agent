@@ -36,7 +36,7 @@ Comprehensive integration tests for automate, batch, download, and verify endpoi
 - **Batch Endpoint Tests**:
   - Multiple topics processing
   - Maximum topics validation
-  - Empty topics handling
+  - Empty array validation (fails as expected)
   - Download/verify for batch-created runs
   
 - **Download Endpoint Tests**:

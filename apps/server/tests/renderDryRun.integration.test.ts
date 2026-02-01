@@ -5,48 +5,9 @@ import path from 'path';
 import fs from 'fs';
 import { prisma } from '../src/db/client.js';
 import { env } from '../src/env.js';
+import { resetDb, waitForRunStatus, waitForProjectStatus } from './testHelpers.js';
 
 let app: Express;
-
-async function resetDb() {
-  await prisma.cache.deleteMany();
-  await prisma.scene.deleteMany();
-  await prisma.run.deleteMany();
-  await prisma.planVersion.deleteMany();
-  await prisma.project.deleteMany();
-}
-
-async function waitForRunStatus(
-  runId: string,
-  expectedStatus: 'done' | 'failed' | 'canceled',
-  timeoutMs: number = 5000
-) {
-  const start = Date.now();
-  while (Date.now() - start < timeoutMs) {
-    const run = await prisma.run.findUnique({ where: { id: runId } });
-    if (run?.status === expectedStatus) {
-      return run;
-    }
-    await new Promise((resolve) => setTimeout(resolve, 100));
-  }
-  throw new Error(`Timed out waiting for status ${expectedStatus}`);
-}
-
-async function waitForProjectStatus(
-  projectId: string,
-  expectedStatus: string,
-  timeoutMs: number = 5000
-) {
-  const start = Date.now();
-  while (Date.now() - start < timeoutMs) {
-    const project = await prisma.project.findUnique({ where: { id: projectId } });
-    if (project?.status === expectedStatus) {
-      return project;
-    }
-    await new Promise((resolve) => setTimeout(resolve, 100));
-  }
-  throw new Error(`Timed out waiting for project status ${expectedStatus}`);
-}
 
 async function createProjectWithPlan() {
   const createRes = await request(app)

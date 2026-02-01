@@ -3,32 +3,9 @@ import request from 'supertest';
 import type { Express } from 'express';
 import { prisma } from '../src/db/client.js';
 import { v4 as uuid } from 'uuid';
+import { resetDb, waitForRunStatus } from './testHelpers.js';
 
 let app: Express;
-
-async function resetDb() {
-  await prisma.cache.deleteMany();
-  await prisma.scene.deleteMany();
-  await prisma.run.deleteMany();
-  await prisma.planVersion.deleteMany();
-  await prisma.project.deleteMany();
-}
-
-async function waitForRunStatus(
-  runId: string,
-  expectedStatus: 'done' | 'failed' | 'canceled',
-  timeoutMs: number = 10000
-) {
-  const start = Date.now();
-  while (Date.now() - start < timeoutMs) {
-    const run = await prisma.run.findUnique({ where: { id: runId } });
-    if (run?.status === expectedStatus) {
-      return run;
-    }
-    await new Promise((resolve) => setTimeout(resolve, 200));
-  }
-  throw new Error(`Timed out waiting for status ${expectedStatus}`);
-}
 
 const describeIfDryRun = process.env.APP_RENDER_DRY_RUN === '1' ? describe : describe.skip;
 
@@ -312,7 +289,7 @@ describeIfDryRun('Automate and batch endpoints with download/verify', () => {
       expect(automateRes.status).toBe(200);
     });
 
-    it('POST /api/batch handles mixed valid/empty topics', async () => {
+    it('POST /api/batch processes multiple valid topics', async () => {
       const batchRes = await request(app)
         .post('/api/batch')
         .send({
