@@ -388,6 +388,76 @@ Common scopes in this project:
 - `ci` - CI/CD
 - `deps` - Dependencies
 
+## Issue Templates
+
+We provide structured issue templates to ensure all necessary information is captured:
+
+### Bug Reports
+Use the bug report template for any defects or unexpected behavior. Include:
+- **Severity level** - Critical/High/Medium/Low
+- **Steps to reproduce** - Clear, numbered steps
+- **Expected vs actual behavior**
+- **Environment** - Development/Production/Test
+- **Version or commit SHA**
+- **Relevant logs or error messages**
+
+### Tasks/Features
+Use the task template for new features or improvements:
+- **Priority** - P0 (Critical), P1 (High), P2 (Medium)
+- **Description** - What needs to be done
+- **Acceptance criteria** - Definition of done
+- **Additional context** - Links, references, notes
+
+## Automated Workflows
+
+### Release Automation
+This project uses [Release Please](https://github.com/googleapis/release-please) to automate versioning and changelog generation based on conventional commits.
+
+**Commit message format:**
+- `feat:` triggers a minor version bump (e.g., 1.0.0 → 1.1.0)
+- `fix:` triggers a patch version bump (e.g., 1.0.0 → 1.0.1)
+- `feat!:` or `BREAKING CHANGE:` triggers a major version bump (e.g., 1.0.0 → 2.0.0)
+
+When merged to `main`, Release Please will:
+1. Create/update a release PR with changelog
+2. On release PR merge, create a GitHub release
+3. Build and attach release artifacts
+
+### Dependency Updates
+[Dependabot](https://docs.github.com/en/code-security/dependabot) automatically:
+- Checks for dependency updates weekly (Mondays at 9 AM)
+- Groups related updates (dev dependencies, testing tools, etc.)
+- Creates PRs with changelogs
+- Monitors GitHub Actions versions monthly
+
+PRs are labeled with:
+- `dependencies` - All dependency updates
+- `component:backend` or `component:frontend` - Workspace-specific
+- `ci/cd` - GitHub Actions updates
+
+### PR Automation
+Pull requests are automatically enhanced with:
+
+**Auto-labeling** based on changed files:
+- `component:frontend` - Changes in `apps/web/`
+- `component:backend` - Changes in `apps/server/`
+- `component:database` - Changes in `prisma/`
+- `documentation` - Changes to `.md` files
+- `testing` - Changes to `.test.` or `.spec.` files
+- `ci/cd` - Changes to `.github/workflows/`
+
+**Size labels** based on total changes:
+- `size/xs` - < 10 lines
+- `size/s` - 10-99 lines
+- `size/m` - 100-499 lines
+- `size/l` - 500-999 lines
+- `size/xl` - 1000+ lines (triggers warning)
+
+**Quality checks:**
+- Warns on PRs with 500+ changed lines
+- Reminds about issue linking (Closes #123)
+- Suggests test coverage when code changes without test changes
+
 ## Project Structure
 
 ```
