@@ -478,7 +478,8 @@ async function executePipeline(run: Run, planVersion: PlanWithDetails) {
 
         // Return a limited task that generates the image
         return limit(async () => {
-          // Check if run is still active
+          // Check if run is still active (early return on cancellation is safe;
+          // remaining tasks will complete gracefully and next step check will exit)
           if (!isActive(runId)) return;
 
           // Skip if image already exists

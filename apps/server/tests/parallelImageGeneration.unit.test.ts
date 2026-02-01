@@ -170,6 +170,8 @@ describe('Parallel Image Generation Pattern', () => {
     const progressUpdates: number[] = [];
 
     // Simulate the progress tracking pattern from renderPipeline
+    // Note: completedImages++ is safe here due to JavaScript's event loop serialization.
+    // Each async task executes atomically within its own microtask, preventing race conditions.
     const tasks = Array.from({ length: TOTAL_IMAGES }, () => {
       return limit(async () => {
         await new Promise((resolve) => setTimeout(resolve, 5));
