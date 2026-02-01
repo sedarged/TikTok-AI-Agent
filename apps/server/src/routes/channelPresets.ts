@@ -14,12 +14,7 @@ export interface ChannelPreset {
 }
 
 function getPresetsPath(): string {
-  const fromRoot = path.join(ROOT_DIR, 'data', 'channel-presets.json');
-  if (fs.existsSync(fromRoot)) return fromRoot;
-  // Fallback for when ROOT_DIR is apps/server (shouldn't happen, but defensive)
-  const fromServer = path.resolve(ROOT_DIR, '..', '..', 'data', 'channel-presets.json');
-  if (fs.existsSync(fromServer)) return fromServer;
-  return fromRoot;
+  return path.join(ROOT_DIR, 'data', 'channel-presets.json');
 }
 
 export const channelPresetsRoutes = Router();
