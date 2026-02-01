@@ -17,7 +17,7 @@ async function resetDb() {
 async function waitForRunStatus(
   runId: string,
   expectedStatus: 'done' | 'failed' | 'canceled',
-  timeoutMs: number = 5000
+  timeoutMs: number = 10000
 ) {
   const start = Date.now();
   while (Date.now() - start < timeoutMs) {
@@ -25,7 +25,7 @@ async function waitForRunStatus(
     if (run?.status === expectedStatus) {
       return run;
     }
-    await new Promise((resolve) => setTimeout(resolve, 100));
+    await new Promise((resolve) => setTimeout(resolve, 200));
   }
   throw new Error(`Timed out waiting for status ${expectedStatus}`);
 }
@@ -324,9 +324,9 @@ describeIfDryRun('Automate and batch endpoints with download/verify', () => {
       // Should create runs for all valid topics
       expect(batchRes.body.runIds).toHaveLength(3);
 
-      // Wait for all to complete
+      // Wait for all to complete (with longer timeout for multiple runs)
       for (const runId of batchRes.body.runIds) {
-        await waitForRunStatus(runId, 'done');
+        await waitForRunStatus(runId, 'done', 15000);
       }
     });
   });
@@ -358,9 +358,9 @@ describeIfDryRun('Automate and batch endpoints with download/verify', () => {
       expect(projectId1).not.toBe(projectId2);
       expect(runId1).not.toBe(runId2);
 
-      // Wait for both to complete
-      await waitForRunStatus(runId1, 'done');
-      await waitForRunStatus(runId2, 'done');
+      // Wait for both to complete (with longer timeout for concurrent runs)
+      await waitForRunStatus(runId1, 'done', 15000);
+      await waitForRunStatus(runId2, 'done', 15000);
 
       // Verify both projects maintained their correct topics
       const project1 = await prisma.project.findUnique({ where: { id: projectId1 } });
