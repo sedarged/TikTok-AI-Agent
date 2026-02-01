@@ -541,10 +541,10 @@ export default function QuickCreate({ status }: QuickCreateProps) {
                   className="w-5 h-5 border-2 rounded-full animate-spin"
                   style={{ borderColor: 'var(--color-primary)', borderTopColor: 'transparent' }}
                 />
-                Generate &amp; Render...
+                Automating...
               </span>
             ) : (
-              'Generate &amp; render (no edit)'
+              'Automate (Generate &amp; Render)'
             )}
           </button>
         </div>
