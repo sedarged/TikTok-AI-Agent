@@ -39,7 +39,7 @@ jobs:
       - name: Create Release Artifact
         if: ${{ steps.release.outputs.release_created }}
         run: |
-          tar -czf release.tar.gz apps/server/dist apps/web/dist package.json
+          tar -czf release.tar.gz apps/server/dist apps/web/dist apps/server/prisma package.json package-lock.json
 
       - name: Upload Release Asset
         if: ${{ steps.release.outputs.release_created }}

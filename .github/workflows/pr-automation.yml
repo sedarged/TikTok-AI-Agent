@@ -32,7 +32,7 @@ jobs:
               if (file.filename.startsWith('apps/server/')) {
                 labels.add('component:backend');
               }
-              if (file.filename.includes('prisma/')) {
+              if (file.filename.startsWith('apps/server/prisma/')) {
                 labels.add('component:database');
               }
               
@@ -40,7 +40,7 @@ jobs:
               if (file.filename.endsWith('.md')) {
                 labels.add('documentation');
               }
-              if (file.filename.includes('.test.') || file.filename.includes('.spec.')) {
+              if (/\.(test|spec)\.(ts|tsx|js|jsx)$/.test(file.filename)) {
                 labels.add('testing');
               }
               if (file.filename.startsWith('.github/workflows/')) {
@@ -90,7 +90,9 @@ jobs:
                 repo: context.repo.repo,
                 issue_number: pr.number,
                 name: label
-              }).catch(() => {});
+              }).catch(error => {
+                console.log('Failed to remove label:', label, error && error.message ? error.message : error);
+              });
             }
 
             // Add new size label
@@ -141,7 +143,9 @@ jobs:
             }
 
             // Check for issue link
-            const hasIssueLink = /(?:close|closes|closed|fix|fixes|fixed|resolve|resolves|resolved)s?\s*:?\s*#\d+/i.test(body);
+            const closingKeywordIssuePattern = /(?:close|closes|closed|fix|fixes|fixed|resolve|resolves|resolved)s?\s*:?\s*#\d+/i;
+            const shorthandIssuePattern = /(?:^|\s)#\d+(?:\s|$)/;
+            const hasIssueLink = closingKeywordIssuePattern.test(body) || shorthandIssuePattern.test(body);
             if (!hasIssueLink) {
               issues.push('💡 Consider linking an issue using "Closes #123" or "Fixes #456"');
             }
@@ -159,12 +163,15 @@ jobs:
               f.filename.endsWith('.js')
             );
 
-            const hasTestChanges = files.some(f => 
-              f.filename.includes('.test.') || 
-              f.filename.includes('.spec.')
+            const hasTestChanges = files.some(f =>
+              /\.(test|spec)\.(ts|tsx|js|jsx)$/.test(f.filename)
             );
 
-            if (hasCodeChanges && !hasTestChanges && !body.toLowerCase().includes('test')) {
+            const bodyLower = body.toLowerCase();
+            const mentionsTestsExplicitly =
+              /(tests?\s+(added|updated|written|cover|covered|covering))|covered by existing tests|no tests (needed|required)|tests?\s+not\s+required/gi.test(bodyLower);
+
+            if (hasCodeChanges && !hasTestChanges && !mentionsTestsExplicitly) {
               issues.push('🧪 No test files changed. Did you add/update tests?');
             }
 
