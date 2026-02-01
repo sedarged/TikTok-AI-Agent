@@ -153,7 +153,12 @@ export default function Projects() {
                   )}
 
                   {/* More Menu */}
-                  <div className="relative" ref={(el) => (menuRefs.current[project.id] = el)}>
+                  <div
+                    className="relative"
+                    ref={(el) => {
+                      menuRefs.current[project.id] = el;
+                    }}
+                  >
                     <button
                       onClick={() => setOpenMenuId(openMenuId === project.id ? null : project.id)}
                       className="btn btn-secondary text-sm px-3"
