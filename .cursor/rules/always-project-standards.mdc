@@ -35,5 +35,5 @@ alwaysApply: true
 
 ## References
 
-- Full patterns: [.github/copilot-instructions.md](.github/copilot-instructions.md)
-- Current status: [STATUS.md](STATUS.md)
+- Full patterns: [.github/copilot-instructions.md](../../.github/copilot-instructions.md)
+- Current status: [STATUS.md](../../STATUS.md)
