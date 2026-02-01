@@ -32,7 +32,7 @@ jobs:
         with:
           script: |
             const fs = require('fs');
-            
+
             // Fetch all open issues
             const { data: openIssues } = await github.rest.issues.listForRepo({
               owner: context.repo.owner,
@@ -40,7 +40,7 @@ jobs:
               state: 'open',
               per_page: 100
             });
-            
+
             // Fetch recently closed issues (last 14 days)
             const twoWeeksAgo = new Date();
             twoWeeksAgo.setDate(twoWeeksAgo.getDate() - 14);
@@ -51,34 +51,34 @@ jobs:
               since: twoWeeksAgo.toISOString(),
               per_page: 100
             });
-            
+
             // Helper to format issue list
             const formatIssueList = (issues) => {
               if (issues.length === 0) return 'No issues.';
               return issues.map(i => `- [#${i.number}](${i.html_url}) ${i.title}`).join('\n');
             };
-            
+
             // Filter issues by label
             const inProgress = openIssues.filter(i => i.labels.some(l => l.name === 'in-progress'));
             const p0Issues = openIssues.filter(i => i.labels.some(l => l.name === 'P0'));
             const p1Issues = openIssues.filter(i => i.labels.some(l => l.name === 'P1'));
             const p2Issues = openIssues.filter(i => i.labels.some(l => l.name === 'P2'));
-            
+
             // Read current STATUS.md
             let statusContent = fs.readFileSync('STATUS.md', 'utf8');
-            
+
             // Extract manual notes section (everything after AUTOMATION_END)
             const automationEndMarker = '<!-- AUTOMATION_END -->';
             const manualStartIndex = statusContent.indexOf(automationEndMarker);
-            const manualNotes = manualStartIndex >= 0 
+            const manualNotes = manualStartIndex >= 0
               ? statusContent.substring(manualStartIndex + automationEndMarker.length)
               : '\n\n---\n\n## Manual Notes & Context\n\n_Add notes here._\n';
-            
+
             // Build new automated section
             const timestamp = new Date().toISOString().split('T')[0];
             const automatedSection = `# Project Status
 
-**Last updated:** ${timestamp}  
+**Last updated:** ${timestamp}
 **See also:** [README.md](README.md) • [AGENTS.md](AGENTS.md) • [docs/](docs/README.md)
 
 This file is the **Single Source of Truth** for project status. AI agents and automation should read this first to understand current priorities and active work.
@@ -129,10 +129,10 @@ ${formatIssueList(closedIssues)}
 
             // Combine with manual notes
             const newContent = automatedSection + manualNotes;
-            
+
             // Write new content
             fs.writeFileSync('STATUS.md', newContent, 'utf8');
-            
+
             console.log('STATUS.md updated successfully');
             return 'success';
 
@@ -144,11 +144,11 @@ ${formatIssueList(closedIssues)}
           title: 'chore: update STATUS.md (automated)'
           body: |
             This is an automated update of STATUS.md based on current issue labels.
-            
+
             - In Progress: issues with `in-progress` label
             - Next P0/P1/P2: issues with priority labels
             - Recently Closed: issues closed in the last 14 days
-            
+
             **Manual notes section is preserved.**
           branch: automation/status-sync
           delete-branch: true
