@@ -105,12 +105,24 @@ export interface GenerateImageResult {
 export async function generateImage(
   prompt: string,
   outputPath: string,
-  size: '1024x1024' | '1024x1792' | '1792x1024' = '1024x1792'
+  size: '1024x1024' | '1024x1792' | '1792x1024' = '1024x1792',
+  negativePrompt?: string
 ): Promise<GenerateImageResult> {
   const client = getClient();
 
-  // Check cache first
-  const hashKey = createHash('images', prompt, size);
+  // Build full prompt with negative prompt appended if provided
+  // DALL-E 3 doesn't support negative prompts natively, so we append them to the main prompt
+  const trimmedNegativePrompt = negativePrompt?.trim();
+  let fullPrompt = prompt;
+  if (trimmedNegativePrompt) {
+    fullPrompt = `${prompt}. Avoid: ${trimmedNegativePrompt}`;
+  }
+
+  // Truncate to DALL-E 3's limit before caching/requesting
+  const finalPrompt = fullPrompt.substring(0, 4000);
+
+  // Check cache first (cache key based on exact prompt sent to API)
+  const hashKey = createHash('images', finalPrompt, size);
   const cached = await getCachedResult(hashKey);
 
   if (cached && cached.payloadPath && fs.existsSync(cached.payloadPath)) {
@@ -118,13 +130,13 @@ export async function generateImage(
     return { path: outputPath, estimatedCostUsd: 0 };
   }
 
-  logDebug(`Generating image: ${prompt.substring(0, 50)}...`);
+  logDebug(`Generating image: ${finalPrompt.substring(0, 50)}...`);
 
   const response = await pRetry(
     async () =>
       client.images.generate({
         model: 'dall-e-3',
-        prompt: prompt.substring(0, 4000), // DALL-E 3 has prompt limit
+        prompt: finalPrompt,
         n: 1,
         size,
         quality: 'standard',
