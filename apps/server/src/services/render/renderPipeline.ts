@@ -3,6 +3,7 @@ import { logError, logWarn } from '../../utils/logger.js';
 import { v4 as uuid } from 'uuid';
 import path from 'path';
 import fs from 'fs';
+import pLimit from 'p-limit';
 import {
   env,
   getDryRunFailStep,
@@ -61,6 +62,13 @@ const STEP_WEIGHTS: Record<RunStep, number> = {
   ffmpeg_render: 20,
   finalize_artifacts: 5,
 };
+
+// Maximum concurrent image generation requests
+// Default: 3 concurrent requests to balance speed with resource usage
+const MAX_CONCURRENT_IMAGE_GENERATION = parseInt(
+  process.env.MAX_CONCURRENT_IMAGE_GENERATION || '3',
+  10
+);
 
 interface ResumeState {
   completedSteps?: RunStep[];
@@ -444,7 +452,7 @@ async function executePipeline(run: Run, planVersion: PlanWithDetails) {
       await updateProgress(runId, progress);
     }
 
-    // Step 3: Generate Images
+    // Step 3: Generate Images (Parallelized)
     if (!completedSteps.includes('images_generate') && isActive(runId)) {
       if (await delayOrCancel('images_generate', runId)) {
         return;
@@ -458,13 +466,30 @@ async function executePipeline(run: Run, planVersion: PlanWithDetails) {
 
       const pack = getNichePack(project.nichePackId);
 
-      for (let i = 0; i < scenes.length; i++) {
-        if (!isActive(runId)) break;
+      // Create a concurrency limiter for image generation
+      const limit = pLimit(MAX_CONCURRENT_IMAGE_GENERATION);
 
-        const scene = scenes[i];
+      // Track completed images for progress updates
+      let completedImages = 0;
+
+      // Create an array of image generation tasks
+      const imageGenerationTasks = scenes.map((scene, i) => {
         const imagePath = path.join(imagesDir, `scene_${String(i).padStart(2, '0')}.png`);
 
-        if (!fs.existsSync(imagePath)) {
+        // Return a limited task that generates the image
+        return limit(async () => {
+          // Check if run is still active
+          if (!isActive(runId)) return;
+
+          // Skip if image already exists
+          if (fs.existsSync(imagePath)) {
+            completedImages++;
+            const stepProgress =
+              progress + (completedImages / scenes.length) * STEP_WEIGHTS.images_generate;
+            await updateProgress(runId, Math.round(stepProgress));
+            return;
+          }
+
           await addLog(runId, `Generating image for scene ${i + 1}/${scenes.length}...`);
 
           // Build full prompt with explicit composition requirements
@@ -494,12 +519,17 @@ async function executePipeline(run: Run, planVersion: PlanWithDetails) {
             );
             totalCostUsd += imgResult.estimatedCostUsd;
           }
-        }
 
-        // Update progress
-        const stepProgress = progress + ((i + 1) / scenes.length) * STEP_WEIGHTS.images_generate;
-        await updateProgress(runId, Math.round(stepProgress));
-      }
+          // Update progress after each image completes
+          completedImages++;
+          const stepProgress =
+            progress + (completedImages / scenes.length) * STEP_WEIGHTS.images_generate;
+          await updateProgress(runId, Math.round(stepProgress));
+        });
+      });
+
+      // Wait for all image generation tasks to complete
+      await Promise.all(imageGenerationTasks);
 
       completedSteps.push('images_generate');
       await saveResumeState(runId, { completedSteps });
