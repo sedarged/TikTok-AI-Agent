@@ -544,7 +544,7 @@ export default function QuickCreate({ status }: QuickCreateProps) {
                 Automating...
               </span>
             ) : (
-              'Automate (Generate &amp; Render)'
+              'Automate (Generate & Render)'
             )}
           </button>
         </div>
