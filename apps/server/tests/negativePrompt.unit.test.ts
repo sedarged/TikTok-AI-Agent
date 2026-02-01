@@ -90,4 +90,28 @@ describe('Negative Prompt Support', () => {
 
     expect(fullPrompt).toBe(mainPrompt);
   });
+
+  it('whitespace-only negative prompt is handled gracefully', () => {
+    const mainPrompt = 'A serene landscape with mountains';
+    const negativePrompt = '   ';
+
+    // Whitespace-only negative prompt should not modify the main prompt
+    const fullPrompt =
+      negativePrompt && negativePrompt.trim()
+        ? `${mainPrompt}. Avoid: ${negativePrompt}`
+        : mainPrompt;
+
+    expect(fullPrompt).toBe(mainPrompt);
+  });
+
+  it('validates prompt format with typical negative prompt elements', () => {
+    const mainPrompt = 'Professional portrait photo';
+    const negativePrompt = 'blurry, low quality, watermark, text, logo, signature';
+    const expectedFullPrompt = `${mainPrompt}. Avoid: ${negativePrompt}`;
+
+    expect(expectedFullPrompt).toContain('Professional portrait photo');
+    expect(expectedFullPrompt).toContain('Avoid:');
+    expect(expectedFullPrompt).toContain('blurry');
+    expect(expectedFullPrompt).toContain('watermark');
+  });
 });

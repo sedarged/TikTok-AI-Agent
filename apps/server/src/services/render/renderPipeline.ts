@@ -476,7 +476,7 @@ async function executePipeline(run: Run, planVersion: PlanWithDetails) {
             .join('. ');
 
           if (dryRun) {
-            const dryRunContent = `[dry-run image]\nPrompt: ${fullPrompt}\nNegative Prompt: ${scene.negativePrompt}\n`;
+            const dryRunContent = `[dry-run image]\nPrompt: ${fullPrompt}\nNegative Prompt: ${scene.negativePrompt || '(none)'}\n`;
             writePlaceholderFile(imagePath, dryRunContent);
           } else {
             const imgResult = await generateImage(
