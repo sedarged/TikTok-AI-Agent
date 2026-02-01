@@ -1,7 +1,8 @@
 # AGENTS.md – Instructions for AI Coding Agents
 
 **Project:** TikTok-AI-Agent (React + Express + TypeScript monorepo).  
-**Główny checklist:** [DEVELOPMENT_MASTER_PLAN.md](DEVELOPMENT_MASTER_PLAN.md). **Mapa dokumentów:** [DOCUMENTATION_INDEX.md](DOCUMENTATION_INDEX.md).  
+**📍 Read first:** [STATUS.md](STATUS.md) – Current priorities and active work.  
+**Documentation:** [docs/README.md](docs/README.md) • [.cursor/docs/](.cursor/docs/) • [DOCUMENTATION_INDEX.md](DOCUMENTATION_INDEX.md)  
 **See also:** [.github/copilot-instructions.md](.github/copilot-instructions.md), `.cursor/rules/`.
 
 ## Commands
@@ -53,7 +54,8 @@ To get better results from the agent: be **specific** (e.g. “add Zod validatio
 
 ## References
 
+- **Current status:** [STATUS.md](STATUS.md) – Read this first for priorities
 - **Patterns & architecture:** [.github/copilot-instructions.md](.github/copilot-instructions.md)
-- **Master checklist:** [DEVELOPMENT_MASTER_PLAN.md](DEVELOPMENT_MASTER_PLAN.md)
+- **AI docs:** [.cursor/docs/](.cursor/docs/) – Project layout, common pitfalls, decision trees
 - **Cursor rules:** `.cursor/rules/` (always-applied + file-scoped)
 - **Skills:** Skille w `.cursor/skills/` (Agent Skills format). Opcjonalnie `npx skills add <owner/repo>` dla skilli z [skills.sh](https://skills.sh) (np. `npx skills add antfu/skills -s vitest -a cursor -y`).
