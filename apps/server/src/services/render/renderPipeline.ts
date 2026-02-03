@@ -583,6 +583,7 @@ async function executePipeline(run: Run, planVersion: PlanWithDetails) {
 
       completedSteps.push('images_generate');
       await saveResumeState(runId, { completedSteps });
+      progress += STEP_WEIGHTS.images_generate;
     }
 
     // Step 4: Build Captions
