@@ -156,7 +156,6 @@ sequenceDiagram
 - `PlanVersion` - Immutable plan snapshot (hooks, outline, script, scenes)
 - `Scene` - Individual video segment with narration + visual prompt
 - `Run` - Render execution with step tracking
-- `ChannelPreset` - Reusable niche pack configurations
 
 See [Data Model](data-model.md) for detailed schema.
 

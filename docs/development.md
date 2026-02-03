@@ -460,8 +460,9 @@ Create `.vscode/launch.json`:
 
 ```typescript
 // apps/server/src/utils/apiSchemas.ts
-export const createChannelPresetSchema = z.object({
-  name: z.string().min(1).max(100),
+export const createProjectSchema = z.object({
+  topic: z.string().min(1).max(500),
+  nichePackId: z.string().min(1),
   voicePreset: z.string().min(1).max(50),
   tempo: z.enum(['slow', 'normal', 'fast']),
 }).strict();
@@ -470,16 +471,16 @@ export const createChannelPresetSchema = z.object({
 **2. Create route:**
 
 ```typescript
-// apps/server/src/routes/channelPresets.ts
+// apps/server/src/routes/project.ts
 import { Router } from 'express';
 import { z } from 'zod';
 import { prisma } from '../db/client.js';
-import { createChannelPresetSchema } from '../utils/apiSchemas.js';
+import { createProjectSchema } from '../utils/apiSchemas.js';
 
-export const channelPresetRoutes = Router();
+export const projectRoutes = Router();
 
-channelPresetRoutes.post('/', async (req, res) => {
-  const parsed = createChannelPresetSchema.safeParse(req.body);
+projectRoutes.post('/', async (req, res) => {
+  const parsed = createProjectSchema.safeParse(req.body);
   if (!parsed.success) {
     return res.status(400).json({
       error: 'Invalid payload',
@@ -487,11 +488,11 @@ channelPresetRoutes.post('/', async (req, res) => {
     });
   }
 
-  const preset = await prisma.channelPreset.create({
+  const project = await prisma.project.create({
     data: parsed.data,
   });
 
-  res.status(201).json(preset);
+  res.status(201).json(project);
 });
 ```
 
@@ -499,35 +500,34 @@ channelPresetRoutes.post('/', async (req, res) => {
 
 ```typescript
 // apps/server/src/index.ts
-import { channelPresetRoutes } from './routes/channelPresets.js';
+import { projectRoutes } from './routes/project.js';
 
-app.use('/api/channel-presets', channelPresetRoutes);
+app.use('/api/projects', projectRoutes);
 ```
 
 **4. Test:**
 
 ```bash
-curl -X POST http://localhost:3001/api/channel-presets \
+curl -X POST http://localhost:3001/api/projects \
   -H "Content-Type: application/json" \
-  -d '{"name":"Horror Channel","voicePreset":"onyx","tempo":"slow"}'
+  -d '{"topic":"Horror stories","nichePackId":"horror","voicePreset":"onyx","tempo":"slow"}'
 ```
 
 **5. Add frontend client:**
 
 ```typescript
 // apps/web/src/api/client.ts
-export async function createChannelPreset(data: {
-  name: string;
+export async function createProject(data: {
+  topic: string;
+  nichePackId: string;
   voicePreset: string;
   tempo: string;
 }) {
-  const res = await fetch('/api/channel-presets', {
+  return fetchApi<Project>('/projects', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(data),
   });
-  if (!res.ok) throw new Error('Failed to create preset');
-  return res.json();
 }
 ```
 
@@ -827,10 +827,10 @@ function processRun(run: any) {
 
 ```bash
 # Feature development
-git checkout -b feature/add-channel-presets
+git checkout -b feature/add-script-templates
 # ... make changes
-git commit -m "Add channel presets API"
-git push origin feature/add-channel-presets
+git commit -m "Add script templates API"
+git push origin feature/add-script-templates
 # Open PR to main
 
 # Bug fixes

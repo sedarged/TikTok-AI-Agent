@@ -14,7 +14,6 @@ import { runRoutes } from './routes/run.js';
 import { statusRoutes } from './routes/status.js';
 import { nichePackRoutes } from './routes/nichePack.js';
 import { topicSuggestionsRoutes } from './routes/topicSuggestions.js';
-import { channelPresetsRoutes } from './routes/channelPresets.js';
 import { scriptTemplatesRoutes } from './routes/scriptTemplates.js';
 import { testRoutes } from './routes/test.js';
 import { ensureConnection } from './db/client.js';
@@ -135,7 +134,6 @@ export function createApp() {
   app.use('/api/status', statusRoutes);
   app.use('/api/niche-packs', nichePackRoutes);
   app.use('/api/topic-suggestions', topicSuggestionsRoutes);
-  app.use('/api/channel-presets', channelPresetsRoutes);
   app.use('/api/script-templates', scriptTemplatesRoutes);
   app.use('/api/project', projectRoutes);
   app.use('/api/projects', projectRoutes);
