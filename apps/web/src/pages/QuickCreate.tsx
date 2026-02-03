@@ -2,7 +2,6 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   getNichePacks,
-  getChannelPresets,
   getScriptTemplates,
   createProject,
   generatePlan,
@@ -11,7 +10,7 @@ import {
   getTopicSuggestions,
   type ScriptTemplate,
 } from '../api/client';
-import type { NichePack, ChannelPreset, ProviderStatus } from '../api/types';
+import type { NichePack, ProviderStatus } from '../api/types';
 import { VOICE_PRESETS } from '../api/types';
 import { getErrorMessage } from '../utils/errors';
 
@@ -43,7 +42,6 @@ const LANGUAGES = [
 export default function QuickCreate({ status }: QuickCreateProps) {
   const navigate = useNavigate();
   const [nichePacks, setNichePacks] = useState<NichePack[]>([]);
-  const [channelPresets, setChannelPresets] = useState<ChannelPreset[]>([]);
   const [scriptTemplates, setScriptTemplates] = useState<ScriptTemplate[]>([]);
   const [loading, setLoading] = useState(false);
   const [loadingAutomate, setLoadingAutomate] = useState(false);
@@ -70,9 +68,6 @@ export default function QuickCreate({ status }: QuickCreateProps) {
     getNichePacks()
       .then(setNichePacks)
       .catch((err) => setError(getErrorMessage(err)));
-    getChannelPresets()
-      .then(setChannelPresets)
-      .catch(() => setChannelPresets([]));
     getScriptTemplates()
       .then(setScriptTemplates)
       .catch(() => setScriptTemplates([]));
@@ -249,40 +244,6 @@ export default function QuickCreate({ status }: QuickCreateProps) {
             </div>
           )}
         </div>
-
-        {/* Use preset */}
-        {channelPresets.length > 0 && (
-          <div>
-            <label className="block text-sm font-medium text-gray-300 mb-2">Use preset</label>
-            <select
-              className="input w-full"
-              value=""
-              onChange={(e) => {
-                const id = e.target.value;
-                if (!id) return;
-                const preset = channelPresets.find((p) => p.id === id);
-                if (preset) {
-                  setFormData({
-                    ...formData,
-                    nichePackId: preset.nichePackId,
-                    voicePreset: preset.voicePreset,
-                    targetLengthSec: preset.targetLengthSec,
-                    tempo: preset.tempo,
-                    language: preset.language ?? formData.language,
-                  });
-                }
-                e.target.value = '';
-              }}
-            >
-              <option value="">— Select preset to fill form —</option>
-              {channelPresets.map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.name}
-                </option>
-              ))}
-            </select>
-          </div>
-        )}
 
         {/* Script template */}
         {scriptTemplates.length > 0 && (

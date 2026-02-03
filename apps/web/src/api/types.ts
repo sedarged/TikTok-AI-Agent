@@ -165,17 +165,6 @@ export interface NichePack {
   description: string;
 }
 
-// Channel preset (pre-filled form for QuickCreate)
-export interface ChannelPreset {
-  id: string;
-  name: string;
-  nichePackId: string;
-  voicePreset: string;
-  targetLengthSec: number;
-  tempo: string;
-  language?: string;
-}
-
 // Validation result
 export interface ValidationResult {
   errors: string[];

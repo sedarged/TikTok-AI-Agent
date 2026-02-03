@@ -4,7 +4,6 @@ import type {
   Scene,
   Run,
   NichePack,
-  ChannelPreset,
   ValidationResult,
   VerificationResult,
   ProviderStatus,
@@ -73,10 +72,6 @@ export async function getTopicSuggestions(
 ): Promise<string[]> {
   const params = new URLSearchParams({ nichePackId, limit: String(limit) });
   return fetchApi<string[]>(`/topic-suggestions?${params}`);
-}
-
-export async function getChannelPresets(): Promise<ChannelPreset[]> {
-  return fetchApi<ChannelPreset[]>('/channel-presets');
 }
 
 export interface ScriptTemplate {
