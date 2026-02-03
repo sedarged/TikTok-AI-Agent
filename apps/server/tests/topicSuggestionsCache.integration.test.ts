@@ -1,4 +1,4 @@
-import { beforeEach, afterAll, describe, expect, it, vi } from 'vitest';
+import { beforeEach, afterEach, afterAll, describe, expect, it, vi } from 'vitest';
 import { prisma } from '../src/db/client.js';
 import { getTopicSuggestions } from '../src/services/trends/topicSuggestions.js';
 import * as openaiModule from '../src/services/providers/openai.js';
@@ -28,9 +28,13 @@ describe('Topic Suggestions Caching', () => {
       });
   });
 
+  afterEach(() => {
+    // Clean up the spy after each test
+    callOpenAISpy?.mockRestore();
+  });
+
   afterAll(async () => {
     await prisma.$disconnect();
-    callOpenAISpy?.mockRestore();
   });
 
   it('caches topic suggestions and returns cached result on subsequent calls', async () => {

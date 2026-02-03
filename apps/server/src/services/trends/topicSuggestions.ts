@@ -9,6 +9,8 @@ import crypto from 'crypto';
 
 /**
  * Create a hash key for caching
+ * Note: MD5 is used for cache key generation (non-security use case)
+ * to match existing cache pattern in openai.ts
  */
 function createCacheHash(...args: string[]): string {
   return crypto.createHash('md5').update(args.join('|')).digest('hex');
