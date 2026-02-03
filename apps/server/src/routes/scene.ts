@@ -24,7 +24,7 @@ const sceneLockSchema = z
   })
   .strict();
 
-const sceneIdParamsSchema = z.object({ sceneId: z.string().uuid() });
+const sceneIdParamsSchema = z.object({ sceneId: z.uuid() });
 
 // Get single scene
 sceneRoutes.get('/:sceneId', async (req, res) => {

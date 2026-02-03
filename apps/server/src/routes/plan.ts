@@ -36,7 +36,7 @@ const planUpdateSchema = z
   })
   .strict();
 
-const planVersionIdParamsSchema = z.object({ planVersionId: z.string().uuid() });
+const planVersionIdParamsSchema = z.object({ planVersionId: z.uuid() });
 
 // Get plan version
 planRoutes.get('/:planVersionId', async (req, res) => {
