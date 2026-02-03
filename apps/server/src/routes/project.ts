@@ -21,7 +21,7 @@ const createProjectSchema = z
   })
   .strict();
 
-const projectIdParamsSchema = z.object({ id: z.string().uuid() });
+const projectIdParamsSchema = z.object({ id: z.uuid() });
 
 const generatePlanBodySchema = z
   .object({

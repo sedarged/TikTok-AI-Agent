@@ -10,7 +10,7 @@ import { logError, logDebug } from '../utils/logger.js';
 
 export const runRoutes = Router();
 
-const runIdParamsSchema = z.object({ runId: z.string().uuid() });
+const runIdParamsSchema = z.object({ runId: z.uuid() });
 
 const retryBodySchema = z
   .object({
