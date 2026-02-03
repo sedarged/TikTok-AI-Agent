@@ -3,6 +3,7 @@ import { logError, logWarn } from '../../utils/logger.js';
 import { v4 as uuid } from 'uuid';
 import path from 'path';
 import fs from 'fs';
+import pLimit from 'p-limit';
 import {
   env,
   getDryRunFailStep,
@@ -61,6 +62,24 @@ const STEP_WEIGHTS: Record<RunStep, number> = {
   ffmpeg_render: 20,
   finalize_artifacts: 5,
 };
+
+// Maximum concurrent image generation requests
+// Default: 3 concurrent requests to balance speed with resource usage
+const rawMaxConcurrentImages = process.env.MAX_CONCURRENT_IMAGE_GENERATION;
+const parsedMaxConcurrentImages = rawMaxConcurrentImages
+  ? Number.parseInt(rawMaxConcurrentImages, 10)
+  : 3;
+const MAX_CONCURRENT_IMAGE_GENERATION =
+  Number.isInteger(parsedMaxConcurrentImages) && parsedMaxConcurrentImages > 0
+    ? parsedMaxConcurrentImages
+    : (() => {
+        if (rawMaxConcurrentImages) {
+          logWarn(
+            `Invalid MAX_CONCURRENT_IMAGE_GENERATION value "${rawMaxConcurrentImages}", falling back to default (3).`
+          );
+        }
+        return 3;
+      })();
 
 interface ResumeState {
   completedSteps?: RunStep[];
@@ -444,7 +463,7 @@ async function executePipeline(run: Run, planVersion: PlanWithDetails) {
       await updateProgress(runId, progress);
     }
 
-    // Step 3: Generate Images
+    // Step 3: Generate Images (Parallelized)
     if (!completedSteps.includes('images_generate') && isActive(runId)) {
       if (await delayOrCancel('images_generate', runId)) {
         return;
@@ -458,13 +477,31 @@ async function executePipeline(run: Run, planVersion: PlanWithDetails) {
 
       const pack = getNichePack(project.nichePackId);
 
-      for (let i = 0; i < scenes.length; i++) {
-        if (!isActive(runId)) break;
+      // Create a concurrency limiter for image generation
+      const limit = pLimit(MAX_CONCURRENT_IMAGE_GENERATION);
 
-        const scene = scenes[i];
+      // Track completed images for progress updates
+      let completedImages = 0;
+
+      // Create an array of image generation tasks
+      const imageGenerationTasks = scenes.map((scene, i) => {
         const imagePath = path.join(imagesDir, `scene_${String(i).padStart(2, '0')}.png`);
 
-        if (!fs.existsSync(imagePath)) {
+        // Return a limited task that generates the image
+        return limit(async () => {
+          // Check if run is still active (early return on cancellation is safe;
+          // remaining tasks will complete gracefully and next step check will exit)
+          if (!isActive(runId)) return { cost: 0, skipped: true };
+
+          // Skip if image already exists
+          if (fs.existsSync(imagePath)) {
+            completedImages++;
+            const stepProgress =
+              progress + (completedImages / scenes.length) * STEP_WEIGHTS.images_generate;
+            await updateProgress(runId, Math.round(stepProgress));
+            return { cost: 0, skipped: true };
+          }
+
           await addLog(runId, `Generating image for scene ${i + 1}/${scenes.length}...`);
 
           // Build full prompt with explicit composition requirements
@@ -481,6 +518,7 @@ async function executePipeline(run: Run, planVersion: PlanWithDetails) {
           const negativePrompt =
             scene.negativePrompt?.trim() || pack?.globalNegativePrompt?.trim() || '';
 
+          let cost = 0;
           if (dryRun) {
             const negativePromptDisplay = negativePrompt || '(none)';
             const dryRunContent = `[dry-run image]\nPrompt: ${fullPrompt}\nNegative Prompt: ${negativePromptDisplay}\n`;
@@ -492,13 +530,55 @@ async function executePipeline(run: Run, planVersion: PlanWithDetails) {
               '1024x1792',
               negativePrompt
             );
-            totalCostUsd += imgResult.estimatedCostUsd;
+            cost = imgResult.estimatedCostUsd;
           }
+
+          // Update progress after each image completes
+          completedImages++;
+          const stepProgress =
+            progress + (completedImages / scenes.length) * STEP_WEIGHTS.images_generate;
+          await updateProgress(runId, Math.round(stepProgress));
+
+          return { cost, skipped: false };
+        });
+      });
+
+      // Wait for all image generation tasks to complete (allowing per-task failures)
+      const imageResults = await Promise.allSettled(imageGenerationTasks);
+
+      // Collect any failed image generations
+      const failedImages = imageResults
+        .map((result, index) => ({ result, index }))
+        .filter(
+          (r): r is { result: PromiseRejectedResult; index: number } =>
+            r.result.status === 'rejected'
+        );
+
+      if (failedImages.length > 0) {
+        // Log each failure with context, then fail the step after all tasks have completed
+        for (const { result, index } of failedImages) {
+          const reason = result.reason;
+          const message =
+            reason instanceof Error ? reason.message : String(reason ?? 'Unknown error');
+          logError('Image generation failed', {
+            runId,
+            sceneIndex: index,
+            error: message,
+          });
         }
 
-        // Update progress
-        const stepProgress = progress + ((i + 1) / scenes.length) * STEP_WEIGHTS.images_generate;
-        await updateProgress(runId, Math.round(stepProgress));
+        throw new Error(
+          `Failed to generate ${failedImages.length} image(s) out of ${scenes.length}`
+        );
+      }
+
+      // Accumulate costs from successful results (avoiding race conditions)
+      const successfulResults = imageResults.filter(
+        (r): r is PromiseFulfilledResult<{ cost: number; skipped: boolean }> =>
+          r.status === 'fulfilled'
+      );
+      for (const { value } of successfulResults) {
+        totalCostUsd += value.cost;
       }
 
       completedSteps.push('images_generate');
