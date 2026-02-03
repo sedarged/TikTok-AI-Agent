@@ -65,10 +65,21 @@ const STEP_WEIGHTS: Record<RunStep, number> = {
 
 // Maximum concurrent image generation requests
 // Default: 3 concurrent requests to balance speed with resource usage
-const MAX_CONCURRENT_IMAGE_GENERATION = parseInt(
-  process.env.MAX_CONCURRENT_IMAGE_GENERATION || '3',
-  10
-);
+const rawMaxConcurrentImages = process.env.MAX_CONCURRENT_IMAGE_GENERATION;
+const parsedMaxConcurrentImages = rawMaxConcurrentImages
+  ? Number.parseInt(rawMaxConcurrentImages, 10)
+  : 3;
+const MAX_CONCURRENT_IMAGE_GENERATION =
+  Number.isInteger(parsedMaxConcurrentImages) && parsedMaxConcurrentImages > 0
+    ? parsedMaxConcurrentImages
+    : (() => {
+        if (rawMaxConcurrentImages) {
+          logWarn(
+            `Invalid MAX_CONCURRENT_IMAGE_GENERATION value "${rawMaxConcurrentImages}", falling back to default (3).`
+          );
+        }
+        return 3;
+      })();
 
 interface ResumeState {
   completedSteps?: RunStep[];
@@ -480,7 +491,7 @@ async function executePipeline(run: Run, planVersion: PlanWithDetails) {
         return limit(async () => {
           // Check if run is still active (early return on cancellation is safe;
           // remaining tasks will complete gracefully and next step check will exit)
-          if (!isActive(runId)) return;
+          if (!isActive(runId)) return { cost: 0, skipped: true };
 
           // Skip if image already exists
           if (fs.existsSync(imagePath)) {
@@ -488,7 +499,7 @@ async function executePipeline(run: Run, planVersion: PlanWithDetails) {
             const stepProgress =
               progress + (completedImages / scenes.length) * STEP_WEIGHTS.images_generate;
             await updateProgress(runId, Math.round(stepProgress));
-            return;
+            return { cost: 0, skipped: true };
           }
 
           await addLog(runId, `Generating image for scene ${i + 1}/${scenes.length}...`);
@@ -507,6 +518,7 @@ async function executePipeline(run: Run, planVersion: PlanWithDetails) {
           const negativePrompt =
             scene.negativePrompt?.trim() || pack?.globalNegativePrompt?.trim() || '';
 
+          let cost = 0;
           if (dryRun) {
             const negativePromptDisplay = negativePrompt || '(none)';
             const dryRunContent = `[dry-run image]\nPrompt: ${fullPrompt}\nNegative Prompt: ${negativePromptDisplay}\n`;
@@ -518,7 +530,7 @@ async function executePipeline(run: Run, planVersion: PlanWithDetails) {
               '1024x1792',
               negativePrompt
             );
-            totalCostUsd += imgResult.estimatedCostUsd;
+            cost = imgResult.estimatedCostUsd;
           }
 
           // Update progress after each image completes
@@ -526,15 +538,51 @@ async function executePipeline(run: Run, planVersion: PlanWithDetails) {
           const stepProgress =
             progress + (completedImages / scenes.length) * STEP_WEIGHTS.images_generate;
           await updateProgress(runId, Math.round(stepProgress));
+
+          return { cost, skipped: false };
         });
       });
 
-      // Wait for all image generation tasks to complete
-      await Promise.all(imageGenerationTasks);
+      // Wait for all image generation tasks to complete (allowing per-task failures)
+      const imageResults = await Promise.allSettled(imageGenerationTasks);
+
+      // Collect any failed image generations
+      const failedImages = imageResults
+        .map((result, index) => ({ result, index }))
+        .filter(
+          (r): r is { result: PromiseRejectedResult; index: number } =>
+            r.result.status === 'rejected'
+        );
+
+      if (failedImages.length > 0) {
+        // Log each failure with context, then fail the step after all tasks have completed
+        for (const { result, index } of failedImages) {
+          const reason = result.reason;
+          const message =
+            reason instanceof Error ? reason.message : String(reason ?? 'Unknown error');
+          logError('Image generation failed', {
+            runId,
+            sceneIndex: index,
+            error: message,
+          });
+        }
+
+        throw new Error(
+          `Failed to generate ${failedImages.length} image(s) out of ${scenes.length}`
+        );
+      }
+
+      // Accumulate costs from successful results (avoiding race conditions)
+      const successfulResults = imageResults.filter(
+        (r): r is PromiseFulfilledResult<{ cost: number; skipped: boolean }> =>
+          r.status === 'fulfilled'
+      );
+      for (const { value } of successfulResults) {
+        totalCostUsd += value.cost;
+      }
 
       completedSteps.push('images_generate');
       await saveResumeState(runId, { completedSteps });
-      progress += STEP_WEIGHTS.images_generate;
     }
 
     // Step 4: Build Captions
