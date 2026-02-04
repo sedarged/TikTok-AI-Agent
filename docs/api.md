@@ -26,15 +26,54 @@ Production: https://yourdomain.com/api
 
 ## Authentication
 
-**Currently:** No authentication (open API)
+**Status:** ✅ Implemented (as of 2026-02-04)
 
-**Production:** Add authentication middleware before deployment:
+All state-changing API endpoints (POST, PUT, PATCH, DELETE) now require authentication when `API_KEY` is configured.
 
-```typescript
-app.use('/api', authMiddleware);
+### Configuration
+
+Set the `API_KEY` environment variable to enable authentication:
+
+```bash
+# Generate a secure random key
+openssl rand -hex 32
+
+# Set in .env file
+API_KEY=your-secure-api-key-here
 ```
 
-See [security.md](security.md) for authentication implementation.
+### Usage
+
+Include the API key in the `Authorization` header for all state-changing requests:
+
+```bash
+# Using curl
+curl -X POST http://localhost:3001/api/project \
+  -H "Authorization: Bearer your-api-key-here" \
+  -H "Content-Type: application/json" \
+  -d '{"topic":"My topic","nichePackId":"facts"}'
+```
+
+```typescript
+// Using fetch
+const response = await fetch('http://localhost:3001/api/project', {
+  method: 'POST',
+  headers: {
+    'Authorization': `Bearer ${apiKey}`,
+    'Content-Type': 'application/json',
+  },
+  body: JSON.stringify({ topic: 'My topic', nichePackId: 'facts' }),
+});
+```
+
+### Behavior
+
+- **Production (`NODE_ENV=production`):** `API_KEY` is **required**. The server will not start without it, ensuring production deployments are always authenticated.
+- **When API_KEY is set:** Write operations (POST, PUT, PATCH, DELETE) require authentication via the `Authorization: Bearer <API_KEY>` header.
+- **When API_KEY is not set (development only):** Authentication is disabled and all endpoints are accessible without authentication. **Never use this mode in production or on any publicly reachable environment.**
+- **Read operations (GET):** Always accessible without authentication for backward compatibility.
+
+See [SECURITY.md](../SECURITY.md) for more details on authentication and security best practices.
 
 ## Error Codes
 
@@ -43,6 +82,7 @@ See [security.md](security.md) for authentication implementation.
 | 200 | Success | GET request successful |
 | 201 | Created | POST created resource |
 | 400 | Bad Request | Invalid input validation |
+| 401 | Unauthorized | Missing or invalid API key |
 | 404 | Not Found | Resource doesn't exist |
 | 500 | Internal Error | Server error |
 

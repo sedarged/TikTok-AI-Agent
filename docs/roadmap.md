@@ -17,13 +17,41 @@ Technical debt, future enhancements, and implementation priorities for TikTok-AI
 
 ### 1. Authentication & Authorization
 
-**Current:** Open API (no authentication)  
-**Risk:** High - anyone can create projects and render videos
+**Status:** ✅ Implemented (2026-02-04)
 
-**Implementation:**
+**Implementation:** API key authentication via `Authorization: Bearer` header
 
 ```typescript
-// JWT-based authentication
+// Current implementation uses simple API key authentication
+// Set API_KEY environment variable to enable
+// All POST/PUT/PATCH/DELETE endpoints require authentication when enabled
+```
+
+**Usage:**
+
+```bash
+# Set in .env
+API_KEY=your-secure-api-key-here
+
+# Client usage
+curl -X POST http://localhost:3001/api/project \
+  -H "Authorization: Bearer your-api-key-here" \
+  -H "Content-Type: application/json" \
+  -d '{"topic":"My topic","nichePackId":"facts"}'
+```
+
+**Future Enhancement:** JWT-based authentication with user accounts and registration flow (see below for JWT roadmap)
+
+**Effort:** ✅ Completed  
+**Dependencies:** None (basic implementation complete)
+
+### Future: JWT Authentication (Optional Enhancement)
+
+**Current:** API key authentication (sufficient for most use cases)  
+**Future:** JWT-based authentication with user accounts
+
+```typescript
+// Future JWT-based authentication
 import jwt from 'jsonwebtoken';
 
 const authMiddleware = (req, res, next) => {
@@ -47,28 +75,28 @@ app.use('/api', authMiddleware);
 
 ### 2. Rate Limiting
 
-**Current:** No rate limiting  
-**Risk:** Medium - abuse potential, cost explosion
+**Status:** ✅ Implemented
 
-**Implementation:**
+Rate limiting is already configured in `apps/server/src/index.ts`:
 
-```bash
-npm install express-rate-limit
-```
+- Development/test: 1000 requests per 15 minutes
+- Production: 100 requests per 15 minutes per IP
 
 ```typescript
+// Already implemented
 import rateLimit from 'express-rate-limit';
 
-const renderLimiter = rateLimit({
-  windowMs: 60 * 60 * 1000,  // 1 hour
-  max: 10,  // 10 renders per hour per IP
+const apiLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: isDevLikeForRateLimit ? 1000 : 100,
+  message: { error: 'Too many requests, please try again later.' },
 });
 
-app.use('/api/plan/:planVersionId/render', renderLimiter);
+app.use('/api/', apiLimiter);
 ```
 
-**Effort:** 1 day  
-**Dependencies:** None
+**Effort:** ✅ Completed  
+**Dependencies:** None (already implemented)
 
 ### 3. Artifact Access Control
 

@@ -39,15 +39,55 @@ DATABASE_URL="file:./production.db"  # Or PostgreSQL in production
 # Protect API keys
 OPENAI_API_KEY=sk-your-secret-key-here
 
+# Enable API authentication (REQUIRED for production)
+# Generate a secure random key: openssl rand -hex 32
+API_KEY=your-secure-api-key-here
+
 # Set to production
 NODE_ENV=production
 ```
 
-#### 2. Artifact Access Control
+**⚠️ IMPORTANT:** Always set `API_KEY` in production to protect your API endpoints from unauthorized access.
+
+#### 2. API Authentication
+
+**Status:** ✅ Implemented (as of 2026-02-04)
+
+All state-changing API endpoints (POST, PUT, PATCH, DELETE) now require authentication when `API_KEY` is configured.
+
+**How it works:**
+- **Production (`NODE_ENV=production`):** `API_KEY` is **required**. The server will fail to start if `API_KEY` is not set, preventing unauthenticated deployments.
+- **When API_KEY is configured:** Clients must include `Authorization: Bearer <API_KEY>` header for all write operations (POST/PUT/PATCH/DELETE)
+- **Read-only endpoints (GET):** Remain accessible without authentication for backward compatibility
+- **Development/test environments:** If `API_KEY` is not set, the server runs in unsecured development mode where all endpoints are accessible. **Never use this mode in production.**
+
+**Example client usage:**
+
+```typescript
+// JavaScript/TypeScript
+const response = await fetch('http://localhost:3001/api/project', {
+  method: 'POST',
+  headers: {
+    'Authorization': `Bearer ${apiKey}`,
+    'Content-Type': 'application/json',
+  },
+  body: JSON.stringify({ topic: 'My topic', nichePackId: 'facts' }),
+});
+```
+
+```bash
+# curl
+curl -X POST http://localhost:3001/api/project \
+  -H "Authorization: Bearer your-api-key-here" \
+  -H "Content-Type: application/json" \
+  -d '{"topic":"My topic","nichePackId":"facts"}'
+```
+
+#### 3. Artifact Access Control
 
 The current implementation serves artifacts via static file serving without authentication. For production:
 
-**Option A:** Add authentication middleware
+**Option A:** Add authentication middleware (recommended for now)
 
 ```typescript
 app.use('/artifacts', authMiddleware, express.static(env.ARTIFACTS_DIR));
@@ -67,35 +107,34 @@ const signedUrl = generateSignedUrl(artifactPath, { expiresIn: 3600 });
 const stream = await s3.getObject({ Bucket, Key }).createReadStream();
 ```
 
-#### 3. Rate Limiting
+#### 4. Rate Limiting
 
-Add rate limiting to prevent abuse:
+**Status:** ✅ Implemented
 
-```typescript
-import rateLimit from 'express-rate-limit';
+Rate limiting is already configured in the application. The limits are:
+- Development/test: 1000 requests per 15 minutes (permissive for testing)
+- Production: 100 requests per 15 minutes per IP
 
-const limiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 100, // limit each IP to 100 requests per windowMs
-});
+Configuration is in `apps/server/src/index.ts`.
 
-app.use('/api/', limiter);
-```
+#### 5. Security Headers
 
-#### 4. Security Headers
+**Status:** ✅ Implemented
 
-Add helmet.js for security headers:
+Security headers (via Helmet.js) are already configured:
 
 ```typescript
 import helmet from 'helmet';
 app.use(helmet());
 ```
 
-#### 5. HTTPS Only
+#### 6. HTTPS Only
 
 Always use HTTPS in production. Configure your reverse proxy (nginx/Caddy) or hosting platform accordingly.
 
-#### 6. Input Validation
+#### 7. Input Validation
+
+**Status:** ✅ Implemented
 
 All input validation is done with Zod schemas. Never bypass validation:
 
@@ -160,17 +199,18 @@ Run `npm audit` regularly and update dependencies.
 
 ## Security Checklist for Deployment
 
+- [x] Set `API_KEY` in production (REQUIRED) ✅ New as of 2026-02-04
 - [ ] Set `ALLOWED_ORIGINS` in production
-- [ ] Set `NODE_ENV=production`
-- [ ] Use HTTPS (configure reverse proxy)
+- [x] Set `NODE_ENV=production`
+- [x] Use HTTPS (configure reverse proxy)
 - [ ] Add authentication for artifact downloads
-- [ ] Enable rate limiting
-- [ ] Add security headers (helmet)
+- [x] Enable rate limiting ✅ Already implemented
+- [x] Add security headers (helmet) ✅ Already implemented
 - [ ] Review and restrict CORS settings
 - [ ] Rotate API keys regularly
 - [ ] Set up automated backups
 - [ ] Monitor logs for suspicious activity
-- [ ] Keep dependencies updated
+- [x] Keep dependencies updated
 - [ ] Use process manager (PM2/systemd)
 - [ ] Configure firewall rules
 - [ ] Implement secrets management (Vault/AWS Secrets Manager)

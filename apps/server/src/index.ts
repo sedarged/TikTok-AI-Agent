@@ -16,6 +16,7 @@ import { nichePackRoutes } from './routes/nichePack.js';
 import { topicSuggestionsRoutes } from './routes/topicSuggestions.js';
 import { scriptTemplatesRoutes } from './routes/scriptTemplates.js';
 import { testRoutes } from './routes/test.js';
+import { requireAuthForWrites } from './middleware/auth.js';
 import { ensureConnection } from './db/client.js';
 import { resetStuckRuns } from './services/render/renderPipeline.js';
 import { logError, logWarn, logInfo, logDebug } from './utils/logger.js';
@@ -131,17 +132,21 @@ export function createApp() {
   }
 
   // API Routes
+  // Read-only routes (no authentication required by default)
   app.use('/api/status', statusRoutes);
   app.use('/api/niche-packs', nichePackRoutes);
   app.use('/api/topic-suggestions', topicSuggestionsRoutes);
   app.use('/api/script-templates', scriptTemplatesRoutes);
-  app.use('/api/project', projectRoutes);
-  app.use('/api/projects', projectRoutes);
-  app.use('/api/automate', automateRoutes);
-  app.use('/api/batch', batchRoutes);
-  app.use('/api/plan', planRoutes);
-  app.use('/api/scene', sceneRoutes);
-  app.use('/api/run', runRoutes);
+
+  // State-changing routes (authentication required for POST/PUT/PATCH/DELETE only)
+  // GET requests on these routes are allowed without authentication for backward compatibility
+  app.use('/api/project', requireAuthForWrites, projectRoutes);
+  app.use('/api/projects', requireAuthForWrites, projectRoutes);
+  app.use('/api/automate', requireAuthForWrites, automateRoutes);
+  app.use('/api/batch', requireAuthForWrites, batchRoutes);
+  app.use('/api/plan', requireAuthForWrites, planRoutes);
+  app.use('/api/scene', requireAuthForWrites, sceneRoutes);
+  app.use('/api/run', requireAuthForWrites, runRoutes);
 
   if (isRenderDryRun() || isTestMode()) {
     app.use('/api/test', testRoutes);
