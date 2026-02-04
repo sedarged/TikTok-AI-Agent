@@ -9,6 +9,12 @@ import { addLogForTesting, clearLogQueues } from '../src/services/render/renderP
  * due to read-modify-write race conditions.
  */
 
+interface LogEntry {
+  timestamp: string;
+  message: string;
+  level: 'info' | 'warn' | 'error';
+}
+
 describe('addLog Race Condition', () => {
   let testRunId: string;
 
@@ -83,7 +89,7 @@ describe('addLog Race Condition', () => {
 
     expect(finalRun).toBeDefined();
 
-    const finalLogs = JSON.parse(finalRun!.logsJson);
+    const finalLogs = JSON.parse(finalRun!.logsJson) as LogEntry[];
 
     // With the queue-based fix, all 20 entries should be present
     console.log(`Expected ${NUM_CONCURRENT_LOGS} logs, got ${finalLogs.length}`);
@@ -91,7 +97,7 @@ describe('addLog Race Condition', () => {
     expect(finalLogs.length).toBe(NUM_CONCURRENT_LOGS);
 
     // Verify all unique messages are present
-    const messages = finalLogs.map((log: any) => log.message);
+    const messages = finalLogs.map((log) => log.message);
     const uniqueMessages = new Set(messages);
     expect(uniqueMessages.size).toBe(NUM_CONCURRENT_LOGS);
 
@@ -117,11 +123,11 @@ describe('addLog Race Condition', () => {
 
     expect(finalRun).toBeDefined();
 
-    const finalLogs = JSON.parse(finalRun!.logsJson);
+    const finalLogs = JSON.parse(finalRun!.logsJson) as LogEntry[];
     expect(finalLogs.length).toBe(NUM_LOGS);
 
     // Verify order is maintained
-    finalLogs.forEach((log: any, index: number) => {
+    finalLogs.forEach((log, index: number) => {
       expect(log.message).toBe(logMessages[index]);
     });
   });
@@ -143,13 +149,13 @@ describe('addLog Race Condition', () => {
 
     expect(finalRun).toBeDefined();
 
-    const finalLogs = JSON.parse(finalRun!.logsJson);
+    const finalLogs = JSON.parse(finalRun!.logsJson) as LogEntry[];
     expect(finalLogs.length).toBe(3);
 
     // Verify each log has the correct level
-    const infoLog = finalLogs.find((log: any) => log.message === 'Info message');
-    const warnLog = finalLogs.find((log: any) => log.message === 'Warning message');
-    const errorLog = finalLogs.find((log: any) => log.message === 'Error message');
+    const infoLog = finalLogs.find((log) => log.message === 'Info message');
+    const warnLog = finalLogs.find((log) => log.message === 'Warning message');
+    const errorLog = finalLogs.find((log) => log.message === 'Error message');
 
     expect(infoLog?.level).toBe('info');
     expect(warnLog?.level).toBe('warn');
