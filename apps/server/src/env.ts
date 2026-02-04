@@ -90,6 +90,7 @@ export const env = {
   APP_DRY_RUN_STEP_DELAY_MS: parseInt(process.env.APP_DRY_RUN_STEP_DELAY_MS || '0', 10),
   APP_VERSION: process.env.APP_VERSION || '',
   LOG_LEVEL: process.env.LOG_LEVEL || 'info',
+  API_KEY: process.env.API_KEY || '',
   ALLOWED_ORIGINS:
     process.env.ALLOWED_ORIGINS?.split(',')
       .map((o) => o.trim())
