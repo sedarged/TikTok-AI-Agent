@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.0](https://github.com/sedarged/TikTok-AI-Agent/compare/v1.0.0...v1.1.0) (2026-02-04)
+
+
+### Features
+
+* implement caching for topic suggestions endpoint ([aafcbe0](https://github.com/sedarged/TikTok-AI-Agent/commit/aafcbe01da9e0ca4f573db9c61ba0ac87bbb9510))
+
+
+### Bug Fixes
+
+* address code review feedback ([c7ac0fc](https://github.com/sedarged/TikTok-AI-Agent/commit/c7ac0fc3b95cd01a7c5a82ec90ac569486c7bb9a))
+
 ## 1.0.0 (2026-02-01)
 
 
