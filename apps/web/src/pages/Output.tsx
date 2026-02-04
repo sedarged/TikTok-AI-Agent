@@ -225,7 +225,6 @@ export default function Output({ status }: OutputProps) {
         [
           'mp4Path',
           'thumbPath',
-          'thumbPaths',
           'captionsPath',
           'imagesDir',
           'audioDir',
