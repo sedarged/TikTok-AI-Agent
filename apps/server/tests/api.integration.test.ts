@@ -265,4 +265,40 @@ describe('Plan and preview workflow (test mode)', () => {
     expect(batchRes.body.error).toBe('Batch disabled in APP_TEST_MODE');
     expect(batchRes.body.code).toBe('BATCH_DISABLED_TEST_MODE');
   });
+
+  it('returns 400 for invalid plan generation body', async () => {
+    // Create a valid project first
+    const createRes = await request(app).post('/api/project').send({
+      topic: 'Plan validation test',
+      nichePackId: 'facts',
+    });
+    expect(createRes.status).toBe(200);
+    const project = ProjectSchema.parse(createRes.body);
+
+    // Test with invalid scriptTemplateId (number instead of string)
+    const invalidBodyRes = await request(app)
+      .post(`/api/project/${project.id}/plan`)
+      .send({ scriptTemplateId: 12345 });
+    expect(invalidBodyRes.status).toBe(400);
+    expect(invalidBodyRes.body.error).toBe('Invalid request body');
+    expect(invalidBodyRes.body.details).toBeDefined();
+
+    // Test with extra field (strict mode should reject it)
+    const extraFieldRes = await request(app)
+      .post(`/api/project/${project.id}/plan`)
+      .send({ extraField: 'should not be allowed' });
+    expect(extraFieldRes.status).toBe(400);
+    expect(extraFieldRes.body.error).toBe('Invalid request body');
+    expect(extraFieldRes.body.details).toBeDefined();
+
+    // Valid request should still work (empty body is valid, scriptTemplateId is optional)
+    const validRes = await request(app).post(`/api/project/${project.id}/plan`);
+    expect(validRes.status).toBe(200);
+
+    // Valid request with valid scriptTemplateId should also work
+    const validWithParamRes = await request(app)
+      .post(`/api/project/${project.id}/plan`)
+      .send({ scriptTemplateId: 'custom-template' });
+    expect(validWithParamRes.status).toBe(200);
+  });
 });

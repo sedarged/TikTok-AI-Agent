@@ -151,8 +151,14 @@ projectRoutes.post('/:id/plan', async (req, res) => {
       return res.status(400).json({ error: 'Invalid project ID', details: parsed.error.flatten() });
     }
     const bodyParsed = generatePlanBodySchema.safeParse(req.body ?? {});
-    const body = bodyParsed.success ? bodyParsed.data : {};
+    if (!bodyParsed.success) {
+      return res.status(400).json({
+        error: 'Invalid request body',
+        details: bodyParsed.error.flatten(),
+      });
+    }
     const { id } = parsed.data;
+    const body = bodyParsed.data;
     const project = await prisma.project.findUnique({
       where: { id },
     });
