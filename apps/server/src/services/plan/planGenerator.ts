@@ -146,8 +146,8 @@ Requirements:
 - Avoid brands, copyrighted content
 - Keep it appropriate for general audiences
 
-Return ONLY a JSON array with exactly 5 hook strings, no other text:
-["hook1", "hook2", "hook3", "hook4", "hook5"]`;
+Return ONLY a JSON object with a "hooks" array containing exactly 5 hook strings, no other text:
+{"hooks": ["hook1", "hook2", "hook3", "hook4", "hook5"]}`;
 
   try {
     const response = await callOpenAI(prompt, 'json');
@@ -160,8 +160,19 @@ Return ONLY a JSON array with exactly 5 hook strings, no other text:
       return generateTemplateHooks(project.topic, pack);
     }
 
-    if (Array.isArray(hooks) && hooks.length >= 5) {
-      return hooks.slice(0, 5);
+    // Handle both array (legacy/test) and object (OpenAI json_object) formats
+    let hooksArray: unknown;
+    if (Array.isArray(hooks)) {
+      hooksArray = hooks;
+    } else if (typeof hooks === 'object' && hooks !== null && 'hooks' in hooks) {
+      const obj = hooks as { hooks?: unknown };
+      hooksArray = obj.hooks;
+    } else {
+      return generateTemplateHooks(project.topic, pack);
+    }
+
+    if (Array.isArray(hooksArray) && hooksArray.length >= 5) {
+      return hooksArray.slice(0, 5);
     }
     return generateTemplateHooks(project.topic, pack);
   } catch (error) {
@@ -257,16 +268,18 @@ For each scene provide:
 Available effect presets: ${EFFECT_PRESETS.join(', ')}
 Default effect: ${pack.effectsProfile.defaultEffect}
 
-Return ONLY valid JSON array:
-[
-  {
-    "idx": 0,
-    "narrationText": "...",
-    "onScreenText": "...",
-    "visualPrompt": "...",
-    "durationTargetSec": 8
-  }
-]
+Return ONLY valid JSON object with a "scenes" array:
+{
+  "scenes": [
+    {
+      "idx": 0,
+      "narrationText": "...",
+      "onScreenText": "...",
+      "visualPrompt": "...",
+      "durationTargetSec": 8
+    }
+  ]
+}
 
 Requirements:
 - No copyrighted/brand references
@@ -286,8 +299,19 @@ Requirements:
       throw new Error('Invalid JSON response for scenes');
     }
 
-    if (Array.isArray(scenes) && scenes.length > 0) {
-      return (scenes as OpenAISceneRaw[]).map((s, i) => {
+    // Handle both array (legacy/test) and object (OpenAI json_object) formats
+    let scenesArray: unknown;
+    if (Array.isArray(scenes)) {
+      scenesArray = scenes;
+    } else if (typeof scenes === 'object' && scenes !== null && 'scenes' in scenes) {
+      const obj = scenes as { scenes?: unknown };
+      scenesArray = obj.scenes;
+    } else {
+      return generateTemplateScenes(project, hook, outline, pack, sceneCount, avgDuration);
+    }
+
+    if (Array.isArray(scenesArray) && scenesArray.length > 0) {
+      return (scenesArray as OpenAISceneRaw[]).map((s, i) => {
         const effectPreset: EffectPreset =
           s.effectPreset && EFFECT_PRESETS.includes(s.effectPreset as EffectPreset)
             ? (s.effectPreset as EffectPreset)
@@ -354,11 +378,13 @@ Tempo: ${project.tempo}
 Current scenes:
 ${scenes.map((s) => `Scene ${s.idx + 1}: "${s.narrationText}"`).join('\n')}
 
-Return JSON array with updated narration for each scene:
-[
-  {"idx": 0, "narrationText": "..."},
-  {"idx": 1, "narrationText": "..."}
-]
+Return JSON object with an "updates" array containing updated narration for each scene:
+{
+  "updates": [
+    {"idx": 0, "narrationText": "..."},
+    {"idx": 1, "narrationText": "..."}
+  ]
+}
 
 Keep scene count the same. Make the script flow naturally.`;
 
@@ -373,8 +399,19 @@ Keep scene count the same. Make the script flow naturally.`;
       throw new Error('Invalid JSON response for script updates');
     }
 
+    // Handle both array (legacy/test) and object (OpenAI json_object) formats
+    let updatesArray: unknown;
     if (Array.isArray(updates)) {
-      const raw = updates as ScriptUpdateRaw[];
+      updatesArray = updates;
+    } else if (typeof updates === 'object' && updates !== null && 'updates' in updates) {
+      const obj = updates as { updates?: unknown };
+      updatesArray = obj.updates;
+    } else {
+      throw new Error('Invalid JSON response for script updates');
+    }
+
+    if (Array.isArray(updatesArray)) {
+      const raw = updatesArray as ScriptUpdateRaw[];
       const updatedScenes = scenes.map((scene) => {
         const update = raw.find((u) => u.idx === scene.idx);
         if (update && !scene.isLocked) {

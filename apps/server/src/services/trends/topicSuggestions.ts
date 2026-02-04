@@ -12,7 +12,7 @@ export async function getTopicSuggestions(
   // Check cache first
   const cacheKey = createHash('topic_suggestions', nichePackId, String(limit));
   const cached = await getCachedResult(cacheKey);
-  
+
   if (cached && cached.resultJson) {
     try {
       const result = JSON.parse(cached.resultJson) as { topics: string[] };
@@ -28,7 +28,7 @@ export async function getTopicSuggestions(
   const pack = getNichePack(nichePackId);
   const nicheName = pack?.name ?? nichePackId;
 
-  const prompt = `You are a TikTok content strategist. For the niche "${nicheName}", suggest exactly ${limit} short-form video topic ideas with high viral potential. Each topic should be one short phrase or sentence (under 15 words). Return ONLY a valid JSON array of strings, no other text. Example: ["Topic 1", "Topic 2", "Topic 3"]`;
+  const prompt = `You are a TikTok content strategist. For the niche "${nicheName}", suggest exactly ${limit} short-form video topic ideas with high viral potential. Each topic should be one short phrase or sentence (under 15 words). Return ONLY a valid JSON object with a "topics" array of strings, no other text. Example: {"topics": ["Topic 1", "Topic 2", "Topic 3"]}`;
 
   const raw = await callOpenAI(prompt, 'json', 'gpt-4o-mini');
   const trimmed = raw.trim();
@@ -41,10 +41,20 @@ export async function getTopicSuggestions(
     throw new Error('Invalid JSON response from AI');
   }
 
-  if (!Array.isArray(parsed)) {
-    throw new Error('Expected JSON array of topic strings');
+  // Handle both array (legacy/test) and object (OpenAI json_object) formats
+  let topicsArray: unknown[];
+  if (Array.isArray(parsed)) {
+    topicsArray = parsed;
+  } else if (typeof parsed === 'object' && parsed !== null && 'topics' in parsed) {
+    const obj = parsed as { topics?: unknown };
+    if (!Array.isArray(obj.topics)) {
+      throw new Error('Expected JSON object with topics array');
+    }
+    topicsArray = obj.topics;
+  } else {
+    throw new Error('Expected JSON object with topics array or JSON array');
   }
-  const topics = parsed
+  const topics = topicsArray
     .filter((x): x is string => typeof x === 'string')
     .map((s) => String(s).trim())
     .filter(Boolean)
