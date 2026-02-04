@@ -107,8 +107,10 @@ describe('Cancelled Queued Runs', () => {
     const runBCancelled = await prisma.run.findUnique({ where: { id: runB.id } });
     expect(runBCancelled?.status).toBe('canceled');
 
-    // Call resetStuckRuns to restore queue (simulates server restart)
-    // This will add all 'queued' runs to the in-memory queue
+    // Call resetStuckRuns to restore queue (simulates server restart).
+    // This will add all 'queued' runs to the in-memory queue. Note: Only runs
+    // still in 'queued' status are restored; canceled runs like runB are not
+    // added back to the in-memory queue.
     await resetStuckRuns();
 
     // Verify only the valid queued runs (A and C) remain queued
