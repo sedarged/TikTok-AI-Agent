@@ -192,8 +192,18 @@ export function createApp() {
   return app;
 }
 
-export function startServer() {
+export async function startServer() {
   const app = createApp();
+
+  // Initialize queue restoration before starting to accept connections
+  // This prevents race conditions where clients could interact with the server
+  // before queued runs are restored to the in-memory queue
+  try {
+    await resetStuckRuns();
+  } catch (err) {
+    logError('Failed to reset stuck runs during startup', err);
+  }
+
   return app.listen(env.PORT, '0.0.0.0', () => {
     logInfo(`Server running on http://localhost:${env.PORT}`, {
       port: env.PORT,
@@ -202,7 +212,6 @@ export function startServer() {
       testMode: isTestMode(),
     });
     logInfo(`Server also available on http://0.0.0.0:${env.PORT}`);
-    resetStuckRuns().catch((err) => logError('Failed to reset stuck runs', err));
   });
 }
 

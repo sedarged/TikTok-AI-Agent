@@ -95,6 +95,8 @@ const renderQueue: string[] = [];
 let currentRunningRunId: string | null = null;
 
 async function processNextInQueue(): Promise<void> {
+  // Guard against concurrent processing: only one render at a time
+  if (currentRunningRunId !== null) return;
   if (renderQueue.length === 0) return;
   const runId = renderQueue.shift()!;
   try {
@@ -960,7 +962,9 @@ async function executePipeline(run: Run, planVersion: PlanWithDetails) {
 }
 
 // Reset runs stuck in 'running' after server restart (no in-memory activeRuns)
+// and restore queued runs back to the in-memory queue
 export async function resetStuckRuns(): Promise<void> {
+  // 1. Handle stuck 'running' runs - mark as failed
   const stuck = await prisma.run.findMany({
     where: { status: 'running' },
     select: { id: true, projectId: true, logsJson: true },
@@ -988,6 +992,32 @@ export async function resetStuckRuns(): Promise<void> {
   }
   if (stuck.length > 0) {
     logWarn(`Reset ${stuck.length} run(s) stuck in "running" state.`);
+  }
+
+  // 2. Restore queued runs back to the in-memory queue
+  const queuedRuns = await prisma.run.findMany({
+    where: { status: 'queued' },
+    select: { id: true, createdAt: true },
+    orderBy: { createdAt: 'asc' }, // Oldest first to maintain FIFO order
+  });
+
+  // Use a Set for O(1) lookup to avoid O(n²) complexity
+  const existingQueueIds = new Set(renderQueue);
+  for (const run of queuedRuns) {
+    // Avoid adding duplicate run IDs if resetStuckRuns() is invoked multiple times
+    if (!existingQueueIds.has(run.id)) {
+      renderQueue.push(run.id);
+    }
+  }
+
+  if (queuedRuns.length > 0) {
+    logWarn(`Restored ${queuedRuns.length} queued run(s) to in-memory queue.`);
+    // Start processing the queue if no run is currently running
+    if (currentRunningRunId === null) {
+      processNextInQueue().catch((err) =>
+        logError('Failed to process restored queue on startup:', err)
+      );
+    }
   }
 }
 
@@ -1090,6 +1120,12 @@ export async function cancelRun(runId: string): Promise<void> {
   });
 
   broadcastRunUpdate(runId, { type: 'canceled' });
+}
+
+// Clear the render queue (for testing purposes)
+export function clearRenderQueue(): void {
+  renderQueue.length = 0;
+  currentRunningRunId = null;
 }
 
 // Helper functions
