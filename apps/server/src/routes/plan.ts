@@ -125,7 +125,13 @@ planRoutes.put('/:planVersionId', async (req, res) => {
           where: { id: scene.id },
         });
 
-        if (existingScene && !existingScene.isLocked) {
+        // Verify scene belongs to this plan (ownership check)
+        if (!existingScene || existingScene.planVersionId !== planVersionId) {
+          // Skip scenes that don't belong to this plan
+          continue;
+        }
+
+        if (!existingScene.isLocked) {
           await prisma.scene.update({
             where: { id: scene.id },
             data: {
@@ -138,7 +144,7 @@ planRoutes.put('/:planVersionId', async (req, res) => {
               isLocked: scene.isLocked ?? existingScene.isLocked,
             },
           });
-        } else if (existingScene && existingScene.isLocked && scene.isLocked === false) {
+        } else if (existingScene.isLocked && scene.isLocked === false) {
           // Allow unlocking
           await prisma.scene.update({
             where: { id: scene.id },
