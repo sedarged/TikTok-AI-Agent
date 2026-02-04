@@ -95,6 +95,8 @@ const renderQueue: string[] = [];
 let currentRunningRunId: string | null = null;
 
 async function processNextInQueue(): Promise<void> {
+  // Guard against concurrent processing: only one render at a time
+  if (currentRunningRunId !== null) return;
   if (renderQueue.length === 0) return;
   const runId = renderQueue.shift()!;
   try {
@@ -1000,7 +1002,10 @@ export async function resetStuckRuns(): Promise<void> {
   });
 
   for (const run of queuedRuns) {
-    renderQueue.push(run.id);
+    // Avoid adding duplicate run IDs if resetStuckRuns() is invoked multiple times
+    if (!renderQueue.includes(run.id)) {
+      renderQueue.push(run.id);
+    }
   }
 
   if (queuedRuns.length > 0) {
@@ -1113,6 +1118,12 @@ export async function cancelRun(runId: string): Promise<void> {
   });
 
   broadcastRunUpdate(runId, { type: 'canceled' });
+}
+
+// Clear the render queue (for testing purposes)
+export function clearRenderQueue(): void {
+  renderQueue.length = 0;
+  currentRunningRunId = null;
 }
 
 // Helper functions

@@ -1,6 +1,6 @@
 import { beforeAll, beforeEach, afterAll, describe, expect, it } from 'vitest';
 import { prisma } from '../src/db/client.js';
-import { resetStuckRuns } from '../src/services/render/renderPipeline.js';
+import { resetStuckRuns, clearRenderQueue } from '../src/services/render/renderPipeline.js';
 import { resetDb } from './testHelpers.js';
 
 describe('Queue Restore on Server Restart', () => {
@@ -11,6 +11,8 @@ describe('Queue Restore on Server Restart', () => {
 
   beforeEach(async () => {
     await resetDb();
+    // Clear the in-memory queue to avoid test pollution
+    clearRenderQueue();
   });
 
   afterAll(async () => {
