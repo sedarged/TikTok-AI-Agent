@@ -26,8 +26,8 @@ describe('IDOR vulnerability tests', () => {
   });
 
   describe('Scene update endpoint', () => {
-    it('should prevent updating scene from different project via /api/scene/:sceneId', async () => {
-      // Create first project and plan
+    it('should allow updating scene via /api/scene/:sceneId', async () => {
+      // Create project and plan
       const project1Res = await request(app).post('/api/project').send({
         topic: 'Project 1',
         nichePackId: 'facts',
@@ -40,20 +40,7 @@ describe('IDOR vulnerability tests', () => {
       expect(scene1).toBeDefined();
       if (!scene1) return;
 
-      // Create second project and plan
-      const project2Res = await request(app).post('/api/project').send({
-        topic: 'Project 2',
-        nichePackId: 'horror',
-      });
-      const project2 = ProjectSchema.parse(project2Res.body);
-
-      const plan2Res = await request(app).post(`/api/project/${project2.id}/plan`);
-      const plan2 = PlanVersionSchema.parse(plan2Res.body);
-      const scene2 = plan2.scenes?.[0];
-      expect(scene2).toBeDefined();
-      if (!scene2) return;
-
-      // Try to update scene1 (from project1) - this should work
+      // Update the scene
       const updateRes1 = await request(app)
         .put(`/api/scene/${scene1.id}`)
         .send({ narrationText: 'Updated narration for scene 1' });
@@ -66,8 +53,8 @@ describe('IDOR vulnerability tests', () => {
       expect(verifiedScene.narrationText).toBe('Updated narration for scene 1');
     });
 
-    it('should prevent locking scene from different project via /api/scene/:sceneId/lock', async () => {
-      // Create first project and plan
+    it('should allow locking scene via /api/scene/:sceneId/lock', async () => {
+      // Create project and plan
       const project1Res = await request(app).post('/api/project').send({
         topic: 'Project 1',
         nichePackId: 'facts',
@@ -80,17 +67,7 @@ describe('IDOR vulnerability tests', () => {
       expect(scene1).toBeDefined();
       if (!scene1) return;
 
-      // Create second project
-      const project2Res = await request(app).post('/api/project').send({
-        topic: 'Project 2',
-        nichePackId: 'horror',
-      });
-      const project2 = ProjectSchema.parse(project2Res.body);
-
-      const _plan2Res = await request(app).post(`/api/project/${project2.id}/plan`);
-      const _plan2 = PlanVersionSchema.parse(_plan2Res.body);
-
-      // Try to lock scene1 (from project1) - this should work
+      // Lock the scene
       const lockRes = await request(app)
         .post(`/api/scene/${scene1.id}/lock`)
         .send({ locked: true });
@@ -98,8 +75,8 @@ describe('IDOR vulnerability tests', () => {
       expect(lockRes.status).toBe(200);
     });
 
-    it('should prevent regenerating scene from different project via /api/scene/:sceneId/regenerate', async () => {
-      // Create first project and plan
+    it('should allow regenerating scene via /api/scene/:sceneId/regenerate', async () => {
+      // Create project and plan
       const project1Res = await request(app).post('/api/project').send({
         topic: 'Project 1',
         nichePackId: 'facts',
@@ -112,17 +89,7 @@ describe('IDOR vulnerability tests', () => {
       expect(scene1).toBeDefined();
       if (!scene1) return;
 
-      // Create second project
-      const project2Res = await request(app).post('/api/project').send({
-        topic: 'Project 2',
-        nichePackId: 'horror',
-      });
-      const project2 = ProjectSchema.parse(project2Res.body);
-
-      const _plan2Res = await request(app).post(`/api/project/${project2.id}/plan`);
-      const _plan2 = PlanVersionSchema.parse(_plan2Res.body);
-
-      // Try to regenerate scene1 (from project1) - this should work
+      // Regenerate the scene
       const regenRes = await request(app).post(`/api/scene/${scene1.id}/regenerate`);
 
       expect(regenRes.status).toBe(200);
