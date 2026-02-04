@@ -111,7 +111,13 @@ async function processNextInQueue(): Promise<void> {
         },
       },
     });
-    if (!run || run.status !== 'queued') return;
+    if (!run || run.status !== 'queued') {
+      // Skip canceled/invalid runs and process the next one in queue
+      processNextInQueue().catch((nextErr) => {
+        logError('Failed to process next in queue (after skipping invalid run):', nextErr);
+      });
+      return;
+    }
     currentRunningRunId = runId;
     await prisma.project.update({
       where: { id: run.projectId },
