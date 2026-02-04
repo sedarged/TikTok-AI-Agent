@@ -1,4 +1,4 @@
-import { beforeEach, afterAll, describe, expect, it } from 'vitest';
+import { beforeAll, beforeEach, afterAll, describe, expect, it } from 'vitest';
 import request from 'supertest';
 import type { Express } from 'express';
 import { prisma } from '../src/db/client.js';
@@ -15,9 +15,12 @@ async function resetDb() {
 }
 
 describe('IDOR vulnerability tests', () => {
-  beforeEach(async () => {
+  beforeAll(async () => {
     const module = await import('../src/index.js');
     app = module.createApp();
+  });
+
+  beforeEach(async () => {
     await resetDb();
   });
 
@@ -124,7 +127,7 @@ describe('IDOR vulnerability tests', () => {
       expect(scene2).toBeDefined();
       if (!scene2) return;
 
-      // Try to update plan2 but include scene1 (from plan1) - this should fail or ignore the scene
+      // Try to update plan2 but include scene1 (from plan1) - this should fail with 400
       const updateRes = await request(app)
         .put(`/api/plan/${plan2.id}`)
         .send({
@@ -134,8 +137,10 @@ describe('IDOR vulnerability tests', () => {
           ],
         });
 
-      // The update should succeed for the plan itself but not modify scene1
-      expect(updateRes.status).toBe(200);
+      // Should return 400 error with rejected scene IDs
+      expect(updateRes.status).toBe(400);
+      expect(updateRes.body.error).toBe('Some scene IDs do not belong to this plan');
+      expect(updateRes.body.rejectedSceneIds).toContain(scene1.id);
 
       // Verify scene1 was NOT updated
       const verifyScene1 = await request(app).get(`/api/scene/${scene1.id}`);
@@ -145,10 +150,10 @@ describe('IDOR vulnerability tests', () => {
       );
       expect(verifiedScene1.narrationText).toBe(scene1.narrationText);
 
-      // Verify plan2 was updated
+      // Verify plan2 outline was NOT updated (request rejected before processing)
       const verifyPlan2 = await request(app).get(`/api/plan/${plan2.id}`);
       const verifiedPlan2 = PlanVersionSchema.parse(verifyPlan2.body);
-      expect(verifiedPlan2.outline).toBe('Updated outline');
+      expect(verifiedPlan2.outline).not.toBe('Updated outline');
     });
 
     it('should allow updating scenes that belong to the plan being updated', async () => {

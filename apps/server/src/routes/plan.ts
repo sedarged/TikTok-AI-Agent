@@ -99,6 +99,32 @@ planRoutes.put('/:planVersionId', async (req, res) => {
       return res.status(404).json({ error: 'Plan version not found' });
     }
 
+    // Validate scenes first if provided (before making any updates)
+    if (scenes && Array.isArray(scenes)) {
+      const rejectedSceneIds: string[] = [];
+
+      for (const scene of scenes) {
+        if (!scene.id) continue;
+
+        const existingScene = await prisma.scene.findUnique({
+          where: { id: scene.id },
+        });
+
+        // Verify scene belongs to this plan (ownership check)
+        if (!existingScene || existingScene.planVersionId !== planVersionId) {
+          rejectedSceneIds.push(scene.id);
+        }
+      }
+
+      // Return error if any scenes were rejected (before making any updates)
+      if (rejectedSceneIds.length > 0) {
+        return res.status(400).json({
+          error: 'Some scene IDs do not belong to this plan',
+          rejectedSceneIds,
+        });
+      }
+    }
+
     // Update plan version fields
     const updateData: {
       hookSelected?: string;
@@ -116,7 +142,7 @@ planRoutes.put('/:planVersionId', async (req, res) => {
       });
     }
 
-    // Update scenes if provided
+    // Update scenes if provided (now we know all scenes are valid)
     if (scenes && Array.isArray(scenes)) {
       for (const scene of scenes) {
         if (!scene.id) continue;
@@ -125,11 +151,7 @@ planRoutes.put('/:planVersionId', async (req, res) => {
           where: { id: scene.id },
         });
 
-        // Verify scene belongs to this plan (ownership check)
-        if (!existingScene || existingScene.planVersionId !== planVersionId) {
-          // Skip scenes that don't belong to this plan
-          continue;
-        }
+        if (!existingScene) continue; // Already validated, but safety check
 
         if (!existingScene.isLocked) {
           await prisma.scene.update({
