@@ -99,6 +99,44 @@ planRoutes.put('/:planVersionId', async (req, res) => {
       return res.status(404).json({ error: 'Plan version not found' });
     }
 
+    // Validate and fetch scenes first if provided (before making any updates)
+    let scenesToUpdate: Map<string, any> = new Map();
+    if (scenes && Array.isArray(scenes)) {
+      const sceneIds = scenes.filter((s) => s.id).map((s) => s.id);
+
+      if (sceneIds.length > 0) {
+        // Fetch all scenes in a single query
+        const existingScenes = await prisma.scene.findMany({
+          where: {
+            id: { in: sceneIds },
+          },
+        });
+
+        // Build a map for quick lookup
+        const existingScenesMap = new Map(existingScenes.map((s) => [s.id, s]));
+
+        // Validate ownership
+        const rejectedSceneIds: string[] = [];
+        for (const sceneId of sceneIds) {
+          const existingScene = existingScenesMap.get(sceneId);
+          if (!existingScene || existingScene.planVersionId !== planVersionId) {
+            rejectedSceneIds.push(sceneId);
+          }
+        }
+
+        // Return error if any scenes were rejected (before making any updates)
+        if (rejectedSceneIds.length > 0) {
+          return res.status(400).json({
+            error: 'Some scene IDs do not belong to this plan',
+            rejectedSceneIds,
+          });
+        }
+
+        // Store validated scenes for updates
+        scenesToUpdate = existingScenesMap;
+      }
+    }
+
     // Update plan version fields
     const updateData: {
       hookSelected?: string;
@@ -116,16 +154,15 @@ planRoutes.put('/:planVersionId', async (req, res) => {
       });
     }
 
-    // Update scenes if provided
-    if (scenes && Array.isArray(scenes)) {
+    // Update scenes if provided (now we know all scenes are valid)
+    if (scenes && Array.isArray(scenes) && scenesToUpdate.size > 0) {
       for (const scene of scenes) {
         if (!scene.id) continue;
 
-        const existingScene = await prisma.scene.findUnique({
-          where: { id: scene.id },
-        });
+        const existingScene = scenesToUpdate.get(scene.id);
+        if (!existingScene) continue; // Scene was filtered out in validation
 
-        if (existingScene && !existingScene.isLocked) {
+        if (!existingScene.isLocked) {
           await prisma.scene.update({
             where: { id: scene.id },
             data: {
@@ -138,7 +175,7 @@ planRoutes.put('/:planVersionId', async (req, res) => {
               isLocked: scene.isLocked ?? existingScene.isLocked,
             },
           });
-        } else if (existingScene && existingScene.isLocked && scene.isLocked === false) {
+        } else if (existingScene.isLocked && scene.isLocked === false) {
           // Allow unlocking
           await prisma.scene.update({
             where: { id: scene.id },
