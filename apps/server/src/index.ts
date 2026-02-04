@@ -114,7 +114,10 @@ export function createApp() {
         // In production without configured origins, reject with error
         callback(new Error('Not allowed by CORS - configure ALLOWED_ORIGINS'));
       },
-      credentials: true,
+      // SECURITY: credentials disabled to prevent CSRF attacks
+      // This API uses Bearer token authentication (Authorization header), not cookies
+      // Disabling credentials prevents browsers from auto-sending cookies cross-origin
+      credentials: false,
     })
   );
   app.use(express.json({ limit: '10mb' }));

@@ -107,7 +107,28 @@ const signedUrl = generateSignedUrl(artifactPath, { expiresIn: 3600 });
 const stream = await s3.getObject({ Bucket, Key }).createReadStream();
 ```
 
-#### 4. Rate Limiting
+#### 4. CSRF Protection
+
+**Status:** ✅ Implemented (as of 2026-02-04)
+
+Cross-Site Request Forgery (CSRF) protection is implemented via:
+- **CORS credentials disabled:** The API does not accept credentials (cookies) in cross-origin requests
+- **Bearer token authentication:** All state-changing operations require `Authorization` header which cannot be sent by browsers in cross-site requests
+- **No cookie-based sessions:** The application uses stateless Bearer tokens, not session cookies
+
+This prevents CSRF attacks because:
+1. Malicious websites cannot include the `Authorization` header in cross-origin requests (CORS blocks it)
+2. Even if CORS allowed it, credentials are disabled so cookies would not be sent
+3. Without valid authentication, all state-changing requests (POST/PUT/PATCH/DELETE) are rejected
+
+**Important:** If you add cookie-based authentication in the future, you MUST:
+- Implement CSRF token validation (e.g., using `csurf` package)
+- OR use `SameSite=Strict` or `SameSite=Lax` cookie attributes
+- OR keep credentials disabled and continue using Bearer tokens only
+
+Configuration is in `apps/server/src/index.ts`.
+
+#### 5. Rate Limiting
 
 **Status:** ✅ Implemented
 
@@ -117,7 +138,7 @@ Rate limiting is already configured in the application. The limits are:
 
 Configuration is in `apps/server/src/index.ts`.
 
-#### 5. Security Headers
+#### 6. Security Headers
 
 **Status:** ✅ Implemented
 
@@ -128,11 +149,11 @@ import helmet from 'helmet';
 app.use(helmet());
 ```
 
-#### 6. HTTPS Only
+#### 7. HTTPS Only
 
 Always use HTTPS in production. Configure your reverse proxy (nginx/Caddy) or hosting platform accordingly.
 
-#### 7. Input Validation
+#### 8. Input Validation
 
 **Status:** ✅ Implemented
 
@@ -200,13 +221,14 @@ Run `npm audit` regularly and update dependencies.
 ## Security Checklist for Deployment
 
 - [x] Set `API_KEY` in production (REQUIRED) ✅ New as of 2026-02-04
+- [x] CSRF protection enabled (credentials disabled) ✅ New as of 2026-02-04
 - [ ] Set `ALLOWED_ORIGINS` in production
 - [x] Set `NODE_ENV=production`
 - [x] Use HTTPS (configure reverse proxy)
 - [ ] Add authentication for artifact downloads
 - [x] Enable rate limiting ✅ Already implemented
 - [x] Add security headers (helmet) ✅ Already implemented
-- [ ] Review and restrict CORS settings
+- [x] Review and restrict CORS settings ✅ Credentials disabled
 - [ ] Rotate API keys regularly
 - [ ] Set up automated backups
 - [ ] Monitor logs for suspicious activity
@@ -222,6 +244,7 @@ Run `npm audit` regularly and update dependencies.
 
 | Date       | Auditor                      | Findings                    | Status                      |
 | ---------- | ---------------------------- | --------------------------- | --------------------------- |
+| 2026-02-04 | CSRF Protection Review       | CORS credentials enabled without CSRF tokens | Fixed: Disabled CORS credentials |
 | 2026-01-29 | Comprehensive Security Audit | 85+ issues found, 25+ fixed | Major issues fixed (CORS, path traversal, JSON parsing, input validation) |
 
 ---
