@@ -1,103 +1,186 @@
-import { beforeAll, afterAll, describe, expect, it } from 'vitest';
+import { beforeEach, afterEach, afterAll, describe, expect, it, vi } from 'vitest';
 import request from 'supertest';
 import type { Express } from 'express';
 import { prisma } from '../src/db/client.js';
+import { resetDb } from './testHelpers.js';
 
 let app: Express;
+let originalEnv: NodeJS.ProcessEnv;
 
 describe('CSRF Protection', () => {
-  beforeAll(async () => {
-    const module = await import('../src/index.js');
-    app = module.createApp();
+  beforeEach(async () => {
+    // Save original env
+    originalEnv = { ...process.env };
+
+    // Clean up database
+    await resetDb();
+  });
+
+  afterEach(async () => {
+    // Restore original env
+    process.env = originalEnv;
+
+    // Clear module cache to reload env
+    vi.resetModules();
   });
 
   afterAll(async () => {
     await prisma.$disconnect();
   });
 
-  describe('CORS credentials', () => {
-    it('should not include Access-Control-Allow-Credentials header', async () => {
+  describe('CORS credentials disabled', () => {
+    beforeEach(async () => {
+      // Set ALLOWED_ORIGINS to test that CORS is enabled but credentials are disabled
+      process.env.ALLOWED_ORIGINS = 'http://localhost:3000,http://example.com';
+      process.env.NODE_ENV = 'production';
+      process.env.API_KEY = 'test-key-for-cors-test'; // Required in production
+
+      // Reload modules to pick up env change
+      vi.resetModules();
+      const module = await import('../src/index.js');
+      app = module.createApp();
+    });
+
+    it('should allow CORS for allowed origins but not include Access-Control-Allow-Credentials', async () => {
       const res = await request(app)
         .options('/api/project')
         .set('Origin', 'http://localhost:3000')
         .set('Access-Control-Request-Method', 'POST');
 
-      // Check that Access-Control-Allow-Credentials is not set to true
-      // or is not present at all
+      // CORS should be allowed for this origin
+      expect(res.headers['access-control-allow-origin']).toBe('http://localhost:3000');
+
+      // But credentials should NOT be allowed
       expect(res.headers['access-control-allow-credentials']).not.toBe('true');
     });
 
-    it('should not send credentials in cross-origin requests', async () => {
+    it('should not allow credentials in cross-origin GET requests', async () => {
       const res = await request(app)
         .get('/api/status')
         .set('Origin', 'http://example.com')
         .set('Cookie', 'session=abc123');
 
-      // The Access-Control-Allow-Credentials header should not be set to true
+      // CORS should be allowed
+      expect(res.headers['access-control-allow-origin']).toBe('http://example.com');
+
+      // But credentials should NOT be allowed
       expect(res.headers['access-control-allow-credentials']).not.toBe('true');
     });
 
-    it('should require Bearer token for state-changing operations', async () => {
-      // Attempt a POST without Bearer token (should fail)
-      const res = await request(app)
-        .post('/api/project')
-        .set('Origin', 'http://example.com')
-        .set('Cookie', 'session=abc123') // Cookies should be ignored
-        .send({
-          topic: 'Test topic',
-          nichePackId: 'facts',
-        });
+    it('should reject requests from disallowed origins', async () => {
+      const res = await request(app).get('/api/status').set('Origin', 'http://malicious-site.com');
 
-      // In test mode without API_KEY configured, this might succeed
-      // but the point is that cookies are NOT used for authentication
-      // Only Bearer tokens in Authorization header are accepted
-      if (res.status === 401) {
-        expect(res.body.error).toBe('Unauthorized');
-      }
-      // If status is 200, it means test mode allows no-auth, which is fine
-      // The important part is that cookies cannot authenticate
+      // Origin not in ALLOWED_ORIGINS, should not get CORS headers
+      expect(res.headers['access-control-allow-origin']).toBeUndefined();
     });
   });
 
-  describe('CSRF attack prevention', () => {
-    it('prevents cross-site POST attacks without Authorization header', async () => {
-      // Simulate a CSRF attack: malicious site submitting a POST
-      const _res = await request(app)
+  describe('Bearer token authentication prevents CSRF', () => {
+    const testApiKey = 'test-api-key-12345';
+
+    beforeEach(async () => {
+      // Configure API_KEY and allowed origins for production-like environment
+      process.env.API_KEY = testApiKey;
+      process.env.ALLOWED_ORIGINS = 'http://localhost:3000';
+      process.env.NODE_ENV = 'production';
+
+      // Reload modules to pick up env change
+      vi.resetModules();
+      const module = await import('../src/index.js');
+      app = module.createApp();
+    });
+
+    it('should reject POST with only cookies (no Authorization header)', async () => {
+      // Simulate CSRF attack: malicious site makes POST with victim's cookies
+      const res = await request(app)
         .post('/api/project')
-        .set('Origin', 'http://malicious-site.com')
-        .set('Cookie', 'session=victim-session') // Browser auto-sends cookies
+        .set('Origin', 'http://localhost:3000')
+        .set('Cookie', 'session=victim-session') // Cookies are ignored
         .send({
           topic: 'Malicious topic',
           nichePackId: 'facts',
         });
 
-      // The attack should either:
-      // 1. Fail due to CORS (if origin not allowed and credentials needed)
-      // 2. Fail due to missing Authorization header (if API_KEY is required)
-      // 3. Succeed in test mode (but cookies are NOT used for auth)
-
-      // Importantly, even if it succeeds, it's because test mode doesn't require auth,
-      // NOT because cookies authenticated the request
-      // In production with API_KEY set, this would return 401
+      // Should be rejected because cookies cannot authenticate
+      expect(res.status).toBe(401);
+      expect(res.body.error).toBe('Unauthorized');
+      expect(res.body.message).toContain('Missing Authorization header');
     });
 
-    it('blocks cross-origin requests when Authorization header is required', async () => {
-      // In a real CSRF attack, the browser cannot add custom headers like Authorization
-      // due to CORS preflight checks
+    it('should succeed POST with valid Bearer token', async () => {
+      const res = await request(app)
+        .post('/api/project')
+        .set('Origin', 'http://localhost:3000')
+        .set('Authorization', `Bearer ${testApiKey}`)
+        .send({
+          topic: 'Test topic',
+          nichePackId: 'facts',
+        });
 
-      // This request simulates what a browser would do:
-      // 1. Browser sees Authorization header needed
-      // 2. Browser does preflight OPTIONS request
-      // 3. Server responds (we check this doesn't allow credentials)
+      // Should succeed with valid Bearer token
+      expect(res.status).toBe(200);
+      expect(res.body.id).toBeDefined();
+    });
 
+    it('should reject cross-origin POST from disallowed origin even with valid token', async () => {
+      const res = await request(app)
+        .post('/api/project')
+        .set('Origin', 'http://malicious-site.com')
+        .set('Authorization', `Bearer ${testApiKey}`)
+        .send({
+          topic: 'Test topic',
+          nichePackId: 'facts',
+        });
+
+      // In a real browser, this request would fail at CORS preflight
+      // But in tests, we can still make the request
+      // The key is that disallowed origins don't get CORS headers
+      // Note: The request might succeed server-side, but browser would block the response
+      // Check that CORS headers are not present
+      expect(res.headers['access-control-allow-origin']).toBeUndefined();
+    });
+  });
+
+  describe('CSRF attack scenarios', () => {
+    const testApiKey = 'test-api-key-12345';
+
+    beforeEach(async () => {
+      process.env.API_KEY = testApiKey;
+      process.env.ALLOWED_ORIGINS = 'http://localhost:3000';
+      process.env.NODE_ENV = 'production';
+
+      vi.resetModules();
+      const module = await import('../src/index.js');
+      app = module.createApp();
+    });
+
+    it('blocks CSRF via form submission (no custom headers possible)', async () => {
+      // In a real browser, a form POST cannot add Authorization header
+      const res = await request(app)
+        .post('/api/project')
+        .set('Origin', 'http://malicious-site.com')
+        .set('Content-Type', 'application/x-www-form-urlencoded')
+        // No Authorization header - form posts cannot add custom headers
+        .send('topic=Malicious&nichePackId=facts');
+
+      // Should fail due to CORS rejection (disallowed origin)
+      // The server returns 500 because CORS middleware throws an error
+      expect(res.status).toBe(500);
+      expect(res.body.error).toContain('Not allowed by CORS');
+    });
+
+    it('blocks CSRF via fetch/XHR with Authorization header (CORS preflight)', async () => {
+      // If attacker tries fetch with Authorization header, browser does preflight
       const preflightRes = await request(app)
         .options('/api/project')
         .set('Origin', 'http://malicious-site.com')
         .set('Access-Control-Request-Method', 'POST')
-        .set('Access-Control-Request-Headers', 'authorization');
+        .set('Access-Control-Request-Headers', 'authorization,content-type');
 
-      // The preflight should not indicate credentials are allowed
-      expect(preflightRes.headers['access-control-allow-credentials']).not.toBe('true');
+      // Malicious origin should not get CORS approval
+      expect(preflightRes.headers['access-control-allow-origin']).toBeUndefined();
+
+      // In a real browser, the actual POST would be blocked after failed preflight
     });
   });
 });

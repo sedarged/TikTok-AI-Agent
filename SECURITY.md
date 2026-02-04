@@ -112,14 +112,16 @@ const stream = await s3.getObject({ Bucket, Key }).createReadStream();
 **Status:** ✅ Implemented (as of 2026-02-04)
 
 Cross-Site Request Forgery (CSRF) protection is implemented via:
-- **CORS credentials disabled:** The API does not accept credentials (cookies) in cross-origin requests
-- **Bearer token authentication:** All state-changing operations require `Authorization` header which cannot be sent by browsers in cross-site requests
-- **No cookie-based sessions:** The application uses stateless Bearer tokens, not session cookies
+- **No cookie-based authentication:** The API is intentionally designed not to use cookies or server-side sessions for authentication.
+- **Credentialed CORS disabled:** Cross-origin requests with credentials are not allowed, so this API cannot be safely used with cookie-based auth from other origins.
+- **Bearer token authentication for writes in production:** When `API_KEY` is configured (production), all state-changing operations require an `Authorization: Bearer …` header.
 
-This prevents CSRF attacks because:
-1. Malicious websites cannot include the `Authorization` header in cross-origin requests (CORS blocks it)
-2. Even if CORS allowed it, credentials are disabled so cookies would not be sent
-3. Without valid authentication, all state-changing requests (POST/PUT/PATCH/DELETE) are rejected
+This prevents CSRF-style browser form/XHR attacks in production because:
+1. Browsers cannot add arbitrary `Authorization` headers to cross-site form submissions, and cross-origin XHR/fetch with custom auth headers is blocked by CORS.
+2. The server never uses cookies for authentication, so there is no ambient credential that a victim's browser could automatically attach to a cross-site request.
+3. Without a valid `Authorization: Bearer …` token, state-changing requests (POST/PUT/PATCH/DELETE) are rejected when `API_KEY` is required.
+
+In development/test environments (no `API_KEY`), the server is intentionally more permissive; do not expose those environments to untrusted origins.
 
 **Important:** If you add cookie-based authentication in the future, you MUST:
 - Implement CSRF token validation (e.g., using `csurf` package)

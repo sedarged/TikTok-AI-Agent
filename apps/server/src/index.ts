@@ -114,9 +114,9 @@ export function createApp() {
         // In production without configured origins, reject with error
         callback(new Error('Not allowed by CORS - configure ALLOWED_ORIGINS'));
       },
-      // SECURITY: credentials disabled to prevent CSRF attacks
-      // This API uses Bearer token authentication (Authorization header), not cookies
-      // Disabling credentials prevents browsers from auto-sending cookies cross-origin
+      // SECURITY: we do not support cookie-based auth and do not enable credentialed CORS
+      // This API is authenticated via Bearer tokens in the Authorization header, not cookies
+      // CSRF risk is mitigated by avoiding cookie-based auth; CORS responses are non-credentialed
       credentials: false,
     })
   );
