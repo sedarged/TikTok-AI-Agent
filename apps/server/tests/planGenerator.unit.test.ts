@@ -583,6 +583,121 @@ describe('planGenerator - AI Mode (with OpenAI mocked)', () => {
       const callArgs = callOpenAISpy.mock.calls[0][0] as string;
       expect(callArgs).toContain('This is the last scene');
     });
+
+    it('handles OpenAI json_object wrapper format for hooks', async () => {
+      // Mock wrapper object format (OpenAI json_object mode)
+      callOpenAISpy.mockResolvedValueOnce(
+        JSON.stringify({
+          hooks: [
+            'Wrapper hook 1',
+            'Wrapper hook 2',
+            'Wrapper hook 3',
+            'Wrapper hook 4',
+            'Wrapper hook 5',
+          ],
+        })
+      );
+
+      const project = await createTestProject();
+      const hooks = await regenerateHooks(project);
+
+      expect(hooks).toHaveLength(5);
+      expect(hooks[0]).toBe('Wrapper hook 1');
+      expect(callOpenAISpy).toHaveBeenCalledTimes(1);
+    });
+
+    it('handles OpenAI json_object wrapper format for scenes', async () => {
+      const project = await createTestProject();
+
+      // Need to generate full plan - mock in order: hooks, outline, scenes
+      callOpenAISpy.mockResolvedValueOnce(
+        JSON.stringify(['Hook 1', 'Hook 2', 'Hook 3', 'Hook 4', 'Hook 5'])
+      );
+      callOpenAISpy.mockResolvedValueOnce('Test outline');
+
+      // Mock wrapper object format for scenes
+      const mockScenes = Array.from({ length: 4 }, (_, i) => ({
+        idx: i,
+        narrationText: `Wrapper narration ${i}`,
+        onScreenText: `TEXT ${i}`,
+        visualPrompt: `Wrapper visual ${i}`,
+        durationTargetSec: 10,
+      }));
+      callOpenAISpy.mockResolvedValueOnce(
+        JSON.stringify({
+          scenes: mockScenes,
+        })
+      );
+
+      const plan = await generatePlan(project);
+      const scenes = await prisma.scene.findMany({
+        where: { planVersionId: plan.id },
+        orderBy: { idx: 'asc' },
+      });
+
+      expect(scenes).toHaveLength(4);
+      expect(scenes[0].narrationText).toBe('Wrapper narration 0');
+    });
+
+    it('handles OpenAI json_object wrapper format for script updates', async () => {
+      const project = await createTestProject();
+
+      vi.spyOn(envModule, 'isOpenAIConfigured').mockReturnValue(false);
+      const plan = await generatePlan(project);
+      const scenes = await prisma.scene.findMany({
+        where: { planVersionId: plan.id },
+        orderBy: { idx: 'asc' },
+      });
+
+      vi.spyOn(envModule, 'isOpenAIConfigured').mockReturnValue(true);
+
+      // Mock wrapper object format for updates
+      const updates = scenes.map((s, i) => ({
+        idx: i,
+        narrationText: `Wrapper updated narration ${i}`,
+      }));
+      callOpenAISpy.mockResolvedValueOnce(
+        JSON.stringify({
+          updates: updates,
+        })
+      );
+
+      const result = await regenerateScript(project, 'hook', 'outline', scenes);
+
+      expect(callOpenAISpy).toHaveBeenCalled();
+      expect(result.scenes.length).toBe(scenes.length);
+      expect(result.scenes[0].narrationText).toBe('Wrapper updated narration 0');
+    });
+
+    it('validates hook strings and filters invalid values', async () => {
+      // Mock response with mixed valid/invalid hooks
+      callOpenAISpy.mockResolvedValueOnce(
+        JSON.stringify({
+          hooks: [
+            'Valid hook 1',
+            '',
+            'Valid hook 2',
+            123,
+            'Valid hook 3',
+            null,
+            'Valid hook 4',
+            '   ',
+            'Valid hook 5',
+            'Valid hook 6',
+          ],
+        })
+      );
+
+      const project = await createTestProject();
+      const hooks = await regenerateHooks(project);
+
+      expect(hooks).toHaveLength(5);
+      expect(hooks[0]).toBe('Valid hook 1');
+      expect(hooks[1]).toBe('Valid hook 2');
+      expect(hooks[2]).toBe('Valid hook 3');
+      expect(hooks[3]).toBe('Valid hook 4');
+      expect(hooks[4]).toBe('Valid hook 5');
+    });
   });
 });
 

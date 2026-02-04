@@ -25,6 +25,23 @@ interface ScriptUpdateRaw {
 const HOOK_FIRST_3_SECONDS =
   'The first scene must contain the hook within the first 3 seconds; first sentence = attention grabber.';
 
+/**
+ * Helper to unwrap an array from either raw array or {field: array} wrapper object.
+ * Handles both legacy array format (tests) and OpenAI json_object format.
+ */
+function unwrapArrayField<T>(parsed: unknown, fieldName: string): T[] | null {
+  if (Array.isArray(parsed)) {
+    return parsed as T[];
+  }
+  if (typeof parsed === 'object' && parsed !== null && fieldName in parsed) {
+    const obj = parsed as Record<string, unknown>;
+    if (Array.isArray(obj[fieldName])) {
+      return obj[fieldName] as T[];
+    }
+  }
+  return null;
+}
+
 export interface GeneratePlanOptions {
   scriptTemplateId?: string;
 }
@@ -146,8 +163,8 @@ Requirements:
 - Avoid brands, copyrighted content
 - Keep it appropriate for general audiences
 
-Return ONLY a JSON array with exactly 5 hook strings, no other text:
-["hook1", "hook2", "hook3", "hook4", "hook5"]`;
+Return ONLY a JSON object with a "hooks" array containing exactly 5 hook strings, no other text:
+{"hooks": ["hook1", "hook2", "hook3", "hook4", "hook5"]}`;
 
   try {
     const response = await callOpenAI(prompt, 'json');
@@ -160,9 +177,20 @@ Return ONLY a JSON array with exactly 5 hook strings, no other text:
       return generateTemplateHooks(project.topic, pack);
     }
 
-    if (Array.isArray(hooks) && hooks.length >= 5) {
-      return hooks.slice(0, 5);
+    // Handle both array (legacy/test) and object (OpenAI json_object) formats
+    const hooksArray = unwrapArrayField<unknown>(hooks, 'hooks');
+    if (hooksArray) {
+      // Validate and normalize hooks to ensure they're valid strings
+      const normalizedHooks = hooksArray
+        .filter((value): value is string => typeof value === 'string')
+        .map((hook) => hook.trim())
+        .filter((hook) => hook.length > 0);
+
+      if (normalizedHooks.length >= 5) {
+        return normalizedHooks.slice(0, 5);
+      }
     }
+
     return generateTemplateHooks(project.topic, pack);
   } catch (error) {
     logError('Error generating hooks with AI:', error);
@@ -257,16 +285,18 @@ For each scene provide:
 Available effect presets: ${EFFECT_PRESETS.join(', ')}
 Default effect: ${pack.effectsProfile.defaultEffect}
 
-Return ONLY valid JSON array:
-[
-  {
-    "idx": 0,
-    "narrationText": "...",
-    "onScreenText": "...",
-    "visualPrompt": "...",
-    "durationTargetSec": 8
-  }
-]
+Return ONLY valid JSON object with a "scenes" array:
+{
+  "scenes": [
+    {
+      "idx": 0,
+      "narrationText": "...",
+      "onScreenText": "...",
+      "visualPrompt": "...",
+      "durationTargetSec": 8
+    }
+  ]
+}
 
 Requirements:
 - No copyrighted/brand references
@@ -286,8 +316,11 @@ Requirements:
       throw new Error('Invalid JSON response for scenes');
     }
 
-    if (Array.isArray(scenes) && scenes.length > 0) {
-      return (scenes as OpenAISceneRaw[]).map((s, i) => {
+    // Handle both array (legacy/test) and object (OpenAI json_object) formats
+    const scenesArray = unwrapArrayField<OpenAISceneRaw>(scenes, 'scenes');
+
+    if (scenesArray && scenesArray.length > 0) {
+      return scenesArray.map((s, i) => {
         const effectPreset: EffectPreset =
           s.effectPreset && EFFECT_PRESETS.includes(s.effectPreset as EffectPreset)
             ? (s.effectPreset as EffectPreset)
@@ -354,11 +387,13 @@ Tempo: ${project.tempo}
 Current scenes:
 ${scenes.map((s) => `Scene ${s.idx + 1}: "${s.narrationText}"`).join('\n')}
 
-Return JSON array with updated narration for each scene:
-[
-  {"idx": 0, "narrationText": "..."},
-  {"idx": 1, "narrationText": "..."}
-]
+Return JSON object with an "updates" array containing updated narration for each scene:
+{
+  "updates": [
+    {"idx": 0, "narrationText": "..."},
+    {"idx": 1, "narrationText": "..."}
+  ]
+}
 
 Keep scene count the same. Make the script flow naturally.`;
 
@@ -373,10 +408,12 @@ Keep scene count the same. Make the script flow naturally.`;
       throw new Error('Invalid JSON response for script updates');
     }
 
-    if (Array.isArray(updates)) {
-      const raw = updates as ScriptUpdateRaw[];
+    // Handle both array (legacy/test) and object (OpenAI json_object) formats
+    const updatesArray = unwrapArrayField<ScriptUpdateRaw>(updates, 'updates');
+
+    if (updatesArray) {
       const updatedScenes = scenes.map((scene) => {
-        const update = raw.find((u) => u.idx === scene.idx);
+        const update = updatesArray.find((u) => u.idx === scene.idx);
         if (update && !scene.isLocked) {
           return { ...scene, narrationText: update.narrationText };
         }

@@ -82,9 +82,7 @@ describe('Topic Suggestions Caching', () => {
     try {
       result = JSON.parse(entry.resultJson) as { topics: string[] };
     } catch (error) {
-      throw new Error(
-        `Failed to parse cached topic suggestions JSON: ${(error as Error).message}`,
-      );
+      throw new Error(`Failed to parse cached topic suggestions JSON: ${(error as Error).message}`);
     }
     expect(result.topics).toHaveLength(7);
     expect(Array.isArray(result.topics)).toBe(true);
@@ -107,5 +105,26 @@ describe('Topic Suggestions Caching', () => {
     const hashKeys = cacheEntries.map((e) => e.hashKey);
     const uniqueHashKeys = new Set(hashKeys);
     expect(uniqueHashKeys.size).toBe(3);
+  });
+
+  it('handles OpenAI json_object wrapper format', async () => {
+    // Reset cache and spy
+    await resetCacheDb();
+    callOpenAISpy?.mockRestore();
+
+    // Mock callOpenAI to return wrapper object format (OpenAI json_object mode)
+    callOpenAISpy = vi.spyOn(openaiModule, 'callOpenAI').mockImplementation(async () => {
+      return JSON.stringify({
+        topics: ['Wrapped Topic 1', 'Wrapped Topic 2', 'Wrapped Topic 3'],
+      });
+    });
+
+    const topics = await getTopicSuggestions('facts', 3);
+
+    expect(topics).toHaveLength(3);
+    expect(topics[0]).toBe('Wrapped Topic 1');
+    expect(topics[1]).toBe('Wrapped Topic 2');
+    expect(topics[2]).toBe('Wrapped Topic 3');
+    expect(callOpenAISpy).toHaveBeenCalledTimes(1);
   });
 });

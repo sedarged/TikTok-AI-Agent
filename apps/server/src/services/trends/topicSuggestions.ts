@@ -5,6 +5,23 @@ import { callOpenAI, createHash, getCachedResult, cacheResult } from '../provide
 import { getNichePack } from '../nichePacks.js';
 import { logError, logDebug } from '../../utils/logger.js';
 
+/**
+ * Helper to unwrap an array from either raw array or {field: array} wrapper object.
+ * Handles both legacy array format (tests) and OpenAI json_object format.
+ */
+function unwrapArrayField<T>(parsed: unknown, fieldName: string): T[] | null {
+  if (Array.isArray(parsed)) {
+    return parsed as T[];
+  }
+  if (typeof parsed === 'object' && parsed !== null && fieldName in parsed) {
+    const obj = parsed as Record<string, unknown>;
+    if (Array.isArray(obj[fieldName])) {
+      return obj[fieldName] as T[];
+    }
+  }
+  return null;
+}
+
 export async function getTopicSuggestions(
   nichePackId: string,
   limit: number = 10
@@ -12,7 +29,7 @@ export async function getTopicSuggestions(
   // Check cache first
   const cacheKey = createHash('topic_suggestions', nichePackId, String(limit));
   const cached = await getCachedResult(cacheKey);
-  
+
   if (cached && cached.resultJson) {
     try {
       const result = JSON.parse(cached.resultJson) as { topics: string[] };
@@ -28,7 +45,7 @@ export async function getTopicSuggestions(
   const pack = getNichePack(nichePackId);
   const nicheName = pack?.name ?? nichePackId;
 
-  const prompt = `You are a TikTok content strategist. For the niche "${nicheName}", suggest exactly ${limit} short-form video topic ideas with high viral potential. Each topic should be one short phrase or sentence (under 15 words). Return ONLY a valid JSON array of strings, no other text. Example: ["Topic 1", "Topic 2", "Topic 3"]`;
+  const prompt = `You are a TikTok content strategist. For the niche "${nicheName}", suggest exactly ${limit} short-form video topic ideas with high viral potential. Each topic should be one short phrase or sentence (under 15 words). Return ONLY a valid JSON object with a "topics" array of strings, no other text. Example: {"topics": ["Topic 1", "Topic 2", "Topic 3"]}`;
 
   const raw = await callOpenAI(prompt, 'json', 'gpt-4o-mini');
   const trimmed = raw.trim();
@@ -41,10 +58,13 @@ export async function getTopicSuggestions(
     throw new Error('Invalid JSON response from AI');
   }
 
-  if (!Array.isArray(parsed)) {
-    throw new Error('Expected JSON array of topic strings');
+  // Handle both array (legacy/test) and object (OpenAI json_object) formats
+  const topicsArray = unwrapArrayField<unknown>(parsed, 'topics');
+  if (!topicsArray) {
+    throw new Error('Expected JSON object with topics array or JSON array');
   }
-  const topics = parsed
+
+  const topics = topicsArray
     .filter((x): x is string => typeof x === 'string')
     .map((s) => String(s).trim())
     .filter(Boolean)
