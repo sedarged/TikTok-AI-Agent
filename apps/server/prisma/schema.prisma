@@ -86,7 +86,7 @@ model Run {
 
 model Cache {
   id          String   @id @default(uuid())
-  kind        String   // llm | images | tts | asr
+  kind        String   // llm | images | tts | asr | topic_suggestions
   hashKey     String   @unique
   resultJson  String   @default("{}")
   payloadPath String?

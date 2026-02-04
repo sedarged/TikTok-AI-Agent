@@ -277,11 +277,11 @@ export async function transcribeAudio(audioPath: string): Promise<TranscribeAudi
 }
 
 // Cache helpers
-function createHash(...args: string[]): string {
+export function createHash(...args: string[]): string {
   return crypto.createHash('md5').update(args.join('|')).digest('hex');
 }
 
-async function getCachedResult(hashKey: string) {
+export async function getCachedResult(hashKey: string) {
   try {
     return await prisma.cache.findUnique({
       where: { hashKey },
@@ -291,7 +291,7 @@ async function getCachedResult(hashKey: string) {
   }
 }
 
-async function cacheResult(hashKey: string, kind: string, result: unknown, payloadPath?: string) {
+export async function cacheResult(hashKey: string, kind: string, result: unknown, payloadPath?: string) {
   try {
     await prisma.cache.upsert({
       where: { hashKey },
