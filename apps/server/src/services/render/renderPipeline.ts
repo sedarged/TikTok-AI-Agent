@@ -960,7 +960,9 @@ async function executePipeline(run: Run, planVersion: PlanWithDetails) {
 }
 
 // Reset runs stuck in 'running' after server restart (no in-memory activeRuns)
+// and restore queued runs back to the in-memory queue
 export async function resetStuckRuns(): Promise<void> {
+  // 1. Handle stuck 'running' runs - mark as failed
   const stuck = await prisma.run.findMany({
     where: { status: 'running' },
     select: { id: true, projectId: true, logsJson: true },
@@ -988,6 +990,27 @@ export async function resetStuckRuns(): Promise<void> {
   }
   if (stuck.length > 0) {
     logWarn(`Reset ${stuck.length} run(s) stuck in "running" state.`);
+  }
+
+  // 2. Restore queued runs back to the in-memory queue
+  const queuedRuns = await prisma.run.findMany({
+    where: { status: 'queued' },
+    select: { id: true, createdAt: true },
+    orderBy: { createdAt: 'asc' }, // Oldest first to maintain FIFO order
+  });
+
+  for (const run of queuedRuns) {
+    renderQueue.push(run.id);
+  }
+
+  if (queuedRuns.length > 0) {
+    logWarn(`Restored ${queuedRuns.length} queued run(s) to in-memory queue.`);
+    // Start processing the queue if no run is currently running
+    if (currentRunningRunId === null) {
+      processNextInQueue().catch((err) =>
+        logError('Failed to process restored queue on startup:', err)
+      );
+    }
   }
 }
 
