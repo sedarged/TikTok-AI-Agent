@@ -8,6 +8,7 @@ import {
   subscribeToRun,
   retryRun,
   cancelRun,
+  patchRun,
 } from '../api/client';
 import type {
   Run,
@@ -39,6 +40,10 @@ export default function Output({ status }: OutputProps) {
   const [retrying, setRetrying] = useState(false);
   const [retryFromStep, setRetryFromStep] = useState<string>('');
   const [canceling, setCanceling] = useState(false);
+  const [editingMetrics, setEditingMetrics] = useState(false);
+  const [metricsValues, setMetricsValues] = useState({ views: '', likes: '', retention: '' });
+  const [savingMetrics, setSavingMetrics] = useState(false);
+  const [metricsError, setMetricsError] = useState('');
   const moreMenuRef = useRef<HTMLDivElement>(null);
 
   const RENDER_STEPS = [
@@ -61,6 +66,11 @@ export default function Output({ status }: OutputProps) {
       .then((data) => {
         if (signal.aborted) return;
         setRun(data);
+        setMetricsValues({
+          views: String(data.views ?? ''),
+          likes: String(data.likes ?? ''),
+          retention: String(data.retention ?? ''),
+        });
         try {
           setLogs(JSON.parse(data.logsJson || '[]'));
         } catch {
@@ -441,6 +451,185 @@ export default function Output({ status }: OutputProps) {
             </div>
           </div>
         )}
+
+      {/* Metrics Editor (Analytics) */}
+      {isComplete && (
+        <div className="card">
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="font-semibold">Metrics</h3>
+            {!editingMetrics && (
+              <button
+                onClick={() => {
+                  setMetricsValues({
+                    views: String(run.views ?? ''),
+                    likes: String(run.likes ?? ''),
+                    retention: String(run.retention ?? ''),
+                  });
+                  setMetricsError('');
+                  setEditingMetrics(true);
+                }}
+                className="btn btn-secondary text-sm"
+              >
+                Edit
+              </button>
+            )}
+          </div>
+          <p className="text-gray-400 text-sm mb-4">Track performance metrics for this video.</p>
+
+          {!editingMetrics ? (
+            <div className="space-y-3">
+              <div className="flex items-center justify-between py-2 border-b border-gray-700">
+                <span className="text-gray-400">Views</span>
+                <span className="font-medium">{run.views?.toLocaleString() ?? 0}</span>
+              </div>
+              <div className="flex items-center justify-between py-2 border-b border-gray-700">
+                <span className="text-gray-400">Likes</span>
+                <span className="font-medium">{run.likes?.toLocaleString() ?? 0}</span>
+              </div>
+              <div className="flex items-center justify-between py-2 border-b border-gray-700">
+                <span className="text-gray-400">Retention</span>
+                <span className="font-medium">
+                  {run.retention !== null && run.retention !== undefined
+                    ? `${(run.retention * 100).toFixed(1)}%`
+                    : '0%'}
+                </span>
+              </div>
+            </div>
+          ) : (
+            <form
+              onSubmit={async (e) => {
+                e.preventDefault();
+                if (!runId) return;
+
+                // Parse and validate inputs
+                const v = metricsValues.views.trim()
+                  ? parseInt(metricsValues.views, 10)
+                  : undefined;
+                const l = metricsValues.likes.trim()
+                  ? parseInt(metricsValues.likes, 10)
+                  : undefined;
+                const ret = metricsValues.retention.trim()
+                  ? parseFloat(metricsValues.retention)
+                  : undefined;
+
+                // Validation
+                if (v !== undefined && (isNaN(v) || v < 0)) {
+                  setMetricsError('Views must be a non-negative number');
+                  return;
+                }
+                if (l !== undefined && (isNaN(l) || l < 0)) {
+                  setMetricsError('Likes must be a non-negative number');
+                  return;
+                }
+                if (ret !== undefined && (isNaN(ret) || ret < 0 || ret > 1)) {
+                  setMetricsError('Retention must be between 0 and 1');
+                  return;
+                }
+
+                setMetricsError('');
+                setSavingMetrics(true);
+                try {
+                  const updated = await patchRun(runId, {
+                    views: v,
+                    likes: l,
+                    retention: ret,
+                  });
+                  setRun(updated);
+                  setEditingMetrics(false);
+                  setError('');
+                } catch (err) {
+                  setError(getErrorMessage(err));
+                } finally {
+                  setSavingMetrics(false);
+                }
+              }}
+              className="space-y-4"
+            >
+              {metricsError && (
+                <div className="bg-red-900/50 border border-red-700 rounded-lg px-4 py-3">
+                  <p className="text-red-200 text-sm">{metricsError}</p>
+                </div>
+              )}
+              <div>
+                <label
+                  htmlFor="metrics-views"
+                  className="block text-sm font-medium text-gray-400 mb-1"
+                >
+                  Views
+                </label>
+                <input
+                  id="metrics-views"
+                  type="number"
+                  min="0"
+                  step="1"
+                  value={metricsValues.views}
+                  onChange={(e) => setMetricsValues({ ...metricsValues, views: e.target.value })}
+                  className="input w-full"
+                />
+              </div>
+              <div>
+                <label
+                  htmlFor="metrics-likes"
+                  className="block text-sm font-medium text-gray-400 mb-1"
+                >
+                  Likes
+                </label>
+                <input
+                  id="metrics-likes"
+                  type="number"
+                  min="0"
+                  step="1"
+                  value={metricsValues.likes}
+                  onChange={(e) => setMetricsValues({ ...metricsValues, likes: e.target.value })}
+                  className="input w-full"
+                />
+              </div>
+              <div>
+                <label
+                  htmlFor="metrics-retention"
+                  className="block text-sm font-medium text-gray-400 mb-1"
+                >
+                  Retention (0-1)
+                </label>
+                <input
+                  id="metrics-retention"
+                  type="number"
+                  min="0"
+                  max="1"
+                  step="0.01"
+                  value={metricsValues.retention}
+                  onChange={(e) =>
+                    setMetricsValues({
+                      ...metricsValues,
+                      retention: e.target.value,
+                    })
+                  }
+                  className="input w-full"
+                />
+                <p className="text-xs text-gray-500 mt-1">
+                  Enter a value between 0 and 1 (e.g., 0.75 = 75%)
+                </p>
+              </div>
+              <div className="flex gap-3">
+                <button type="submit" disabled={savingMetrics} className="btn btn-primary">
+                  {savingMetrics ? 'Saving...' : 'Save'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setEditingMetrics(false);
+                    setMetricsError('');
+                  }}
+                  disabled={savingMetrics}
+                  className="btn btn-secondary"
+                >
+                  Cancel
+                </button>
+              </div>
+            </form>
+          )}
+        </div>
+      )}
 
       {/* QA Failed state */}
       {isQaFailed && (
