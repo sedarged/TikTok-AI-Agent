@@ -25,6 +25,23 @@ interface ScriptUpdateRaw {
 const HOOK_FIRST_3_SECONDS =
   'The first scene must contain the hook within the first 3 seconds; first sentence = attention grabber.';
 
+/**
+ * Helper to unwrap an array from either raw array or {field: array} wrapper object.
+ * Handles both legacy array format (tests) and OpenAI json_object format.
+ */
+function unwrapArrayField<T>(parsed: unknown, fieldName: string): T[] | null {
+  if (Array.isArray(parsed)) {
+    return parsed as T[];
+  }
+  if (typeof parsed === 'object' && parsed !== null && fieldName in parsed) {
+    const obj = parsed as Record<string, unknown>;
+    if (Array.isArray(obj[fieldName])) {
+      return obj[fieldName] as T[];
+    }
+  }
+  return null;
+}
+
 export interface GeneratePlanOptions {
   scriptTemplateId?: string;
 }
@@ -161,19 +178,19 @@ Return ONLY a JSON object with a "hooks" array containing exactly 5 hook strings
     }
 
     // Handle both array (legacy/test) and object (OpenAI json_object) formats
-    let hooksArray: unknown;
-    if (Array.isArray(hooks)) {
-      hooksArray = hooks;
-    } else if (typeof hooks === 'object' && hooks !== null && 'hooks' in hooks) {
-      const obj = hooks as { hooks?: unknown };
-      hooksArray = obj.hooks;
-    } else {
-      return generateTemplateHooks(project.topic, pack);
+    const hooksArray = unwrapArrayField<unknown>(hooks, 'hooks');
+    if (hooksArray) {
+      // Validate and normalize hooks to ensure they're valid strings
+      const normalizedHooks = hooksArray
+        .filter((value): value is string => typeof value === 'string')
+        .map((hook) => hook.trim())
+        .filter((hook) => hook.length > 0);
+
+      if (normalizedHooks.length >= 5) {
+        return normalizedHooks.slice(0, 5);
+      }
     }
 
-    if (Array.isArray(hooksArray) && hooksArray.length >= 5) {
-      return hooksArray.slice(0, 5);
-    }
     return generateTemplateHooks(project.topic, pack);
   } catch (error) {
     logError('Error generating hooks with AI:', error);
@@ -300,18 +317,10 @@ Requirements:
     }
 
     // Handle both array (legacy/test) and object (OpenAI json_object) formats
-    let scenesArray: unknown;
-    if (Array.isArray(scenes)) {
-      scenesArray = scenes;
-    } else if (typeof scenes === 'object' && scenes !== null && 'scenes' in scenes) {
-      const obj = scenes as { scenes?: unknown };
-      scenesArray = obj.scenes;
-    } else {
-      return generateTemplateScenes(project, hook, outline, pack, sceneCount, avgDuration);
-    }
+    const scenesArray = unwrapArrayField<OpenAISceneRaw>(scenes, 'scenes');
 
-    if (Array.isArray(scenesArray) && scenesArray.length > 0) {
-      return (scenesArray as OpenAISceneRaw[]).map((s, i) => {
+    if (scenesArray && scenesArray.length > 0) {
+      return scenesArray.map((s, i) => {
         const effectPreset: EffectPreset =
           s.effectPreset && EFFECT_PRESETS.includes(s.effectPreset as EffectPreset)
             ? (s.effectPreset as EffectPreset)
@@ -400,20 +409,11 @@ Keep scene count the same. Make the script flow naturally.`;
     }
 
     // Handle both array (legacy/test) and object (OpenAI json_object) formats
-    let updatesArray: unknown;
-    if (Array.isArray(updates)) {
-      updatesArray = updates;
-    } else if (typeof updates === 'object' && updates !== null && 'updates' in updates) {
-      const obj = updates as { updates?: unknown };
-      updatesArray = obj.updates;
-    } else {
-      throw new Error('Invalid JSON response for script updates');
-    }
+    const updatesArray = unwrapArrayField<ScriptUpdateRaw>(updates, 'updates');
 
-    if (Array.isArray(updatesArray)) {
-      const raw = updatesArray as ScriptUpdateRaw[];
+    if (updatesArray) {
       const updatedScenes = scenes.map((scene) => {
-        const update = raw.find((u) => u.idx === scene.idx);
+        const update = updatesArray.find((u) => u.idx === scene.idx);
         if (update && !scene.isLocked) {
           return { ...scene, narrationText: update.narrationText };
         }

@@ -5,6 +5,23 @@ import { callOpenAI, createHash, getCachedResult, cacheResult } from '../provide
 import { getNichePack } from '../nichePacks.js';
 import { logError, logDebug } from '../../utils/logger.js';
 
+/**
+ * Helper to unwrap an array from either raw array or {field: array} wrapper object.
+ * Handles both legacy array format (tests) and OpenAI json_object format.
+ */
+function unwrapArrayField<T>(parsed: unknown, fieldName: string): T[] | null {
+  if (Array.isArray(parsed)) {
+    return parsed as T[];
+  }
+  if (typeof parsed === 'object' && parsed !== null && fieldName in parsed) {
+    const obj = parsed as Record<string, unknown>;
+    if (Array.isArray(obj[fieldName])) {
+      return obj[fieldName] as T[];
+    }
+  }
+  return null;
+}
+
 export async function getTopicSuggestions(
   nichePackId: string,
   limit: number = 10
@@ -42,18 +59,11 @@ export async function getTopicSuggestions(
   }
 
   // Handle both array (legacy/test) and object (OpenAI json_object) formats
-  let topicsArray: unknown[];
-  if (Array.isArray(parsed)) {
-    topicsArray = parsed;
-  } else if (typeof parsed === 'object' && parsed !== null && 'topics' in parsed) {
-    const obj = parsed as { topics?: unknown };
-    if (!Array.isArray(obj.topics)) {
-      throw new Error('Expected JSON object with topics array');
-    }
-    topicsArray = obj.topics;
-  } else {
+  const topicsArray = unwrapArrayField<unknown>(parsed, 'topics');
+  if (!topicsArray) {
     throw new Error('Expected JSON object with topics array or JSON array');
   }
+
   const topics = topicsArray
     .filter((x): x is string => typeof x === 'string')
     .map((s) => String(s).trim())
