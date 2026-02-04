@@ -1,72 +1,28 @@
 /**
  * AI topic suggestions for TikTok – returns viral-style topic ideas for a niche.
  */
-import { callOpenAI } from '../providers/openai.js';
+import { callOpenAI, createHash, getCachedResult, cacheResult } from '../providers/openai.js';
 import { getNichePack } from '../nichePacks.js';
 import { logError, logDebug } from '../../utils/logger.js';
-import { prisma } from '../../db/client.js';
-import crypto from 'crypto';
-
-/**
- * Create a hash key for caching
- * Note: MD5 is used for cache key generation (non-security use case)
- * to match existing cache pattern in openai.ts
- */
-function createCacheHash(...args: string[]): string {
-  return crypto.createHash('md5').update(args.join('|')).digest('hex');
-}
-
-/**
- * Get cached topic suggestions from database
- */
-async function getCachedTopicSuggestions(hashKey: string): Promise<string[] | null> {
-  try {
-    const cached = await prisma.cache.findUnique({
-      where: { hashKey },
-    });
-
-    if (cached && cached.resultJson) {
-      const result = JSON.parse(cached.resultJson) as { topics: string[] };
-      logDebug(`Cache hit for topic suggestions: ${hashKey}`);
-      return result.topics;
-    }
-  } catch (error) {
-    logError('Failed to get cached topic suggestions:', error);
-  }
-  return null;
-}
-
-/**
- * Store topic suggestions in cache
- */
-async function cacheTopicSuggestions(hashKey: string, topics: string[]): Promise<void> {
-  try {
-    await prisma.cache.upsert({
-      where: { hashKey },
-      create: {
-        hashKey,
-        kind: 'topic_suggestions',
-        resultJson: JSON.stringify({ topics }),
-      },
-      update: {
-        resultJson: JSON.stringify({ topics }),
-      },
-    });
-    logDebug(`Cached topic suggestions: ${hashKey}`);
-  } catch (error) {
-    logError('Failed to cache topic suggestions:', error);
-  }
-}
 
 export async function getTopicSuggestions(
   nichePackId: string,
   limit: number = 10
 ): Promise<string[]> {
   // Check cache first
-  const cacheKey = createCacheHash('topic_suggestions', nichePackId, String(limit));
-  const cached = await getCachedTopicSuggestions(cacheKey);
-  if (cached) {
-    return cached;
+  const cacheKey = createHash('topic_suggestions', nichePackId, String(limit));
+  const cached = await getCachedResult(cacheKey);
+  
+  if (cached && cached.resultJson) {
+    try {
+      const result = JSON.parse(cached.resultJson) as { topics: string[] };
+      if (result.topics && Array.isArray(result.topics)) {
+        logDebug(`Cache hit for topic suggestions: ${cacheKey}`);
+        return result.topics;
+      }
+    } catch (error) {
+      logError('Failed to parse cached topic suggestions:', error);
+    }
   }
 
   const pack = getNichePack(nichePackId);
@@ -95,7 +51,7 @@ export async function getTopicSuggestions(
     .slice(0, limit);
 
   // Cache the result
-  await cacheTopicSuggestions(cacheKey, topics);
+  await cacheResult(cacheKey, 'topic_suggestions', { topics });
 
   return topics;
 }

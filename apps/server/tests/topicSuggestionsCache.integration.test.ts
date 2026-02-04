@@ -78,7 +78,14 @@ describe('Topic Suggestions Caching', () => {
     expect(entry.hashKey).toBeDefined();
     expect(entry.resultJson).toBeDefined();
 
-    const result = JSON.parse(entry.resultJson) as { topics: string[] };
+    let result: { topics: string[] };
+    try {
+      result = JSON.parse(entry.resultJson) as { topics: string[] };
+    } catch (error) {
+      throw new Error(
+        `Failed to parse cached topic suggestions JSON: ${(error as Error).message}`,
+      );
+    }
     expect(result.topics).toHaveLength(7);
     expect(Array.isArray(result.topics)).toBe(true);
   });
