@@ -1001,9 +1001,11 @@ export async function resetStuckRuns(): Promise<void> {
     orderBy: { createdAt: 'asc' }, // Oldest first to maintain FIFO order
   });
 
+  // Use a Set for O(1) lookup to avoid O(n²) complexity
+  const existingQueueIds = new Set(renderQueue);
   for (const run of queuedRuns) {
     // Avoid adding duplicate run IDs if resetStuckRuns() is invoked multiple times
-    if (!renderQueue.includes(run.id)) {
+    if (!existingQueueIds.has(run.id)) {
       renderQueue.push(run.id);
     }
   }
