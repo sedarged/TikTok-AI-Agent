@@ -41,8 +41,9 @@ export default function Output({ status }: OutputProps) {
   const [retryFromStep, setRetryFromStep] = useState<string>('');
   const [canceling, setCanceling] = useState(false);
   const [editingMetrics, setEditingMetrics] = useState(false);
-  const [metricsValues, setMetricsValues] = useState({ views: 0, likes: 0, retention: 0 });
+  const [metricsValues, setMetricsValues] = useState({ views: '', likes: '', retention: '' });
   const [savingMetrics, setSavingMetrics] = useState(false);
+  const [metricsError, setMetricsError] = useState('');
   const moreMenuRef = useRef<HTMLDivElement>(null);
 
   const RENDER_STEPS = [
@@ -66,9 +67,9 @@ export default function Output({ status }: OutputProps) {
         if (signal.aborted) return;
         setRun(data);
         setMetricsValues({
-          views: data.views ?? 0,
-          likes: data.likes ?? 0,
-          retention: data.retention ?? 0,
+          views: String(data.views ?? ''),
+          likes: String(data.likes ?? ''),
+          retention: String(data.retention ?? ''),
         });
         try {
           setLogs(JSON.parse(data.logsJson || '[]'));
@@ -460,10 +461,11 @@ export default function Output({ status }: OutputProps) {
               <button
                 onClick={() => {
                   setMetricsValues({
-                    views: run.views ?? 0,
-                    likes: run.likes ?? 0,
-                    retention: run.retention ?? 0,
+                    views: String(run.views ?? ''),
+                    likes: String(run.likes ?? ''),
+                    retention: String(run.retention ?? ''),
                   });
+                  setMetricsError('');
                   setEditingMetrics(true);
                 }}
                 className="btn btn-secondary text-sm"
@@ -498,12 +500,39 @@ export default function Output({ status }: OutputProps) {
               onSubmit={async (e) => {
                 e.preventDefault();
                 if (!runId) return;
+
+                // Parse and validate inputs
+                const v = metricsValues.views.trim()
+                  ? parseInt(metricsValues.views, 10)
+                  : undefined;
+                const l = metricsValues.likes.trim()
+                  ? parseInt(metricsValues.likes, 10)
+                  : undefined;
+                const ret = metricsValues.retention.trim()
+                  ? parseFloat(metricsValues.retention)
+                  : undefined;
+
+                // Validation
+                if (v !== undefined && (isNaN(v) || v < 0)) {
+                  setMetricsError('Views must be a non-negative number');
+                  return;
+                }
+                if (l !== undefined && (isNaN(l) || l < 0)) {
+                  setMetricsError('Likes must be a non-negative number');
+                  return;
+                }
+                if (ret !== undefined && (isNaN(ret) || ret < 0 || ret > 1)) {
+                  setMetricsError('Retention must be between 0 and 1');
+                  return;
+                }
+
+                setMetricsError('');
                 setSavingMetrics(true);
                 try {
                   const updated = await patchRun(runId, {
-                    views: metricsValues.views,
-                    likes: metricsValues.likes,
-                    retention: metricsValues.retention,
+                    views: v,
+                    likes: l,
+                    retention: ret,
                   });
                   setRun(updated);
                   setEditingMetrics(false);
@@ -516,6 +545,11 @@ export default function Output({ status }: OutputProps) {
               }}
               className="space-y-4"
             >
+              {metricsError && (
+                <div className="bg-red-900/50 border border-red-700 rounded-lg px-4 py-3">
+                  <p className="text-red-200 text-sm">{metricsError}</p>
+                </div>
+              )}
               <div>
                 <label
                   htmlFor="metrics-views"
@@ -529,9 +563,7 @@ export default function Output({ status }: OutputProps) {
                   min="0"
                   step="1"
                   value={metricsValues.views}
-                  onChange={(e) =>
-                    setMetricsValues({ ...metricsValues, views: parseInt(e.target.value) || 0 })
-                  }
+                  onChange={(e) => setMetricsValues({ ...metricsValues, views: e.target.value })}
                   className="input w-full"
                 />
               </div>
@@ -548,9 +580,7 @@ export default function Output({ status }: OutputProps) {
                   min="0"
                   step="1"
                   value={metricsValues.likes}
-                  onChange={(e) =>
-                    setMetricsValues({ ...metricsValues, likes: parseInt(e.target.value) || 0 })
-                  }
+                  onChange={(e) => setMetricsValues({ ...metricsValues, likes: e.target.value })}
                   className="input w-full"
                 />
               </div>
@@ -571,7 +601,7 @@ export default function Output({ status }: OutputProps) {
                   onChange={(e) =>
                     setMetricsValues({
                       ...metricsValues,
-                      retention: parseFloat(e.target.value) || 0,
+                      retention: e.target.value,
                     })
                   }
                   className="input w-full"
@@ -586,7 +616,10 @@ export default function Output({ status }: OutputProps) {
                 </button>
                 <button
                   type="button"
-                  onClick={() => setEditingMetrics(false)}
+                  onClick={() => {
+                    setEditingMetrics(false);
+                    setMetricsError('');
+                  }}
                   disabled={savingMetrics}
                   className="btn btn-secondary"
                 >
