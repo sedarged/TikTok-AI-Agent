@@ -16,13 +16,13 @@ export const planRoutes = Router();
 
 const sceneUpdateSchema = z
   .object({
-    id: z.string(),
+    id: z.string().uuid(),
     narrationText: z.string().optional(),
     onScreenText: z.string().optional(),
     visualPrompt: z.string().optional(),
     negativePrompt: z.string().optional(),
     effectPreset: z.string().optional(),
-    durationTargetSec: z.number().optional(),
+    durationTargetSec: z.number().positive().optional(),
     isLocked: z.boolean().optional(),
   })
   .strict();
