@@ -99,29 +99,41 @@ planRoutes.put('/:planVersionId', async (req, res) => {
       return res.status(404).json({ error: 'Plan version not found' });
     }
 
-    // Validate scenes first if provided (before making any updates)
+    // Validate and fetch scenes first if provided (before making any updates)
+    let scenesToUpdate: Map<string, any> = new Map();
     if (scenes && Array.isArray(scenes)) {
-      const rejectedSceneIds: string[] = [];
+      const sceneIds = scenes.filter((s) => s.id).map((s) => s.id);
 
-      for (const scene of scenes) {
-        if (!scene.id) continue;
-
-        const existingScene = await prisma.scene.findUnique({
-          where: { id: scene.id },
+      if (sceneIds.length > 0) {
+        // Fetch all scenes in a single query
+        const existingScenes = await prisma.scene.findMany({
+          where: {
+            id: { in: sceneIds },
+          },
         });
 
-        // Verify scene belongs to this plan (ownership check)
-        if (!existingScene || existingScene.planVersionId !== planVersionId) {
-          rejectedSceneIds.push(scene.id);
+        // Build a map for quick lookup
+        const existingScenesMap = new Map(existingScenes.map((s) => [s.id, s]));
+
+        // Validate ownership
+        const rejectedSceneIds: string[] = [];
+        for (const sceneId of sceneIds) {
+          const existingScene = existingScenesMap.get(sceneId);
+          if (!existingScene || existingScene.planVersionId !== planVersionId) {
+            rejectedSceneIds.push(sceneId);
+          }
         }
-      }
 
-      // Return error if any scenes were rejected (before making any updates)
-      if (rejectedSceneIds.length > 0) {
-        return res.status(400).json({
-          error: 'Some scene IDs do not belong to this plan',
-          rejectedSceneIds,
-        });
+        // Return error if any scenes were rejected (before making any updates)
+        if (rejectedSceneIds.length > 0) {
+          return res.status(400).json({
+            error: 'Some scene IDs do not belong to this plan',
+            rejectedSceneIds,
+          });
+        }
+
+        // Store validated scenes for updates
+        scenesToUpdate = existingScenesMap;
       }
     }
 
@@ -143,15 +155,12 @@ planRoutes.put('/:planVersionId', async (req, res) => {
     }
 
     // Update scenes if provided (now we know all scenes are valid)
-    if (scenes && Array.isArray(scenes)) {
+    if (scenes && Array.isArray(scenes) && scenesToUpdate.size > 0) {
       for (const scene of scenes) {
         if (!scene.id) continue;
 
-        const existingScene = await prisma.scene.findUnique({
-          where: { id: scene.id },
-        });
-
-        if (!existingScene) continue; // Already validated, but safety check
+        const existingScene = scenesToUpdate.get(scene.id);
+        if (!existingScene) continue; // Scene was filtered out in validation
 
         if (!existingScene.isLocked) {
           await prisma.scene.update({
