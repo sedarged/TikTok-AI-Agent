@@ -221,15 +221,17 @@ export default function Output({ status }: OutputProps) {
 
   const verificationLong = verification && verification.checks.length > 5;
   const artifactKeys = isComplete
-    ? [
-        'mp4Path',
-        'thumbPath',
-        'thumbPaths',
-        'captionsPath',
-        'imagesDir',
-        'audioDir',
-        'dryRunReportPath',
-      ].filter((k) => (artifacts as Record<string, unknown>)[k])
+    ? (
+        [
+          'mp4Path',
+          'thumbPath',
+          'thumbPaths',
+          'captionsPath',
+          'imagesDir',
+          'audioDir',
+          'dryRunReportPath',
+        ] as const
+      ).filter((k) => artifacts[k] !== undefined)
     : [];
   const artifactsLong = artifactKeys.length > 5;
 

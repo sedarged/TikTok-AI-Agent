@@ -87,9 +87,19 @@ export interface Artifacts {
   captionsPath?: string;
   mp4Path?: string;
   thumbPath?: string;
+  /** 3 thumbnails for cover choice: 0s, 3s, mid */
+  thumbPaths?: string[];
   exportJsonPath?: string;
   dryRun?: boolean;
   dryRunReportPath?: string;
+  /** QA check result when status is qa_failed */
+  qaResult?: { silence?: boolean; fileSize?: boolean; resolution?: boolean; details?: string };
+  /** TikTok metadata (caption, hashtags, title) */
+  tiktokCaption?: string;
+  tiktokHashtags?: string[];
+  tiktokTitle?: string;
+  /** Estimated cost (USD) for this run */
+  costEstimate?: { estimatedUsd: number };
 }
 
 // Resume state

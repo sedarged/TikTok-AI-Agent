@@ -28,6 +28,7 @@ import { validateQa } from '../qa/qaValidator.js';
 import { generateTikTokMeta } from '../tiktokExport.js';
 import { broadcastRunUpdate } from '../../routes/run.js';
 import type { Run, PlanVersion, Scene, Project } from '@prisma/client';
+import type { Artifacts } from '../../utils/types.js';
 
 interface PlanWithDetails extends PlanVersion {
   scenes: Scene[];
@@ -264,10 +265,9 @@ async function executePipeline(run: Run, planVersion: PlanWithDetails) {
   }
 
   // Initialize artifacts
-  const artifacts: Record<string, string | boolean> = {
+  const artifacts: Artifacts = {
     imagesDir: path.relative(env.ARTIFACTS_DIR, imagesDir),
     audioDir: path.relative(env.ARTIFACTS_DIR, audioDir),
-    captionsDir: path.relative(env.ARTIFACTS_DIR, captionsDir),
     dryRun,
   };
 
@@ -781,7 +781,7 @@ async function executePipeline(run: Run, planVersion: PlanWithDetails) {
 
       await updateStep(runId, 'finalize_artifacts', 'Finalizing...');
 
-      (artifacts as Record<string, unknown>).costEstimate = {
+      artifacts.costEstimate = {
         estimatedUsd: Math.round(totalCostUsd * 100) / 100,
       };
 
@@ -810,7 +810,7 @@ async function executePipeline(run: Run, planVersion: PlanWithDetails) {
           path.relative(env.ARTIFACTS_DIR, path.join(finalDir, 'thumb_3.png')),
           path.relative(env.ARTIFACTS_DIR, path.join(finalDir, 'thumb_mid.png'))
         );
-        (artifacts as Record<string, unknown>).thumbPaths = thumbPaths;
+        artifacts.thumbPaths = thumbPaths;
         artifacts.thumbPath = thumbPaths[0];
       }
 
@@ -830,9 +830,9 @@ async function executePipeline(run: Run, planVersion: PlanWithDetails) {
           tiktokCaption = tiktok.caption;
           tiktokHashtags = tiktok.hashtags;
           tiktokTitle = tiktok.title;
-          (artifacts as Record<string, unknown>).tiktokCaption = tiktokCaption;
-          (artifacts as Record<string, unknown>).tiktokHashtags = tiktokHashtags;
-          (artifacts as Record<string, unknown>).tiktokTitle = tiktokTitle;
+          artifacts.tiktokCaption = tiktokCaption;
+          artifacts.tiktokHashtags = tiktokHashtags;
+          artifacts.tiktokTitle = tiktokTitle;
         } catch (err) {
           await addLog(
             runId,
@@ -893,7 +893,7 @@ async function executePipeline(run: Run, planVersion: PlanWithDetails) {
       const finalVideoPath = path.join(finalDir, 'final.mp4');
       if (fs.existsSync(finalVideoPath)) {
         const qaResult = await validateQa(finalVideoPath);
-        (artifacts as Record<string, unknown>).qaResult = qaResult.qaResult;
+        artifacts.qaResult = qaResult.qaResult;
         if (!qaResult.passed) {
           await updateRun(runId, {
             status: 'qa_failed',
@@ -932,7 +932,7 @@ async function executePipeline(run: Run, planVersion: PlanWithDetails) {
 
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
 
-    (artifacts as Record<string, unknown>).costEstimate = {
+    artifacts.costEstimate = {
       estimatedUsd: Math.round(totalCostUsd * 100) / 100,
     };
     await updateRun(runId, {
