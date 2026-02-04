@@ -87,19 +87,8 @@ function timingSafeEqual(a: string, b: string): boolean {
   const bufferA = Buffer.from(a, 'utf8');
   const bufferB = Buffer.from(b, 'utf8');
 
-  // If lengths differ, use constant-time comparison anyway
+  // If lengths differ, they cannot be equal
   if (bufferA.length !== bufferB.length) {
-    // Still compare to avoid timing leak on length
-    const maxLength = Math.max(bufferA.length, bufferB.length);
-    const paddedA = Buffer.alloc(maxLength);
-    const paddedB = Buffer.alloc(maxLength);
-    bufferA.copy(paddedA);
-    bufferB.copy(paddedB);
-
-    let _result = 1; // Already know they're not equal
-    for (let i = 0; i < maxLength; i++) {
-      _result |= paddedA[i] ^ paddedB[i];
-    }
     return false;
   }
 

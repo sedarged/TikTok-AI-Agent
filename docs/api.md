@@ -68,9 +68,10 @@ const response = await fetch('http://localhost:3001/api/project', {
 
 ### Behavior
 
-- **When API_KEY is set:** Write operations (POST, PUT, PATCH, DELETE) require authentication
-- **When API_KEY is not set:** All endpoints are accessible without authentication (development mode)
-- **Read operations (GET):** Always accessible without authentication for backward compatibility
+- **Production (`NODE_ENV=production`):** `API_KEY` is **required**. The server will not start without it, ensuring production deployments are always authenticated.
+- **When API_KEY is set:** Write operations (POST, PUT, PATCH, DELETE) require authentication via the `Authorization: Bearer <API_KEY>` header.
+- **When API_KEY is not set (development only):** Authentication is disabled and all endpoints are accessible without authentication. **Never use this mode in production or on any publicly reachable environment.**
+- **Read operations (GET):** Always accessible without authentication for backward compatibility.
 
 See [SECURITY.md](../SECURITY.md) for more details on authentication and security best practices.
 

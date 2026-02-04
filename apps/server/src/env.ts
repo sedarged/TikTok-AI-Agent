@@ -45,6 +45,11 @@ function validateEnv() {
     logBootstrapWarn('OPENAI_API_KEY not configured. AI features will not work.');
   }
 
+  // Require API_KEY in production for security
+  if (isProduction && !isTest && !process.env.API_KEY) {
+    throw new Error('API_KEY is required in production. Generate one with: openssl rand -hex 32');
+  }
+
   // Validate PORT is a valid number
   const port = parseInt(process.env.PORT || '3001', 10);
   if (isNaN(port) || port < 1 || port > 65535) {

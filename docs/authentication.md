@@ -119,6 +119,73 @@ curl -X POST "http://localhost:3001/api/project/{PROJECT_ID}/plan" \
   -H "Authorization: Bearer $API_KEY"
 ```
 
+### Web Application Integration
+
+**⚠️ Important:** The integrated web application (`apps/web`) currently does **not** send authentication headers. When `API_KEY` is configured on the server, all write operations from the web UI will fail with 401 errors.
+
+#### Configuring the Web Client
+
+To enable authentication in the web client, you need to:
+
+1. **Set the API key as an environment variable for the web app:**
+
+```bash
+# In apps/web/.env or .env.local
+VITE_API_KEY=your-api-key-here
+```
+
+2. **Update the API client to include the Authorization header:**
+
+Modify `apps/web/src/api/client.ts`:
+
+```typescript
+async function fetchApi<T>(endpoint: string, options: FetchApiOptions = {}): Promise<T> {
+  const { timeout = DEFAULT_FETCH_TIMEOUT_MS, signal: outerSignal, ...init } = options;
+  const controller = outerSignal ? null : new AbortController();
+  const signal = outerSignal ?? controller!.signal;
+  const timeoutId =
+    !outerSignal && timeout > 0 ? setTimeout(() => controller!.abort(), timeout) : null;
+
+  // Get API key from environment variable
+  const apiKey = import.meta.env.VITE_API_KEY;
+  const headers: HeadersInit = {
+    'Content-Type': 'application/json',
+    ...init.headers,
+  };
+  
+  // Add Authorization header if API key is configured
+  if (apiKey) {
+    headers['Authorization'] = `Bearer ${apiKey}`;
+  }
+
+  try {
+    const response = await fetch(`${API_BASE}${endpoint}`, {
+      ...init,
+      signal,
+      headers,
+    });
+    // ... rest of the function
+  }
+}
+```
+
+#### Security Considerations for Browser-Based Authentication
+
+**⚠️ Security Note:** Exposing API keys in browser environments has security implications:
+
+- **Client-side keys are visible:** Any user can inspect the browser's network requests and extract the API key.
+- **Suitable for:** Personal deployments, trusted user environments, internal tools.
+- **Not suitable for:** Public-facing applications with untrusted users.
+
+**Recommended Alternatives for Production:**
+
+1. **Session-based authentication:** Implement user login with server-side sessions
+2. **JWT tokens:** Issue short-lived tokens after user authentication
+3. **OAuth/SSO:** Integrate with identity providers (Google, GitHub, etc.)
+4. **API gateway:** Use a proxy that handles authentication before reaching your API
+
+For now, the API key approach works for personal deployments and internal tools. Future enhancements will add proper user authentication (see [docs/roadmap.md](roadmap.md) for JWT implementation plans).
+
 ## Protected Endpoints
 
 ### Endpoints Requiring Authentication (when API_KEY configured)
@@ -193,14 +260,14 @@ All GET operations and read-only endpoints work without authentication:
 
 ## Development Mode
 
-When `API_KEY` is **not** set in the environment, authentication is disabled and all endpoints work without authentication. This is useful for:
+When `API_KEY` is **not** set in non-production environments (NODE_ENV != 'production'), authentication is disabled and all endpoints work without authentication. This is useful for:
 
 - Local development
 - Testing
 - CI/CD pipelines
 - Development environments
 
-**⚠️ WARNING:** Never deploy to production without setting `API_KEY`.
+**⚠️ CRITICAL:** In production (`NODE_ENV=production`), the server **requires** `API_KEY` to be set and will fail to start if it's missing. This prevents accidentally deploying an unauthenticated API.
 
 ## Production Deployment
 

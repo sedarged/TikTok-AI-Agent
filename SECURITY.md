@@ -56,10 +56,10 @@ NODE_ENV=production
 All state-changing API endpoints (POST, PUT, PATCH, DELETE) now require authentication when `API_KEY` is configured.
 
 **How it works:**
-- Set `API_KEY` environment variable to enable authentication
-- Clients must include `Authorization: Bearer <API_KEY>` header
-- Read-only endpoints (GET) remain accessible without authentication for backward compatibility
-- If `API_KEY` is not set, all endpoints are accessible (development mode)
+- **Production (`NODE_ENV=production`):** `API_KEY` is **required**. The server will fail to start if `API_KEY` is not set, preventing unauthenticated deployments.
+- **When API_KEY is configured:** Clients must include `Authorization: Bearer <API_KEY>` header for all write operations (POST/PUT/PATCH/DELETE)
+- **Read-only endpoints (GET):** Remain accessible without authentication for backward compatibility
+- **Development/test environments:** If `API_KEY` is not set, the server runs in unsecured development mode where all endpoints are accessible. **Never use this mode in production.**
 
 **Example client usage:**
 
@@ -119,9 +119,6 @@ Configuration is in `apps/server/src/index.ts`.
 
 #### 5. Security Headers
 
-Add helmet.js for security headers:
-
-```typescript
 **Status:** ✅ Implemented
 
 Security headers (via Helmet.js) are already configured:
