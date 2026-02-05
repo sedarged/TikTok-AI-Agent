@@ -960,6 +960,19 @@ async function executePipeline(run: Run, planVersion: PlanWithDetails) {
     broadcastRunUpdate(runId, { type: 'failed', error: errorMessage });
   } finally {
     activeRuns.delete(runId);
+
+    // Clean up log queues and wait for any pending log processing to complete
+    const pendingLogProcessing = logProcessing.get(runId);
+    if (pendingLogProcessing) {
+      try {
+        await pendingLogProcessing;
+      } catch {
+        // Log processing error already handled, just ensure cleanup continues
+      }
+    }
+    logQueues.delete(runId);
+    logProcessing.delete(runId);
+
     if (currentRunningRunId === runId) {
       currentRunningRunId = null;
       processNextInQueue().catch((err) => logError('Error processing next in queue', err));
@@ -1134,6 +1147,21 @@ export function clearRenderQueue(): void {
   currentRunningRunId = null;
 }
 
+// Clear log queues (for testing purposes)
+export function clearLogQueues(): void {
+  logQueues.clear();
+  logProcessing.clear();
+}
+
+// Export addLog for testing purposes
+export async function addLogForTesting(
+  runId: string,
+  message: string,
+  level: 'info' | 'warn' | 'error' = 'info'
+): Promise<void> {
+  return addLog(runId, message, level);
+}
+
 // Helper functions
 function isActive(runId: string): boolean {
   return activeRuns.get(runId) === true;
@@ -1167,35 +1195,127 @@ async function updateProgress(runId: string, progress: number) {
   broadcastRunUpdate(runId, { type: 'progress', progress });
 }
 
-async function addLog(runId: string, message: string, level: 'info' | 'warn' | 'error' = 'info') {
-  const run = await prisma.run.findUnique({
-    where: { id: runId },
-  });
+// Queue infrastructure to prevent race conditions in log writes
+interface LogEntry {
+  timestamp: string;
+  message: string;
+  level: 'info' | 'warn' | 'error';
+}
 
-  if (!run) return;
+interface LogQueueItem {
+  entry: LogEntry;
+  resolve: () => void;
+  reject: (error: Error) => void;
+}
 
-  let logs;
-  try {
-    logs = JSON.parse(run.logsJson);
-  } catch (error) {
-    logError('Failed to parse logsJson, starting fresh:', error);
-    logs = [];
+// Map of runId -> queue of pending log operations
+const logQueues = new Map<string, LogQueueItem[]>();
+// Map of runId -> promise for currently processing log operation
+const logProcessing = new Map<string, Promise<void>>();
+
+/**
+ * Process the log queue for a specific run.
+ * Ensures serial execution of log writes to prevent race conditions.
+ */
+async function processLogQueue(runId: string): Promise<void> {
+  const queue = logQueues.get(runId);
+  if (!queue || queue.length === 0) {
+    logProcessing.delete(runId);
+    return;
   }
 
-  logs.push({
+  const item = queue.shift()!;
+
+  try {
+    // Read current logs
+    const run = await prisma.run.findUnique({
+      where: { id: runId },
+    });
+
+    if (!run) {
+      const error = new Error(`Run ${runId} not found`);
+      // Reject the current item
+      item.reject(error);
+      // Reject all remaining items in the queue to avoid leaving hanging promises
+      while (queue.length > 0) {
+        const queuedItem = queue.shift()!;
+        queuedItem.reject(error);
+      }
+      // Mark processing as finished for this run
+      logProcessing.delete(runId);
+      return;
+    }
+
+    let logs: LogEntry[];
+    try {
+      logs = JSON.parse(run.logsJson);
+    } catch (error) {
+      logError('Failed to parse logsJson, starting fresh:', error);
+      logs = [];
+    }
+
+    // Add new log entry
+    logs.push(item.entry);
+
+    // Write back to database
+    await prisma.run.update({
+      where: { id: runId },
+      data: { logsJson: JSON.stringify(logs) },
+    });
+
+    // Broadcast the update
+    broadcastRunUpdate(runId, {
+      type: 'log',
+      log: item.entry,
+    });
+
+    item.resolve();
+  } catch (error) {
+    const err = error as Error;
+    // Reject the current item
+    item.reject(err);
+    // Reject all remaining items in the queue to avoid leaving hanging promises
+    while (queue.length > 0) {
+      const queuedItem = queue.shift()!;
+      queuedItem.reject(err);
+    }
+    // Mark processing as finished for this run
+    logProcessing.delete(runId);
+    return;
+  }
+
+  // Process next item in queue
+  if (queue.length > 0) {
+    await processLogQueue(runId);
+  } else {
+    logProcessing.delete(runId);
+  }
+}
+
+/**
+ * Add a log entry to the run. Uses a queue to serialize writes and prevent race conditions.
+ */
+async function addLog(runId: string, message: string, level: 'info' | 'warn' | 'error' = 'info') {
+  const entry: LogEntry = {
     timestamp: new Date().toISOString(),
     message,
     level,
-  });
+  };
 
-  await prisma.run.update({
-    where: { id: runId },
-    data: { logsJson: JSON.stringify(logs) },
-  });
+  return new Promise<void>((resolve, reject) => {
+    // Get or create queue for this run
+    if (!logQueues.has(runId)) {
+      logQueues.set(runId, []);
+    }
 
-  broadcastRunUpdate(runId, {
-    type: 'log',
-    log: { timestamp: new Date().toISOString(), message, level },
+    const queue = logQueues.get(runId)!;
+    queue.push({ entry, resolve, reject });
+
+    // Start processing if not already running
+    if (!logProcessing.has(runId)) {
+      const processingPromise = processLogQueue(runId);
+      logProcessing.set(runId, processingPromise);
+    }
   });
 }
 
