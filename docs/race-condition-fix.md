@@ -76,8 +76,8 @@ t6    processQueue   -              -              []                ["A","B","C
 
 2. **Added processLogQueue function** (lines 1203-1261)
    - Serializes log writes
-   - Handles errors gracefully
-   - Recursive processing
+   - Processes log entries sequentially
+   - Rejects all pending items on error to prevent hanging promises
 
 3. **Modified addLog function** (lines 1263-1286)
    - Queue-based instead of direct write

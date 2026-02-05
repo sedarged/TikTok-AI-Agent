@@ -960,6 +960,19 @@ async function executePipeline(run: Run, planVersion: PlanWithDetails) {
     broadcastRunUpdate(runId, { type: 'failed', error: errorMessage });
   } finally {
     activeRuns.delete(runId);
+
+    // Clean up log queues and wait for any pending log processing to complete
+    const pendingLogProcessing = logProcessing.get(runId);
+    if (pendingLogProcessing) {
+      try {
+        await pendingLogProcessing;
+      } catch {
+        // Log processing error already handled, just ensure cleanup continues
+      }
+    }
+    logQueues.delete(runId);
+    logProcessing.delete(runId);
+
     if (currentRunningRunId === runId) {
       currentRunningRunId = null;
       processNextInQueue().catch((err) => logError('Error processing next in queue', err));
@@ -1220,7 +1233,16 @@ async function processLogQueue(runId: string): Promise<void> {
     });
 
     if (!run) {
-      item.reject(new Error(`Run ${runId} not found`));
+      const error = new Error(`Run ${runId} not found`);
+      // Reject the current item
+      item.reject(error);
+      // Reject all remaining items in the queue to avoid leaving hanging promises
+      while (queue.length > 0) {
+        const queuedItem = queue.shift()!;
+        queuedItem.reject(error);
+      }
+      // Mark processing as finished for this run
+      logProcessing.delete(runId);
       return;
     }
 
@@ -1249,7 +1271,17 @@ async function processLogQueue(runId: string): Promise<void> {
 
     item.resolve();
   } catch (error) {
-    item.reject(error as Error);
+    const err = error as Error;
+    // Reject the current item
+    item.reject(err);
+    // Reject all remaining items in the queue to avoid leaving hanging promises
+    while (queue.length > 0) {
+      const queuedItem = queue.shift()!;
+      queuedItem.reject(err);
+    }
+    // Mark processing as finished for this run
+    logProcessing.delete(runId);
+    return;
   }
 
   // Process next item in queue

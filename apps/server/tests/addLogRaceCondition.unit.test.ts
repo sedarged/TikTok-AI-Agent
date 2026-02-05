@@ -92,8 +92,6 @@ describe('addLog Race Condition', () => {
     const finalLogs = JSON.parse(finalRun!.logsJson) as LogEntry[];
 
     // With the queue-based fix, all 20 entries should be present
-    console.log(`Expected ${NUM_CONCURRENT_LOGS} logs, got ${finalLogs.length}`);
-
     expect(finalLogs.length).toBe(NUM_CONCURRENT_LOGS);
 
     // Verify all unique messages are present
@@ -160,5 +158,30 @@ describe('addLog Race Condition', () => {
     expect(infoLog?.level).toBe('info');
     expect(warnLog?.level).toBe('warn');
     expect(errorLog?.level).toBe('error');
+  });
+
+  it('should reject all pending logs when run is not found', async () => {
+    const nonExistentRunId = 'non-existent-run-id';
+
+    // Add multiple logs for a non-existent run
+    const promises = [
+      addLogForTesting(nonExistentRunId, 'Log 1'),
+      addLogForTesting(nonExistentRunId, 'Log 2'),
+      addLogForTesting(nonExistentRunId, 'Log 3'),
+    ];
+
+    // All promises should reject
+    const results = await Promise.allSettled(promises);
+
+    expect(results[0].status).toBe('rejected');
+    expect(results[1].status).toBe('rejected');
+    expect(results[2].status).toBe('rejected');
+
+    // Verify all have the same error message
+    results.forEach((result) => {
+      if (result.status === 'rejected') {
+        expect(result.reason.message).toContain('not found');
+      }
+    });
   });
 });
