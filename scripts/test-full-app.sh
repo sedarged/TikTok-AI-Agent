@@ -1,7 +1,7 @@
 #!/bin/bash
 # Full App Test Script - Tests complete workflow with real OpenAI API
-# Usage: ./scripts/test-full-app.sh [API_KEY]
-# If API_KEY not provided, will read from .env or environment
+# Usage: ./scripts/test-full-app.sh
+# API key will be read from .env or environment
 
 set -e  # Exit on error
 
@@ -45,6 +45,12 @@ print_info() {
 # Check if jq is installed
 if ! command -v jq &> /dev/null; then
     print_error "jq is required but not installed. Install with: apt-get install jq"
+    exit 1
+fi
+
+# Check if bc is installed
+if ! command -v bc &> /dev/null; then
+    print_error "bc is required but not installed. Install with: apt-get install bc"
     exit 1
 fi
 
@@ -164,11 +170,10 @@ print_info "Scenes: $SCENE_COUNT"
 # Validate plan
 print_header "Validating Plan"
 VALIDATION_RESPONSE=$(curl -s -X POST "$API_URL/plan/$PLAN_VERSION_ID/validate")
-IS_VALID=$(echo "$VALIDATION_RESPONSE" | jq -r '.isValid')
 VALIDATION_ERRORS=$(echo "$VALIDATION_RESPONSE" | jq -r '.errors | length')
 
-if [ "$IS_VALID" != "true" ]; then
-    print_error "Plan validation failed"
+if [ "$VALIDATION_ERRORS" != "0" ]; then
+    print_error "Plan validation failed with $VALIDATION_ERRORS errors"
     echo "$VALIDATION_RESPONSE" | jq .
     exit 1
 fi
@@ -178,7 +183,7 @@ print_success "Plan is valid (0 errors)"
 # Approve plan
 print_header "Approving Plan"
 APPROVE_RESPONSE=$(curl -s -X POST "$API_URL/plan/$PLAN_VERSION_ID/approve")
-IS_APPROVED=$(echo "$APPROVE_RESPONSE" | jq -r '.isApproved')
+IS_APPROVED=$(echo "$APPROVE_RESPONSE" | jq -r '.success')
 
 if [ "$IS_APPROVED" != "true" ]; then
     print_error "Plan approval failed"
@@ -228,7 +233,7 @@ while [ $ELAPSED -lt $MAX_WAIT_TIME ]; do
     fi
     
     # Check if completed
-    if [ "$STATUS" = "completed" ]; then
+    if [ "$STATUS" = "done" ]; then
         RENDER_END_TIME=$(date +%s)
         RENDER_DURATION=$((RENDER_END_TIME - RENDER_START_TIME))
         print_success "Render completed in ${RENDER_DURATION}s"
@@ -242,9 +247,16 @@ while [ $ELAPSED -lt $MAX_WAIT_TIME ]; do
         exit 1
     fi
     
-    # Check if cancelled
-    if [ "$STATUS" = "cancelled" ]; then
-        print_error "Render was cancelled"
+    # Check if QA failed
+    if [ "$STATUS" = "qa_failed" ]; then
+        print_error "Render QA validation failed: $ERROR"
+        echo "$RUN_STATUS" | jq .
+        exit 1
+    fi
+    
+    # Check if canceled
+    if [ "$STATUS" = "canceled" ]; then
+        print_error "Render was canceled"
         exit 1
     fi
 done
@@ -300,7 +312,7 @@ print_info "Download video: curl -O '$DOWNLOAD_URL'"
 echo ""
 
 # Estimate cost (approximate)
-ESTIMATED_COST=$(echo "scale=2; 0.50 * $TARGET_LENGTH / 60" | bc)
+ESTIMATED_COST=$(echo "scale=2; 0.57 * $TARGET_LENGTH / 60" | bc)
 print_info "Estimated cost: ~\$${ESTIMATED_COST} (GPT-4 + DALL-E 3 + TTS + Whisper)"
 
 print_success "Full app test completed successfully! 🎉"
