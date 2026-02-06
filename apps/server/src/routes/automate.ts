@@ -8,7 +8,7 @@ import { startRenderPipeline } from '../services/render/renderPipeline.js';
 import { isOpenAIConfigured, isRenderDryRun, isTestMode } from '../env.js';
 import { checkFFmpegAvailable } from '../services/ffmpeg/ffmpegUtils.js';
 import { v4 as uuid } from 'uuid';
-import { logError } from '../utils/logger.js';
+import { logError, logInfo } from '../utils/logger.js';
 
 // Plan lookup retry configuration (shared with batch.ts)
 const PLAN_LOOKUP_MAX_ATTEMPTS = 3;
@@ -111,7 +111,7 @@ automateRoutes.post('/', async (req, res) => {
       // Clean up project on plan generation failure
       try {
         await prisma.project.delete({ where: { id: createdProject.id } });
-        logError('Cleaned up project after plan generation failure', {
+        logInfo('Cleaned up project after plan generation failure', {
           projectId: createdProject.id,
           topic,
         });
