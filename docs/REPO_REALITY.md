@@ -511,6 +511,8 @@ File: `.env.example` (verified 2026-02-06)
 
 ### Core Documentation Files (Verified to Exist)
 - ✅ `README.md` - Main project overview and quickstart
+- ✅ `ARCHITECTURE.md` - High-level architecture (created 2026-02-06, references docs/architecture.md for details)
+- ✅ `RUNBOOK.md` - Operations runbook (created 2026-02-06, references docs/operations-runbook.md for details)
 - ✅ `AGENTS.md` - AI coding agent instructions
 - ✅ `CONTRIBUTING.md` - Contribution guidelines
 - ✅ `SECURITY.md` - Security policy and best practices
@@ -525,8 +527,6 @@ File: `.env.example` (verified 2026-02-06)
 - ✅ `docs/testing.md` - Testing guide
 
 ### Missing Files
-- ❌ `ARCHITECTURE.md` at root - EXISTS in `docs/` but not at root (not required by issue)
-- ❌ `RUNBOOK.md` at root - EXISTS as `docs/operations-runbook.md` but not at root (create symlink or root version)
 - ❌ `docs/JOBS.md` - Not applicable (no job system exists)
 
 ### Internal Link Health

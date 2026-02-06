@@ -55,6 +55,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Comprehensive Documentation Suite (Issue #139)**
+  - `docs/REPO_REALITY.md` - Evidence-based repository reality check with 500+ lines of verified tech stack, structure, scripts, env vars, CI/CD, and external services (all claims backed by file paths)
+  - `ARCHITECTURE.md` at root - High-level system architecture with component diagrams, data flows, database schema, design patterns, deployment architecture, performance/security considerations (463 lines)
+  - `RUNBOOK.md` at root - Operations runbook for dev/prod workflows, health checks, logs, common failures with recovery steps, test modes, production checklist (340 lines)
+  - Updated `docs/README.md` to include REPO_REALITY.md as first entry under Getting Started section
+  - Enhanced `.env.example` with LOG_LEVEL variable documentation
 - Parallel image generation for scene pipeline
   - Images are now generated concurrently (default: 3 concurrent requests) using p-limit
   - Configurable concurrency via `MAX_CONCURRENT_IMAGE_GENERATION` environment variable
