@@ -20,4 +20,4 @@ CREATE INDEX "Scene_planVersionId_idx" ON "Scene"("planVersionId");
 CREATE INDEX "Scene_projectId_idx" ON "Scene"("projectId");
 
 -- CreateIndex
-CREATE INDEX "Scene_planVersionId_idx_idx" ON "Scene"("planVersionId", "idx");
+CREATE INDEX "Scene_planVersionId_sceneIdx_idx" ON "Scene"("planVersionId", "idx");

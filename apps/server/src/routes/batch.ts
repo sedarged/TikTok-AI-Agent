@@ -148,7 +148,23 @@ batchRoutes.post('/', async (req, res) => {
         planData = await generatePlanData(createdProject, scriptTemplateId ?? undefined);
       } catch (planError) {
         // Clean up project on plan generation failure
-        await prisma.project.delete({ where: { id: createdProject.id } });
+        try {
+          await prisma.project.delete({ where: { id: createdProject.id } });
+          logError('Cleaned up project after plan generation failure in batch', {
+            projectId: createdProject.id,
+            topic: trimmed,
+          });
+        } catch (cleanupError) {
+          logError(
+            'Failed to clean up project after plan generation failure in batch',
+            cleanupError,
+            {
+              projectId: createdProject.id,
+              topic: trimmed,
+              originalError: planError,
+            }
+          );
+        }
         throw planError;
       }
 

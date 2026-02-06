@@ -109,7 +109,19 @@ automateRoutes.post('/', async (req, res) => {
       planData = await generatePlanData(createdProject, scriptTemplateId ?? undefined);
     } catch (planError) {
       // Clean up project on plan generation failure
-      await prisma.project.delete({ where: { id: createdProject.id } });
+      try {
+        await prisma.project.delete({ where: { id: createdProject.id } });
+        logError('Cleaned up project after plan generation failure', {
+          projectId: createdProject.id,
+          topic,
+        });
+      } catch (cleanupError) {
+        logError('Failed to clean up project after plan generation failure', cleanupError, {
+          projectId: createdProject.id,
+          topic,
+          originalError: planError,
+        });
+      }
       throw planError;
     }
 
