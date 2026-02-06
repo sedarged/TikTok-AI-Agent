@@ -689,7 +689,7 @@ export default ErrorBoundary;
 | 3 | Missing database transactions for multi-step operations | HIGH | project.ts, batch.ts, automate.ts | P0 |
 | 4 | N+1 query patterns in 3 locations | MED-HIGH | project.ts, plan.ts, batch.ts | P1 |
 | 5 | No Error Boundary in React app | HIGH | apps/web/src/App.tsx | P0 |
-| 6 | Accessibility issues (missing ARIA labels, keyboard nav) | HIGH | Multiple components | P1 |
+| 6 | Accessibility issues (missing ARIA labels, keyboard nav) | HIGH | Multiple components | P0 |
 
 ### Important Issues (Should Fix Soon)
 
