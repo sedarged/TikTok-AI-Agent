@@ -153,15 +153,15 @@ batchRoutes.post('/', async (req, res) => {
       }
 
       // Step 3: Save plan to DB in a transaction
-      const { project, planVersion } = await prisma.$transaction(async (tx) => {
+      const planVersion = await prisma.$transaction(async (tx) => {
         const createdPlan = await savePlanData(createdProject, planData, tx);
 
-        const updatedProject = await tx.project.update({
+        await tx.project.update({
           where: { id: createdProject.id },
           data: { latestPlanVersionId: createdPlan.id, status: 'PLAN_READY' },
         });
 
-        return { project: updatedProject, planVersion: createdPlan };
+        return createdPlan;
       });
 
       // P0-4 FIX: Add retry logic for plan lookup with error instead of silent continue
@@ -190,7 +190,7 @@ batchRoutes.post('/', async (req, res) => {
         const rollbackErrors: string[] = [];
         const rollbackIds = [
           ...validatedPlans.map((validated) => validated.project.id),
-          project.id,
+          createdProject.id,
         ];
         if (rollbackIds.length > 0) {
           await prisma.project.deleteMany({ where: { id: { in: rollbackIds } } }).catch((err) => {
@@ -209,7 +209,7 @@ batchRoutes.post('/', async (req, res) => {
 
         return res.status(500).json({
           error: `Plan lookup failed for topic: ${trimmed}`,
-          projectId: project.id,
+          projectId: createdProject.id,
           planVersionId: planVersion.id,
           message,
           rollbackErrors: rollbackErrors.length > 0 ? rollbackErrors : undefined,
@@ -222,7 +222,7 @@ batchRoutes.post('/', async (req, res) => {
         const rollbackErrors: string[] = [];
         const rollbackIds = [
           ...validatedPlans.map((validated) => validated.project.id),
-          project.id,
+          createdProject.id,
         ];
         if (rollbackIds.length > 0) {
           await prisma.project.deleteMany({ where: { id: { in: rollbackIds } } }).catch((err) => {
@@ -247,7 +247,7 @@ batchRoutes.post('/', async (req, res) => {
         });
       }
 
-      validatedPlans.push({ project, planVersion: fullPlan, topic: trimmed });
+      validatedPlans.push({ project: createdProject, planVersion: fullPlan, topic: trimmed });
     }
 
     // Phase 2: All plans valid, now queue all runs

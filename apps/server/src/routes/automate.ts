@@ -114,10 +114,10 @@ automateRoutes.post('/', async (req, res) => {
     }
 
     // Step 3: Save plan to DB in a transaction
-    const { project, planVersion } = await prisma.$transaction(async (tx) => {
+    const planVersion = await prisma.$transaction(async (tx) => {
       const createdPlan = await savePlanData(createdProject, planData, tx);
 
-      const updatedProject = await tx.project.update({
+      await tx.project.update({
         where: { id: createdProject.id },
         data: {
           latestPlanVersionId: createdPlan.id,
@@ -125,7 +125,7 @@ automateRoutes.post('/', async (req, res) => {
         },
       });
 
-      return { project: updatedProject, planVersion: createdPlan };
+      return createdPlan;
     });
 
     // P1-6 FIX: Add retry logic for plan lookup
@@ -148,11 +148,11 @@ automateRoutes.post('/', async (req, res) => {
     if (!fullPlan) {
       logError('Plan not found after 3 attempts in automate endpoint', {
         planVersionId: planVersion.id,
-        projectId: project.id,
+        projectId: createdProject.id,
       });
       return res.status(500).json({
         error: 'Plan version not found after generation',
-        projectId: project.id,
+        projectId: createdProject.id,
         planVersionId: planVersion.id,
         message: 'Project and plan were created but lookup failed. Check database connectivity.',
       });
@@ -169,7 +169,7 @@ automateRoutes.post('/', async (req, res) => {
 
     // 6. Approve (update project status)
     await prisma.project.update({
-      where: { id: project.id },
+      where: { id: createdProject.id },
       data: { status: 'APPROVED' },
     });
 
@@ -177,7 +177,7 @@ automateRoutes.post('/', async (req, res) => {
     const run = await startRenderPipeline(fullPlan);
 
     res.json({
-      projectId: project.id,
+      projectId: createdProject.id,
       planVersionId: fullPlan.id,
       runId: run.id,
     });

@@ -4,7 +4,7 @@ import { getNichePack, getScenePacing, type NichePack } from '../nichePacks.js';
 import { getScriptTemplate } from './scriptTemplates.js';
 import { isOpenAIConfigured, isTestMode } from '../../env.js';
 import { callOpenAI } from '../providers/openai.js';
-import type { Project, Scene, Prisma } from '@prisma/client';
+import type { Project, Scene, Prisma, PlanVersion } from '@prisma/client';
 import type { EffectPreset, SceneData } from '../../utils/types.js';
 import { EFFECT_PRESETS } from '../../utils/types.js';
 import { logError } from '../../utils/logger.js';
@@ -61,7 +61,7 @@ export interface PlanData {
 
 /**
  * Generate plan content (hooks, outline, scenes) without DB writes.
- * This function performs OpenAI calls and can be called outside transactions.
+ * Should be called OUTSIDE transactions to avoid holding database locks during external API calls.
  */
 export async function generatePlanData(
   project: Project,
@@ -132,7 +132,7 @@ export async function savePlanData(
   project: Project,
   planData: PlanData,
   db: Prisma.TransactionClient | typeof prisma = prisma
-) {
+): Promise<PlanVersion> {
   const planVersionId = uuid();
   const planVersion = await db.planVersion.create({
     data: {
