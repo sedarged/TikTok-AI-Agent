@@ -1,14 +1,14 @@
 import { Router } from 'express';
 import { z } from 'zod';
 import { prisma } from '../db/client.js';
-import { generatePlan } from '../services/plan/planGenerator.js';
+import { generatePlanData, savePlanData, type PlanData } from '../services/plan/planGenerator.js';
 import { validatePlan } from '../services/plan/planValidator.js';
 import { getNichePack } from '../services/nichePacks.js';
 import { startRenderPipeline } from '../services/render/renderPipeline.js';
 import { isOpenAIConfigured, isRenderDryRun, isTestMode } from '../env.js';
 import { checkFFmpegAvailable } from '../services/ffmpeg/ffmpegUtils.js';
 import { v4 as uuid } from 'uuid';
-import { logError } from '../utils/logger.js';
+import { logError, logInfo } from '../utils/logger.js';
 
 // Plan lookup retry configuration (shared with batch.ts)
 const PLAN_LOOKUP_MAX_ATTEMPTS = 3;
@@ -86,27 +86,48 @@ automateRoutes.post('/', async (req, res) => {
       return res.status(400).json({ error: 'Invalid niche pack' });
     }
 
-    const { project, planVersion } = await prisma.$transaction(async (tx) => {
-      const createdProject = await tx.project.create({
-        data: {
-          id: uuid(),
-          title: topic.substring(0, 100),
-          topic,
-          nichePackId,
-          language,
-          targetLengthSec,
-          tempo,
-          voicePreset,
-          visualStylePreset,
-          seoKeywords: seoKeywords ?? null,
-          status: 'DRAFT_PLAN',
-        },
-      });
+    // Step 1: Create project
+    const createdProject = await prisma.project.create({
+      data: {
+        id: uuid(),
+        title: topic.substring(0, 100),
+        topic,
+        nichePackId,
+        language,
+        targetLengthSec,
+        tempo,
+        voicePreset,
+        visualStylePreset,
+        seoKeywords: seoKeywords ?? null,
+        status: 'DRAFT_PLAN',
+      },
+    });
 
-      const createdPlan = await generatePlan(createdProject, {
-        scriptTemplateId: scriptTemplateId ?? undefined,
-        db: tx,
-      });
+    // Step 2: Generate plan content (performs OpenAI calls outside transaction)
+    let planData: PlanData;
+    try {
+      planData = await generatePlanData(createdProject, scriptTemplateId ?? undefined);
+    } catch (planError) {
+      // Clean up project on plan generation failure
+      try {
+        await prisma.project.delete({ where: { id: createdProject.id } });
+        logInfo('Cleaned up project after plan generation failure', {
+          projectId: createdProject.id,
+          topic,
+        });
+      } catch (cleanupError) {
+        logError('Failed to clean up project after plan generation failure', cleanupError, {
+          projectId: createdProject.id,
+          topic,
+          originalError: planError,
+        });
+      }
+      throw planError;
+    }
+
+    // Step 3: Save plan to DB in a transaction
+    const planVersion = await prisma.$transaction(async (tx) => {
+      const createdPlan = await savePlanData(createdProject, planData, tx);
 
       await tx.project.update({
         where: { id: createdProject.id },
@@ -116,7 +137,7 @@ automateRoutes.post('/', async (req, res) => {
         },
       });
 
-      return { project: createdProject, planVersion: createdPlan };
+      return createdPlan;
     });
 
     // P1-6 FIX: Add retry logic for plan lookup
@@ -139,11 +160,11 @@ automateRoutes.post('/', async (req, res) => {
     if (!fullPlan) {
       logError('Plan not found after 3 attempts in automate endpoint', {
         planVersionId: planVersion.id,
-        projectId: project.id,
+        projectId: createdProject.id,
       });
       return res.status(500).json({
         error: 'Plan version not found after generation',
-        projectId: project.id,
+        projectId: createdProject.id,
         planVersionId: planVersion.id,
         message: 'Project and plan were created but lookup failed. Check database connectivity.',
       });
@@ -160,7 +181,7 @@ automateRoutes.post('/', async (req, res) => {
 
     // 6. Approve (update project status)
     await prisma.project.update({
-      where: { id: project.id },
+      where: { id: createdProject.id },
       data: { status: 'APPROVED' },
     });
 
@@ -168,7 +189,7 @@ automateRoutes.post('/', async (req, res) => {
     const run = await startRenderPipeline(fullPlan);
 
     res.json({
-      projectId: project.id,
+      projectId: createdProject.id,
       planVersionId: fullPlan.id,
       runId: run.id,
     });

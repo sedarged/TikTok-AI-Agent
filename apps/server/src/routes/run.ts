@@ -437,14 +437,17 @@ runRoutes.get('/:runId/download', async (req, res) => {
       return res.status(404).json({ error: 'Run not found' });
     }
 
-    const artifacts = safeJsonParse<Artifacts>(
-      run.artifactsJson,
-      {},
-      {
-        runId,
-        source: 'downloadArtifacts',
-      }
-    );
+    const artifacts = safeJsonParse<Artifacts | null>(run.artifactsJson, null, {
+      runId,
+      source: 'downloadArtifacts',
+    });
+
+    if (artifacts === null) {
+      return res.status(500).json({
+        error: 'Failed to download',
+        artifactsParseError: true,
+      });
+    }
 
     if (artifacts.dryRun === true) {
       return res.status(409).json({
@@ -562,14 +565,19 @@ runRoutes.get('/:runId/export', async (req, res) => {
       return res.status(404).json({ error: 'Run not found' });
     }
 
-    const artifacts = safeJsonParse<Artifacts>(
-      run.artifactsJson,
-      {},
-      {
-        runId,
-        source: 'exportArtifacts',
-      }
-    );
+    const parsedArtifacts = safeJsonParse<Artifacts | null>(run.artifactsJson, null, {
+      runId,
+      source: 'exportArtifacts',
+    });
+
+    if (parsedArtifacts === null) {
+      return res.status(500).json({
+        error: 'Failed to export',
+        artifactsParseError: true,
+      });
+    }
+
+    const artifacts = parsedArtifacts ?? {};
 
     const tiktokCaption = artifacts.tiktokCaption as string | undefined;
     const tiktokHashtags = Array.isArray(artifacts.tiktokHashtags)

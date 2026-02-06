@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { z } from 'zod';
 import { prisma } from '../db/client.js';
-import { generatePlan } from '../services/plan/planGenerator.js';
+import { generatePlanData, savePlanData, type PlanData } from '../services/plan/planGenerator.js';
 import { validatePlan } from '../services/plan/planValidator.js';
 import { getNichePack } from '../services/nichePacks.js';
 import { startRenderPipeline } from '../services/render/renderPipeline.js';
@@ -125,34 +125,68 @@ batchRoutes.post('/', async (req, res) => {
     for (const topic of topics) {
       const trimmed = topic.trim();
 
-      const { project, planVersion } = await prisma.$transaction(async (tx) => {
-        const createdProject = await tx.project.create({
-          data: {
-            id: uuid(),
-            title: trimmed.substring(0, 100),
-            topic: trimmed,
-            nichePackId,
-            language,
-            targetLengthSec,
-            tempo,
-            voicePreset,
-            visualStylePreset,
-            seoKeywords: seoKeywords ?? null,
-            status: 'DRAFT_PLAN',
-          },
-        });
+      // Step 1: Create project
+      const createdProject = await prisma.project.create({
+        data: {
+          id: uuid(),
+          title: trimmed.substring(0, 100),
+          topic: trimmed,
+          nichePackId,
+          language,
+          targetLengthSec,
+          tempo,
+          voicePreset,
+          visualStylePreset,
+          seoKeywords: seoKeywords ?? null,
+          status: 'DRAFT_PLAN',
+        },
+      });
 
-        const createdPlan = await generatePlan(createdProject, {
-          scriptTemplateId: scriptTemplateId ?? undefined,
-          db: tx,
+      // Step 2: Generate plan content (performs OpenAI calls outside transaction)
+      let planData: PlanData;
+      try {
+        planData = await generatePlanData(createdProject, scriptTemplateId ?? undefined);
+      } catch {
+        // Clean up all projects created in this batch so far
+        const rollbackErrors: string[] = [];
+        const rollbackIds = [
+          ...validatedPlans.map((validated) => validated.project.id),
+          createdProject.id,
+        ];
+
+        if (rollbackIds.length > 0) {
+          await prisma.project.deleteMany({ where: { id: { in: rollbackIds } } }).catch((err) => {
+            logError('Batch rollback: failed to delete projects during plan generation failure', {
+              projectIds: rollbackIds,
+              error: err,
+            });
+            rollbackErrors.push(...rollbackIds);
+          });
+        }
+
+        const message =
+          rollbackErrors.length > 0
+            ? `Plan generation failed. Rollback partially failed. Projects may still exist: ${rollbackErrors.join(', ')}`
+            : 'Plan generation failed. All batch projects rolled back.';
+
+        return res.status(500).json({
+          error: `Plan generation failed for topic: ${trimmed}`,
+          projectIds: rollbackIds,
+          message,
+          rollbackErrors: rollbackErrors.length > 0 ? rollbackErrors : undefined,
         });
+      }
+
+      // Step 3: Save plan to DB in a transaction
+      const planVersion = await prisma.$transaction(async (tx) => {
+        const createdPlan = await savePlanData(createdProject, planData, tx);
 
         await tx.project.update({
           where: { id: createdProject.id },
           data: { latestPlanVersionId: createdPlan.id, status: 'PLAN_READY' },
         });
 
-        return { project: createdProject, planVersion: createdPlan };
+        return createdPlan;
       });
 
       // P0-4 FIX: Add retry logic for plan lookup with error instead of silent continue
@@ -181,7 +215,7 @@ batchRoutes.post('/', async (req, res) => {
         const rollbackErrors: string[] = [];
         const rollbackIds = [
           ...validatedPlans.map((validated) => validated.project.id),
-          project.id,
+          createdProject.id,
         ];
         if (rollbackIds.length > 0) {
           await prisma.project.deleteMany({ where: { id: { in: rollbackIds } } }).catch((err) => {
@@ -200,7 +234,7 @@ batchRoutes.post('/', async (req, res) => {
 
         return res.status(500).json({
           error: `Plan lookup failed for topic: ${trimmed}`,
-          projectId: project.id,
+          projectId: createdProject.id,
           planVersionId: planVersion.id,
           message,
           rollbackErrors: rollbackErrors.length > 0 ? rollbackErrors : undefined,
@@ -213,7 +247,7 @@ batchRoutes.post('/', async (req, res) => {
         const rollbackErrors: string[] = [];
         const rollbackIds = [
           ...validatedPlans.map((validated) => validated.project.id),
-          project.id,
+          createdProject.id,
         ];
         if (rollbackIds.length > 0) {
           await prisma.project.deleteMany({ where: { id: { in: rollbackIds } } }).catch((err) => {
@@ -238,7 +272,7 @@ batchRoutes.post('/', async (req, res) => {
         });
       }
 
-      validatedPlans.push({ project, planVersion: fullPlan, topic: trimmed });
+      validatedPlans.push({ project: createdProject, planVersion: fullPlan, topic: trimmed });
     }
 
     // Phase 2: All plans valid, now queue all runs
