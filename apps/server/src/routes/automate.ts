@@ -10,6 +10,10 @@ import { checkFFmpegAvailable } from '../services/ffmpeg/ffmpegUtils.js';
 import { v4 as uuid } from 'uuid';
 import { logError } from '../utils/logger.js';
 
+// Plan lookup retry configuration (shared with batch.ts)
+const PLAN_LOOKUP_MAX_ATTEMPTS = 3;
+const PLAN_LOOKUP_RETRY_DELAY_MS = 500;
+
 export const automateRoutes = Router();
 
 const automateSchema = z
@@ -113,17 +117,34 @@ automateRoutes.post('/', async (req, res) => {
       },
     });
 
-    // 4. Fetch plan with scenes and project for validation and render
-    const fullPlan = await prisma.planVersion.findUnique({
-      where: { id: planVersion.id },
-      include: {
-        scenes: { orderBy: { idx: 'asc' } },
-        project: true,
-      },
-    });
+    // P1-6 FIX: Add retry logic for plan lookup
+    let fullPlan = null;
+    for (let attempt = 0; attempt < PLAN_LOOKUP_MAX_ATTEMPTS; attempt++) {
+      fullPlan = await prisma.planVersion.findUnique({
+        where: { id: planVersion.id },
+        include: {
+          scenes: { orderBy: { idx: 'asc' } },
+          project: true,
+        },
+      });
+      if (fullPlan) break;
+      // Wait before retry, but not after the last attempt
+      if (attempt < PLAN_LOOKUP_MAX_ATTEMPTS - 1) {
+        await new Promise((resolve) => setTimeout(resolve, PLAN_LOOKUP_RETRY_DELAY_MS));
+      }
+    }
 
     if (!fullPlan) {
-      return res.status(500).json({ error: 'Plan version not found after generation' });
+      logError('Plan not found after 3 attempts in automate endpoint', {
+        planVersionId: planVersion.id,
+        projectId: project.id,
+      });
+      return res.status(500).json({
+        error: 'Plan version not found after generation',
+        projectId: project.id,
+        planVersionId: planVersion.id,
+        message: 'Project and plan were created but lookup failed. Check database connectivity.',
+      });
     }
 
     // 5. Validate plan

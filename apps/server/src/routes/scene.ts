@@ -119,6 +119,12 @@ sceneRoutes.post('/:sceneId/lock', async (req, res) => {
 
     const { locked } = parsed.data;
 
+    // P1-5 & P3-1 FIX: Check scene exists before updating and handle P2025 error
+    const existingScene = await prisma.scene.findUnique({ where: { id: sceneId } });
+    if (!existingScene) {
+      return res.status(404).json({ error: 'Scene not found' });
+    }
+
     const scene = await prisma.scene.update({
       where: { id: sceneId },
       data: { isLocked: locked },
@@ -126,6 +132,12 @@ sceneRoutes.post('/:sceneId/lock', async (req, res) => {
 
     res.json(scene);
   } catch (error) {
+    // This P2025 error can still occur if the scene is deleted between the existence check above
+    // and the update call (race condition). Treat it as a 404 instead of a 500 for
+    // defense-in-depth, even though the normal path should be covered by findUnique.
+    if ((error as { code?: string }).code === 'P2025') {
+      return res.status(404).json({ error: 'Scene not found' });
+    }
     logError('Error toggling scene lock', error);
     res.status(500).json({ error: 'Failed to toggle scene lock' });
   }

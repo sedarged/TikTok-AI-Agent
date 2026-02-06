@@ -327,6 +327,26 @@ projectRoutes.delete('/:id', async (req, res) => {
       return res.status(400).json({ error: 'Invalid project ID', details: parsed.error.flatten() });
     }
     const { id } = parsed.data;
+
+    // P2-3 FIX: Check for active runs before deleting project
+    // Note: There is a small race condition window between this check and the delete operation
+    // where a new run could be created. However, the foreign key cascade (Run.onDelete: Cascade)
+    // will handle this case, and the database constraint will prevent orphaned runs.
+    const activeRuns = await prisma.run.findMany({
+      where: {
+        projectId: id,
+        status: { in: ['queued', 'running'] },
+      },
+    });
+
+    if (activeRuns.length > 0) {
+      return res.status(409).json({
+        error: 'Cannot delete project with active renders',
+        activeRunCount: activeRuns.length,
+        activeRuns: activeRuns.map((r) => ({ id: r.id, status: r.status })),
+      });
+    }
+
     await prisma.project.delete({
       where: { id },
     });
