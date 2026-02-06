@@ -298,7 +298,7 @@ npm run test:e2e
 
 Locally, E2E reuses an existing server on port 5173 if one is running (`npm run dev`); in CI a fresh server is started.
 
-Windows/macOS note: `npx playwright install` (without `--with-deps`) is usually sufficient. If `npm run test` or `npm run test:render` fails with **EPERM** on Windows, use `npm run test:only` / `npm run test:render:only` after at least one successful `npx prisma generate` (see TESTING_GUIDE §6).
+Windows/macOS note: `npx playwright install` (without `--with-deps`) is usually sufficient. If `npm run test` or `npm run test:render` fails with **EPERM** on Windows, use `npm run test:only` / `npm run test:render:only` after at least one successful `npx prisma generate` (see [docs/testing.md](docs/testing.md) for details).
 
 ## How to Render a 60s Facts Video
 

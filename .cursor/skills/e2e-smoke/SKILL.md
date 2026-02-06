@@ -24,6 +24,6 @@ Run Playwright E2E tests and report pass/fail with failing test names.
 
 ## References
 
-- [TESTING_GUIDE.md](TESTING_GUIDE.md) – E2E setup, `test:e2e`
+- [docs/testing.md](../../../docs/testing.md) – E2E setup, `test:e2e`
 - [apps/web/tests/e2e/](apps/web/tests/e2e/) – E2E specs
 - [.github/workflows/ci.yml](.github/workflows/ci.yml) – E2E job

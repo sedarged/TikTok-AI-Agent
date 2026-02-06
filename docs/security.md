@@ -399,18 +399,109 @@ try {
 
 ## Known Vulnerabilities
 
+### Active Code-Level Vulnerabilities (Feb 2026 Audit)
+
+#### 1. Path Traversal Weakness (P1 - High Priority)
+
+**Status:** NOT FIXED  
+**Location:** `apps/server/src/routes/run.ts` lines 450-466  
+**Severity:** HIGH  
+**Issue:** Current `startsWith()` check for artifact path validation has edge cases with symlinks
+
+**Current Implementation:**
+```typescript
+if (!artifactPath.startsWith(artifactsDir)) {
+  return res.status(403).json({ error: 'Access denied' });
+}
+```
+
+**Vulnerability:** Symlinks or path manipulation could potentially bypass this check.
+
+**Recommended Fix:**
+```typescript
+const relative = path.relative(artifactsDir, artifactPath);
+if (relative.startsWith('..') || path.isAbsolute(relative)) {
+  return res.status(403).json({ error: 'Access denied' });
+}
+```
+
+**Evidence:** ISSUES_TODO.md (Issue 17: Path Traversal Weakness)  
+**Reported:** 2026-02-06
+
+---
+
+#### 2. Weak CSP Policy (P3 - Low Priority)
+
+**Status:** NOT FIXED  
+**Location:** `apps/server/src/index.ts` line 82  
+**Severity:** LOW  
+**Issue:** Content Security Policy allows `unsafe-inline` for scripts, reducing XSS protection effectiveness
+
+**Current Implementation:**
+```typescript
+scriptSrc: ['self', 'unsafe-inline']
+```
+
+**Impact:** Reduces CSP effectiveness against XSS attacks, though React's auto-escaping provides baseline protection.
+
+**Recommended Fix:**
+- Remove `unsafe-inline` if possible
+- Use nonce-based or hash-based CSP for inline scripts
+- Configure build pipeline to generate CSP hashes
+
+**Mitigation:** This is LOW priority since React provides XSS protection by default.
+
+**Evidence:** ISSUES_TODO.md (Issue 18: Weak CSP Policy)  
+**Reported:** 2026-02-06
+
+---
+
+#### 3. Test Route Missing Authentication (P2 - Medium Priority)
+
+**Status:** NOT FIXED  
+**Location:** `apps/server/src/routes/test.ts` lines 28-60  
+**Severity:** MEDIUM  
+**Issue:** Test dry-run configuration endpoint can be toggled without authentication
+
+**Current Implementation:**
+```typescript
+testRoutes.post('/dry-run-config', async (req, res) => {
+  // No auth middleware
+});
+```
+
+**Risk:** In development environments with exposed ports, unauthorized users could modify test configuration.
+
+**Recommended Fixes:**
+1. **Option A (Preferred):** Add `requireAuth` middleware to test routes
+2. **Option B:** Ensure test routes are never enabled in production via strict environment checks
+3. **Option C:** Remove test routes entirely from production builds
+
+**Mitigation:** Ensure `NODE_ENV=production` never enables test routes, add explicit environment checks.
+
+**Evidence:** ISSUES_TODO.md (Issue 19: Test Route Missing Authentication)  
+**Reported:** 2026-02-06
+
+---
+
 ### Dependency Vulnerabilities (npm audit)
 
-**Current (Jan 2026):**
+**Current (Feb 2026):**
 
-- `vite@5.1.6` - Moderate severity (dev-time only, no runtime impact)
-- `esbuild@0.24.2` - Moderate severity (bundled with Vite)
+✅ **0 vulnerabilities** - All dependency vulnerabilities have been fixed using npm overrides:
 
-**Mitigation:**
+- `hono` - Fixed: 4.11.4 → 4.11.7 (XSS, cache deception, IPv4 validation)
+- `lodash` - Fixed: Chevrotain 11.1.1 switched to lodash-es
+- `chevrotain` - Fixed: 10.5.0 → 11.1.1
+
+**Details:** Complete fix documentation is in docs/security.md (Dependency Vulnerabilities section).
+
+**Verification:**
 
 ```bash
 # Check for updates
 npm audit
+# found 0 vulnerabilities
 
 # Update dependencies
 npm update
@@ -418,6 +509,8 @@ npm update
 # Or update specific package
 npm install vite@latest
 ```
+
+---
 
 ### Artifacts Access Control
 
@@ -457,18 +550,44 @@ const signedUrl = await s3.getSignedUrlPromise('getObject', {
 
 ## Security Audit Findings
 
-### Audit Date: 2026-01-29
+### Latest Audit: 2026-02-06
+
+**Repository Cleanup Audit**  
+**Focus:** Documentation consolidation, security review, code quality
+
+**Security Findings:**
+- 3 active code-level vulnerabilities identified (documented above)
+- 0 dependency vulnerabilities (all fixed with npm overrides)
+- Multiple completed security fixes verified and documented
+
+**Previous Audit: 2026-01-29**
 
 **Total Issues Found:** 85+  
 **Issues Fixed:** 25+  
 **Issues Remaining:** 60 (mostly feature additions, not critical)
 
-### Major Fixes
+### Major Fixes (Jan 2026 Audit)
 
-1. **CORS Vulnerability** - Fixed: Requires `ALLOWED_ORIGINS` in production
-2. **Path Traversal** - Fixed: UUID validation on all file paths
-3. **JSON Parsing** - Fixed: All `JSON.parse()` wrapped in try-catch
-4. **Input Validation** - Fixed: Added Zod constraints (length, range, enum)
+1. **CORS Vulnerability** - ✅ Fixed: Requires `ALLOWED_ORIGINS` in production
+2. **Input Validation** - ✅ Fixed: UUID validation added for all file path parameters
+3. **JSON Parsing** - ✅ Fixed: All `JSON.parse()` wrapped in try-catch
+4. **Input Validation** - ✅ Fixed: Added Zod constraints (length, range, enum)
+5. **Dependency Vulnerabilities** - ✅ Fixed: 8 moderate vulnerabilities resolved (Feb 2026)
+
+**Note on Path Traversal:** UUID validation prevents most path traversal attacks by ensuring only valid UUID-based paths are accepted. However, a secondary weakness in artifact download validation (using `startsWith()` check) remains and is documented as an active vulnerability above.
+
+### Completed Fixes (Feb 2026 Audit)
+
+Verified in AUDIT_SUMMARY_COMMENT.md:
+
+1. **Silent failure on empty batch topics** - ✅ Fixed: Added validation + error response
+2. **Batch fail-fast without rollback** - ✅ Fixed: Two-phase processing + rollback
+3. **Scene update race condition** - ✅ Fixed: Wrapped in Prisma transaction
+4. **Silent orphaned projects** - ✅ Fixed: Added 3-attempt retry + error
+5. **Scene lock missing check** - ✅ Fixed: Added existence check + P2025 handler
+6. **Automate missing error handling** - ✅ Fixed: Added 3-attempt retry + errors
+7. **Project delete no run check** - ✅ Fixed: Returns 409 if active runs exist
+8. **SSE heartbeat cleanup** - ✅ Verified: Cleanup code already exists
 
 ### Remaining Tasks
 
@@ -514,5 +633,5 @@ See [roadmap.md](roadmap.md) for implementation plan.
 
 ---
 
-**Last Updated:** 2026-01-29  
-**Last Security Audit:** 2026-01-29
+**Last Updated:** 2026-02-06  
+**Last Security Audit:** 2026-02-06 (Repository Cleanup & Security Review)

@@ -44,4 +44,4 @@ Or, on failure, which steps failed and the first few error lines.
 ## References
 
 - [.cursor/commands/validate.md](.cursor/commands/validate.md) – validate command (same steps, no report format)
-- [TESTING_GUIDE.md](TESTING_GUIDE.md) – test setup, env, commands
+- [docs/testing.md](../../docs/testing.md) – test setup, env, commands

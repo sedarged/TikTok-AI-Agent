@@ -58,7 +58,7 @@ Essential documentation at the repository root:
 
 ### Development Resources
 
-- [TESTING_GUIDE.md](../TESTING_GUIDE.md) - Comprehensive testing guide
+- [testing.md](testing.md) - Comprehensive testing guide
 - [STATUS.md](../STATUS.md) - Current priorities and active work (single source of truth)
 - [AGENTS.md](../AGENTS.md) - AI agent instructions (Cursor, Copilot)
 - [DOCUMENTATION_INDEX.md](../DOCUMENTATION_INDEX.md) - Quick links documentation map

@@ -8,4 +8,4 @@ Same sequence as the **validate** command and **repo-audit** skill. Run from rep
 4. `npm run test:render` (if available)
 5. Optionally `npm run test:e2e` for full E2E
 
-See [.cursor/commands/validate.md](.cursor/commands/validate.md) and [TESTING_GUIDE.md](TESTING_GUIDE.md).
+See [.cursor/commands/validate.md](../../commands/validate.md) and [docs/testing.md](../../../../docs/testing.md).

@@ -35,6 +35,30 @@ This file tracks the migration of documentation files to their new locations.
 
 ---
 
+## Security Fixes Documented (Feb 2026 Audit)
+
+These fixes were completed in previous PRs and verified in the Feb 2026 audit:
+
+| Issue | Files | Status | Notes | Evidence |
+|-------|-------|--------|-------|----------|
+| Silent failure on empty topics | `apps/server/src/routes/batch.ts` | ✅ FIXED | Added validation + error response with `emptyTopicIndexes` | AUDIT_SUMMARY_COMMENT.md (P0-1) |
+| Batch fail-fast without rollback | `apps/server/src/routes/batch.ts` | ✅ FIXED | Restructured to two-phase: validate all, then queue all or rollback | AUDIT_SUMMARY_COMMENT.md (P0-2) |
+| Scene update race condition | `apps/server/src/routes/plan.ts` | ✅ FIXED | Wrapped scene updates in Prisma transaction for atomic operations | AUDIT_SUMMARY_COMMENT.md (P0-3) |
+| Silent orphaned projects | `apps/server/src/routes/batch.ts` | ✅ FIXED | Added 3-attempt retry (500ms delay) with error instead of silent continue | AUDIT_SUMMARY_COMMENT.md (P0-4) |
+| SSE heartbeat memory leak | `apps/server/src/routes/run.ts` | ✅ VERIFIED | Cleanup code already exists at lines 267-277 | AUDIT_SUMMARY_COMMENT.md (P1-4) |
+| Scene lock missing check | `apps/server/src/routes/scene.ts` | ✅ FIXED | Added existence check + P2025 error handling for proper 404 | AUDIT_SUMMARY_COMMENT.md (P1-5) |
+| Automate missing error handling | `apps/server/src/routes/automate.ts` | ✅ FIXED | Added 3-attempt retry with detailed error message | AUDIT_SUMMARY_COMMENT.md (P1-6) |
+| Project delete no run check | `apps/server/src/routes/project.ts` | ✅ FIXED | Returns 409 Conflict if active runs exist, with run IDs | AUDIT_SUMMARY_COMMENT.md (P2-3) |
+| Node version mismatch | `README.md` | ✅ FIXED | Updated to specify Node 20.19+ or 22.12+ | AUDIT_REPORT.md, line 54 |
+| Dependency vulnerabilities (8 issues) | `package.json` overrides | ✅ FIXED | Fixed hono, lodash, chevrotain using npm overrides | docs/security.md (Dependency Vulnerabilities section) |
+
+**Migration to Canonical Docs:**
+- Security fixes documented in `docs/security.md` (Security Audit Findings section)
+- Dependency vulnerability details migrated to `docs/security.md` (Dependency Vulnerabilities section)
+- `DEPENDENCY_VULNERABILITIES.md` deleted after content migration
+
+---
+
 ## Verification Checklist (Before Deletion)
 
 For each file to be deleted:

@@ -1,49 +1,34 @@
 # Architecture
 
-High-level system architecture for TikTok-AI-Agent: components, data flow, and key design patterns.
-
 **📖 For comprehensive architecture documentation, see [docs/architecture.md](docs/architecture.md)**
 
----
+This document provides a high-level overview. For detailed information including:
+- System diagrams
+- Component architecture
+- Data flow
+- Technology stack details
+- Design patterns
+- External dependencies
 
-## System Overview
-
-TikTok-AI-Agent is a **full-stack monorepo** that generates TikTok-style vertical videos through a 3-stage workflow:
-
-1. **Plan Generation** - AI generates hooks, outline, script, and scene structure
-2. **Studio Editing** - User reviews and edits the plan in the UI
-3. **Render Execution** - FFmpeg + OpenAI APIs produce the final MP4 video
-
-**Evidence:** Workflow implemented in `apps/server/src/services/plan/planGenerator.ts`, `apps/web/src/pages/PlanStudio.tsx`, `apps/server/src/services/render/renderPipeline.ts`
+Please refer to the complete documentation in the [docs/ directory](docs/architecture.md).
 
 ---
 
-## Technology Stack
+## Quick Reference
 
-### Backend (`apps/server/`)
-- **Runtime:** Node.js 20.19+ / 22.12+
-- **Framework:** Express 5.2.1 + TypeScript 5.3.3
-- **Database:** Prisma 7.3.0 + better-sqlite3 (SQLite) or PostgreSQL
-- **Video Processing:** fluent-ffmpeg 2.1.2 + system FFmpeg (configurable via FFMPEG_PATH)
-- **AI Services:** OpenAI SDK 6.17.0 (GPT-4, DALL-E 3, TTS, Whisper)
-- **Security:** Helmet 8.1.0, express-rate-limit 8.2.1, API key auth
-- **Validation:** Zod 4.3.6
-- **Logging:** Winston 3.19.0
+**Tech Stack:**
+- Frontend: React 19 + Vite + TypeScript + Tailwind CSS
+- Backend: Node.js + Express + TypeScript + Prisma
+- Database: SQLite (dev) / PostgreSQL (prod)
+- Video: FFmpeg
+- AI: OpenAI (GPT-4, DALL-E 3, TTS, Whisper)
 
-**Evidence:** `apps/server/package.json`, `docs/REPO_REALITY.md` lines 13-42
+**Workflow:**
+1. Plan Generation (AI creates hooks, outline, script, scenes)
+2. Studio Editing (User reviews and edits in UI)
+3. Render Execution (FFmpeg + OpenAI produce MP4)
 
-### Frontend (`apps/web/`)
-- **Framework:** React 19.2.4 + Vite 7.3.1 + TypeScript 5.3.3
-- **Routing:** react-router-dom 7.13.0
-- **State:** Zustand 5.0.11
-- **Styling:** Tailwind CSS 4.1.18
-- **Notifications:** Sonner 2.0.7
-
-**Evidence:** `apps/web/package.json`, `docs/REPO_REALITY.md` lines 44-52
-
----
-
-## Component Architecture
+**See [docs/architecture.md](docs/architecture.md) for complete architecture documentation.**
 
 ```
 ┌──────────────────────────────────────────────────────────────┐
@@ -410,7 +395,7 @@ Significant architectural decisions are documented in `docs/adr/`:
 - Tests UI interactions and SSE updates
 - **Evidence:** `playwright.config.mjs`, `apps/web/tests/e2e/`
 
-**Test Guide:** See `docs/testing.md`, `TESTING_GUIDE.md`
+**Test Guide:** See [docs/testing.md](docs/testing.md)
 
 ---
 
