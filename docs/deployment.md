@@ -559,10 +559,13 @@ server {
         chunked_transfer_encoding off;
     }
 
-    # Serve artifacts with authentication (add later)
+    # Serve artifacts (requires authentication in production)
+    # See SECURITY.md for alternative authentication strategies (signed URLs, cloud storage)
+    # Example using nginx basic auth:
     location /artifacts/ {
         alias /var/www/tiktok-ai/artifacts/;
-        # TODO: Add authentication
+        auth_basic "Restricted Access";
+        auth_basic_user_file /etc/nginx/.htpasswd;
     }
 }
 ```
@@ -575,6 +578,13 @@ sudo systemctl reload nginx
 
 # Setup SSL with certbot
 sudo certbot --nginx -d yourdomain.com -d www.yourdomain.com
+
+# Setup basic auth for artifacts (if using nginx auth_basic)
+sudo apt-get install apache2-utils
+sudo htpasswd -c /etc/nginx/.htpasswd username
+# Note: Use -c only for the first user; omit -c for additional users to avoid overwriting the file
+# Example for adding another user later (no -c):
+# sudo htpasswd /etc/nginx/.htpasswd anotheruser
 ```
 
 ---
