@@ -119,6 +119,12 @@ sceneRoutes.post('/:sceneId/lock', async (req, res) => {
 
     const { locked } = parsed.data;
 
+    // P1-5 & P3-1 FIX: Check scene exists before updating and handle P2025 error
+    const existingScene = await prisma.scene.findUnique({ where: { id: sceneId } });
+    if (!existingScene) {
+      return res.status(404).json({ error: 'Scene not found' });
+    }
+
     const scene = await prisma.scene.update({
       where: { id: sceneId },
       data: { isLocked: locked },
@@ -126,6 +132,10 @@ sceneRoutes.post('/:sceneId/lock', async (req, res) => {
 
     res.json(scene);
   } catch (error) {
+    // Handle P2025 error consistently
+    if ((error as { code?: string }).code === 'P2025') {
+      return res.status(404).json({ error: 'Scene not found' });
+    }
     logError('Error toggling scene lock', error);
     res.status(500).json({ error: 'Failed to toggle scene lock' });
   }
