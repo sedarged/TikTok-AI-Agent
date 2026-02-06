@@ -163,6 +163,24 @@ MUSIC_LIBRARY_DIR: process.env.MUSIC_LIBRARY_DIR || path.resolve(rootDir, 'asset
 ARTIFACTS_DIR: process.env.ARTIFACTS_DIR || path.resolve(rootDir, 'artifacts'),
 ```
 
+### `FFMPEG_PATH`
+
+- **Type:** Absolute path or executable name
+- **Default:** Uses `ffmpeg` on PATH
+- **Required:** No
+- **Description:** Override the FFmpeg binary location
+- **Example:** `FFMPEG_PATH=/usr/local/bin/ffmpeg`
+- **Use Case:** Needed when FFmpeg is installed outside the PATH or bundled by the platform
+
+### `FFPROBE_PATH`
+
+- **Type:** Absolute path or executable name
+- **Default:** Uses `ffprobe` on PATH
+- **Required:** No
+- **Description:** Override the FFprobe binary location
+- **Example:** `FFPROBE_PATH=/usr/local/bin/ffprobe`
+- **Use Case:** Needed when FFprobe is installed outside the PATH or alongside a custom FFmpeg binary
+
 ---
 
 ## Test & Dry-Run Modes

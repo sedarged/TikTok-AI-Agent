@@ -100,7 +100,7 @@ docker-compose logs -f
 #### 1. Prerequisites
 
 - Node.js 20.19+ or 22.12+
-- FFmpeg installed on your system (or the app will use ffmpeg-static)
+- FFmpeg installed on your system (or set FFMPEG_PATH to the binary)
 - OpenAI API key (required for real AI generation; dry-run works without it)
 
 #### 2. Installation
@@ -201,7 +201,7 @@ Then open http://localhost:5173 and run the normal flow.
 
 ```bash
 cp .env.example .env
-# Set OPENAI_API_KEY and ensure FFmpeg is available (system or ffmpeg-static)
+# Set OPENAI_API_KEY and ensure FFmpeg is available (system or FFMPEG_PATH)
 
 npm install
 npm run db:generate
@@ -231,6 +231,8 @@ OPENAI_API_KEY=sk-your-openai-api-key
 ELEVENLABS_API_KEY=           # For premium TTS (not yet implemented)
 MUSIC_LIBRARY_DIR=./assets/music   # For background music
 ARTIFACTS_DIR=./artifacts     # Output directory
+FFMPEG_PATH=                  # Optional path to ffmpeg binary
+FFPROBE_PATH=                 # Optional path to ffprobe binary
 DATABASE_URL="file:./dev.db"  # SQLite database path
 PORT=3001                     # Server port
 APP_TEST_MODE=0               # Set to 1 to disable render + external providers
@@ -405,7 +407,7 @@ Install FFmpeg on your system:
 - Ubuntu: `sudo apt install ffmpeg`
 - Windows: Download from https://ffmpeg.org/download.html
 
-Or the app will try to use `ffmpeg-static` automatically.
+Or set `FFMPEG_PATH` if FFmpeg is not on your PATH.
 
 ### OpenAI API errors
 

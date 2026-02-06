@@ -77,7 +77,7 @@ npx prisma studio             # Open GUI browser
 ### FFmpeg Check
 ```bash
 ffmpeg -version                # System FFmpeg
-node -e "console.log(require('ffmpeg-static'))"  # Bundled FFmpeg
+FFMPEG_PATH=/usr/local/bin/ffmpeg ffmpeg -version  # Explicit path override
 ```
 **Evidence:** `apps/server/src/services/ffmpeg/ffmpegUtils.ts` lines 15-35
 
@@ -165,9 +165,12 @@ sudo apt install ffmpeg          # Ubuntu
 # Verify
 ffmpeg -version
 
-# Restart server (ffmpeg-static fallback loads automatically)
+# Optionally point to a custom binary (if ffmpeg is not on PATH)
+export FFMPEG_PATH=/usr/local/bin/ffmpeg
+
+# Restart server after installation or env changes
 ```
-**Evidence:** `apps/server/package.json` (ffmpeg-static dep), `apps/server/src/services/ffmpeg/ffmpegUtils.ts`
+**Evidence:** `apps/server/src/services/ffmpeg/ffmpegUtils.ts`
 
 ### 4. Render Pipeline Stuck
 

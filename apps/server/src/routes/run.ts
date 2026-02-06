@@ -34,6 +34,12 @@ const upcomingQuerySchema = z.object({
   to: z.string().optional(),
 });
 
+const artifactQuerySchema = z
+  .object({
+    path: z.string().min(1).max(500),
+  })
+  .passthrough();
+
 // Active SSE connections per runId (response objects)
 const sseConnections = new Map<string, Set<import('express').Response>>();
 const SSE_MAX_CONNECTIONS_PER_RUN = 100;
@@ -484,8 +490,18 @@ runRoutes.get('/:runId/artifact', async (req, res) => {
       return res.status(400).json({ error: 'Invalid run ID', details: parsed.error.flatten() });
     }
     const { runId } = parsed.data;
-    const relativePath = req.query.path as string | undefined;
-    if (!relativePath || relativePath.includes('..')) {
+    const parsedQuery = artifactQuerySchema.safeParse(req.query);
+    if (!parsedQuery.success) {
+      return res.status(400).json({ error: 'Invalid or missing path' });
+    }
+    const relativePath = parsedQuery.data.path;
+    const normalizedPath = path.posix.normalize(relativePath.replace(/\\/g, '/'));
+    if (
+      path.posix.isAbsolute(normalizedPath) ||
+      normalizedPath === '..' ||
+      normalizedPath.startsWith('../') ||
+      normalizedPath.split('/').includes('..')
+    ) {
       return res.status(400).json({ error: 'Invalid or missing path' });
     }
 
@@ -497,7 +513,7 @@ runRoutes.get('/:runId/artifact', async (req, res) => {
       return res.status(404).json({ error: 'Run not found' });
     }
 
-    const fullPath = path.join(env.ARTIFACTS_DIR, relativePath);
+    const fullPath = path.join(env.ARTIFACTS_DIR, normalizedPath);
     const resolvedPath = path.resolve(fullPath);
     const resolvedArtifactsDir = path.resolve(env.ARTIFACTS_DIR);
     const runPrefix = path.join(resolvedArtifactsDir, run.projectId, runId);

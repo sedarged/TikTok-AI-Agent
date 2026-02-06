@@ -29,7 +29,7 @@ statusRoutes.get('/', async (req, res) => {
           : !openaiReady
             ? 'OpenAI API key not configured. Set OPENAI_API_KEY in .env file.'
             : !ffmpegAvailable
-              ? 'FFmpeg not available. Install ffmpeg or use ffmpeg-static.'
+              ? 'FFmpeg not available. Install ffmpeg or set FFMPEG_PATH.'
               : 'All providers configured and ready.',
     });
   } catch {
