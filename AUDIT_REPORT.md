@@ -51,7 +51,7 @@ Key modules:
 | **HIGH** | Reliability | Canceling a queued run does not remove it from the queue; `processNextInQueue` returns early and stalls subsequent runs. | `apps/server/src/services/render/renderPipeline.ts:97-113`, `apps/server/src/services/render/renderPipeline.ts:1083-1092` | Enqueue runs A/B, cancel A while queued; when A is popped, queue processing stops, B never runs. | Remove canceled run IDs from queue or loop until a queued run is found. | Not fixed |
 | **MED** | Reliability | `addLog` reads/modifies/writes logs without transaction; parallel tasks can drop log entries. | `apps/server/src/services/render/renderPipeline.ts:466-520`, `apps/server/src/services/render/renderPipeline.ts:1128-1152` | Run render with multiple images → concurrent `addLog` calls can race and overwrite logs. | Append logs using DB atomic update or a separate Log table. | Not fixed |
 | **MED** | Performance | No DB indexes for common query filters/order (e.g., `Run.status`, `scheduledPublishAt`, `projectId`). | `apps/server/prisma/schema.prisma:65-85` | Large run tables will cause slow reads for `/api/run` and `/api/run/upcoming`. | Add indexes on Run.status, Run.projectId, Run.scheduledPublishAt, createdAt. | Not fixed |
-| **LOW** | Docs/DevEx | README says Node.js 18+ but engines require Node 20.19+ or 22.12+. | `README.md:100-103`, `package.json:43-45` | Follow README on Node 18 → engine mismatch or runtime incompatibility. | Update README to match engines or relax engines. | Not fixed |
+| **LOW** | Docs/DevEx | README says Node.js 18+ but engines require Node 20.19+ or 22.12+. | `README.md:100-103`, `package.json:43-45` | Follow README on Node 18 → engine mismatch or runtime incompatibility. | Update README to match engines or relax engines. | **Fixed** |
 | **LOW** | Docs/Security | Deployment guide includes an “add authentication later” placeholder for artifacts. | `docs/deployment.md:562-565` | N/A (documentation). | Update docs with actual auth strategy or remove placeholder. | Not fixed |
 
 ## 4) Detailed Findings
@@ -121,6 +121,7 @@ Key modules:
 - **Why it matters:** Users follow README and hit engine/runtime issues.
 - **Repro:** Use Node 18 and run `npm install`.
 - **Safe fix:** Update README or relax engine constraint.
+- **Status:** ✅ **FIXED** - README now correctly specifies Node 20.19+ or 22.12+ to match engines field.
 
 ### LOW — Deployment doc placeholder for auth
 - **Where:** Nginx snippet notes “add authentication later” for artifacts. (`docs/deployment.md:562-565`)
