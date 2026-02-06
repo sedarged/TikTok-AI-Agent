@@ -2,6 +2,12 @@
 
 **Quick Links to all documentation.**
 
+**📝 Repository Status:** Cleaned and organized (2026-02-06)
+- 60 total markdown files (down from 76)
+- 16 outdated audit/report files removed
+- All content migrated to canonical locations
+- See [ISSUES_TODO.md](ISSUES_TODO.md) for actionable items
+
 ---
 
 ## 🎯 Start Here
@@ -9,6 +15,7 @@
 | Document | Purpose |
 | --- | --- |
 | **[STATUS.md](STATUS.md)** | **Single source of truth** – current priorities, active work, recent progress |
+| **[ISSUES_TODO.md](ISSUES_TODO.md)** | **Complete issues list** – 19 actionable items from repository cleanup audit (2026-02-06) |
 | [README.md](README.md) | Project overview, tech stack, quick start |
 | [AGENTS.md](AGENTS.md) | Instructions for AI agents |
 | [docs/README.md](docs/README.md) | **Full documentation index** |
@@ -35,7 +42,7 @@
 | Document | Purpose |
 | --- | --- |
 | [docs/README.md](docs/README.md) | Complete documentation index |
-| [TESTING_GUIDE.md](TESTING_GUIDE.md) | How to run tests, lint, typecheck |
+| [docs/testing.md](docs/testing.md) | How to run tests, lint, typecheck |
 | [CONTRIBUTING.md](CONTRIBUTING.md) | Contribution guidelines |
 | [SECURITY.md](SECURITY.md) | Security policies and best practices |
 | [SUPPORT.md](SUPPORT.md) | Getting help |
@@ -54,4 +61,5 @@ See [docs/README.md](docs/README.md) for full index including:
 
 ---
 
-**Note:** Cost and proposal documents are being reorganized into `docs/cost/` and `docs/proposals/` directories. See [STATUS.md](STATUS.md) for migration progress.
+**Last Updated:** 2026-02-06  
+**Repository Status:** Clean and organized – see [ISSUES_TODO.md](ISSUES_TODO.md) for remaining work items

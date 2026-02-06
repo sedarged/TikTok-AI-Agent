@@ -10,7 +10,7 @@
 
 - 📝 **Current Status:** [STATUS.md](STATUS.md)
 - 🔧 **Common Pitfalls:** [.cursor/docs/common-pitfalls.md](.cursor/docs/common-pitfalls.md)
-- 🧪 **Testing Guide:** [TESTING_GUIDE.md](TESTING_GUIDE.md)
+- 🧪 **Testing Guide:** [docs/testing.md](docs/testing.md)
 - 🔒 **Security:** [SECURITY.md](SECURITY.md)
 
 ---

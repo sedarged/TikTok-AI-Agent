@@ -16,7 +16,7 @@ Before opening an issue, please check the following resources:
   - [Development Guide](docs/development.md) - Developer workflow
   - [API Reference](docs/api.md) - Complete API documentation
   - [Troubleshooting](docs/troubleshooting.md) - Common issues and solutions
-- **[Testing Guide](TESTING_GUIDE.md)** - How to run and write tests
+- **[Testing Guide](docs/testing.md)** - How to run and write tests
 - **[Security](SECURITY.md)** - Security policies and best practices
 
 ### Common Questions

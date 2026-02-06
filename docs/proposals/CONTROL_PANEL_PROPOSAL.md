@@ -12,7 +12,7 @@
 | **Użycie dysku (artefakty)** | Rozmiar katalogu artifacts, liczba plików                                     | Nowe API (np. GET /api/admin/artifacts-summary)     | Warto dodać    |
 | **Baza danych**              | Przycisk „Seed” (wypełnienie danymi testowymi), opcjonalnie „Migrate”         | POST /api/admin/seed (nowy)                         | Opcjonalnie    |
 | **Artefakty**                | Lista katalogów runów, rozmiary, przycisk „Clear old” (np. starsze niż 7 dni) | GET /api/admin/artifacts, DELETE (z potwierdzeniem) | Opcjonalnie    |
-| **Linki / skróty**           | Link do dokumentacji, .env.example, TESTING_GUIDE, health URL                 | Statyczne + env (np. APP_DOCS_URL)                  | Opcjonalnie    |
+| **Linki / skróty**           | Link do dokumentacji, .env.example, testing guide, health URL                 | Statyczne + env (np. APP_DOCS_URL)                  | Opcjonalnie    |
 
 ---
 

@@ -827,7 +827,7 @@ npm run db:generate
 npm run test:only
 ```
 
-See [PRZEWODNIK_TESTY_WINDOWS.md](../PRZEWODNIK_TESTY_WINDOWS.md).
+For Windows-specific testing information, all details have been integrated into this guide (see sections on EPERM errors and Windows troubleshooting above).
 
 ### E2E Tests Timeout
 
@@ -865,9 +865,8 @@ process.env.APP_TEST_MODE = '1';
 - [development.md](development.md) - Development workflow
 - [configuration.md](configuration.md) - Environment variables
 - [troubleshooting.md](troubleshooting.md) - Common issues
-- [TESTING_GUIDE.md](../TESTING_GUIDE.md) - Original testing guide
 
 ---
 
-**Last Updated:** 2026-01-29  
+**Last Updated:** 2026-02-06  
 **Test Framework:** Vitest 1.x, Playwright 1.58.0, Supertest 6.x
