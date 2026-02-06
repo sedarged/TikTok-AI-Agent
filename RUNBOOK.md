@@ -27,25 +27,44 @@ npm start             # Run production server (includes db:migrate)
 
 ## Health Checks
 
-### Server Health
+### Server Health (Basic)
 ```bash
 curl http://localhost:3001/api/health
 ```
 **Expected Response (200 OK):**
 ```json
 {
-  "status": "healthy",
+  "status": "ok",
+  "mode": "development",
   "version": "1.1.1",
-  "database": "connected",
-  "providers": {
-    "openai": true,
-    "ffmpeg": true,
-    "testMode": false,
-    "renderDryRun": false
-  }
+  "database": {
+    "ok": true,
+    "provider": "sqlite"
+  },
+  "timestamp": "2026-02-06T06:05:48.541Z"
 }
 ```
-**Evidence:** `apps/server/src/routes/status.ts` lines 13-31
+**Evidence:** `apps/server/src/index.ts` lines 159-172
+
+### Provider Status (Detailed)
+```bash
+curl http://localhost:3001/api/status
+```
+**Expected Response (200 OK):**
+```json
+{
+  "providers": {
+    "openai": true,
+    "elevenlabs": false,
+    "ffmpeg": true
+  },
+  "ready": true,
+  "testMode": false,
+  "renderDryRun": false,
+  "message": "All providers configured and ready."
+}
+```
+**Evidence:** `apps/server/src/routes/status.ts` lines 16-34
 
 ### Database Check
 ```bash

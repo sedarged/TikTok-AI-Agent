@@ -163,7 +163,7 @@ Frontend: Close EventSource, show download button
 
 **File:** `apps/server/prisma/schema.prisma`
 
-### Core Models (4)
+### Core Models (5)
 
 **1. Project** - Main container
 - Fields: id, title, topic, nichePackId, language, targetLengthSec, tempo, voicePreset, status, timestamps
@@ -183,7 +183,12 @@ Frontend: Close EventSource, show download button
 **4. Run** - Render execution tracking
 - Fields: id, projectId, planVersionId, status, progress, currentStep, logsJson, artifactsJson, resumeStateJson, analytics, timestamps
 - Relations: project (many→1), planVersion (many→1)
-- **Evidence:** Lines 65-87
+- **Evidence:** Lines 65-92
+
+**5. Cache** - AI provider response caching
+- Fields: id, kind, hashKey, resultJson, payloadPath, createdAt
+- Used for: LLM responses, images, TTS, ASR, topic suggestions
+- **Evidence:** Lines 94-101
 
 **Detailed Schema:** See `docs/data-model.md`
 

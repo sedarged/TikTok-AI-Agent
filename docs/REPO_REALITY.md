@@ -83,7 +83,7 @@
 │   │   │   │   ├── run.ts         # GET /api/run/:id, SSE stream, retry, cancel, download
 │   │   │   │   ├── scene.ts       # PUT /api/scene/:id, POST lock/regenerate
 │   │   │   │   ├── scriptTemplates.ts # GET /api/script-templates
-│   │   │   │   ├── status.ts      # GET /api/health - Health check endpoint
+│   │   │   │   ├── status.ts      # GET /api/status - Provider configuration status
 │   │   │   │   ├── test.ts        # GET /api/test/* - Test-only routes (dry-run config)
 │   │   │   │   └── topicSuggestions.ts # GET /api/topic-suggestions - AI topic ideas
 │   │   │   ├── services/
@@ -111,11 +111,11 @@
 │   │   │       ├── logger.ts              # Winston logger instance
 │   │   │       └── types.ts               # Shared TypeScript types
 │   │   ├── prisma/
-│   │   │   ├── schema.prisma              # Database schema (4 models: Project, PlanVersion, Scene, Run)
+│   │   │   ├── schema.prisma              # Database schema (5 models: Project, PlanVersion, Scene, Run, Cache)
 │   │   │   └── migrations/                # Database migration files
 │   │   ├── scripts/
 │   │   │   └── renderSmoke.ts             # Smoke test for render pipeline
-│   │   ├── tests/                         # Unit and integration tests (10 test files)
+│   │   ├── tests/                         # Unit and integration tests (21 test files)
 │   │   │   ├── api.integration.test.ts
 │   │   │   ├── automateAndDownload.integration.test.ts
 │   │   │   ├── captionsBuilder.unit.test.ts
@@ -428,7 +428,7 @@ File: `.env.example` (verified 2026-02-06)
 
 **File:** `apps/server/prisma/schema.prisma`
 
-### Models (4 total)
+### Models (5 total)
 
 **1. Project** (lines 9-27)
 - Primary entity for video projects
@@ -445,10 +445,16 @@ File: `.env.example` (verified 2026-02-06)
 - Fields: id, projectId, planVersionId, idx, narrationText, onScreenText, visualPrompt, negativePrompt, effectPreset, durationTargetSec, startTimeSec, endTimeSec, isLocked, updatedAt
 - Relations: planVersion (many-to-1)
 
-**4. Run** (lines 65-87)
+**4. Run** (lines 65-92)
 - Render execution tracking with progress and artifacts
 - Fields: id, projectId, planVersionId, status, progress, currentStep, logsJson, artifactsJson, resumeStateJson, views, likes, retention, postedAt, timestamps
 - Relations: project (many-to-1), planVersion (many-to-1)
+
+**5. Cache** (lines 94-101)
+- Caching for AI provider responses
+- Fields: id, kind, hashKey, resultJson, payloadPath, createdAt
+- Used for: LLM responses, images, TTS, ASR, topic suggestions
+- Enables cost reduction and faster response times
 
 ### Migrations
 - **Location:** `apps/server/prisma/migrations/`
