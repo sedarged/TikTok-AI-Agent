@@ -8,6 +8,7 @@ Welcome to the TikTok-AI-Agent documentation! This directory contains comprehens
 
 | Document | Description |
 |----------|-------------|
+| [**Repository Reality Check**](REPO_REALITY.md) | ⭐ **Evidence-based codebase reference** - Verified stack, structure, scripts, env vars, CI/CD with file path citations |
 | [Setup Guide](setup.md) | Detailed installation and configuration instructions |
 | [Configuration](configuration.md) | Complete environment variable reference and configuration options |
 | [Development Guide](development.md) | Developer workflow, tooling, and best practices |
@@ -137,6 +138,7 @@ Using the TikTok-AI-Agent API:
 
 | Document | Status | Last Updated |
 |----------|--------|--------------|
+| REPO_REALITY.md | ✅ Complete | 2026-02-06 |
 | README.md | ✅ Complete | 2026-01-31 |
 | architecture.md | ✅ Complete | 2026-01-31 |
 | setup.md | ✅ Complete | 2026-01-31 |
@@ -179,5 +181,5 @@ Found an error or want to improve the docs?
 
 ---
 
-**Last Updated**: 2026-01-31  
-**Documentation Version**: 1.0.0
+**Last Updated**: 2026-02-06  
+**Documentation Version**: 1.1.0
