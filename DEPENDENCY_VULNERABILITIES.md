@@ -52,7 +52,7 @@ This document tracks dependency vulnerabilities identified by `npm audit` and th
 - **CVE/Advisory:** GHSA-xxjr-mmjv-4gpg
 - **Severity:** Moderate (CVSS 6.5)
 - **Affected Version:** lodash 4.0.0 - 4.17.21
-- **Fixed Version:** 4.17.23 (eliminated by chevrotain upgrade to 11.1.1)
+- **Fixed Version:** N/A (chevrotain 11.1.1 switched from lodash to lodash-es 4.17.23)
 - **Vector:** `CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:L/A:L`
 - **CWE:** CWE-1321
 - **Description:** Prototype Pollution Vulnerability in `_.unset` and `_.omit` functions
@@ -63,7 +63,7 @@ This document tracks dependency vulnerabilities identified by `npm audit` and th
   - `chevrotain` 10.0.0 - 10.5.0
   - `@chevrotain/cst-dts-gen` 10.0.0 - 10.5.0
   - `@chevrotain/gast` ≤10.5.0
-- **Fixed Version:** chevrotain 11.1.1 (no longer depends on lodash)
+- **Fixed Version:** chevrotain 11.1.1 (switched from lodash to lodash-es)
 - **Package Path:** `prisma → @prisma/dev → @mrleebo/prisma-ast → chevrotain`
 - **Description:** These packages depended on vulnerable lodash version
 
@@ -78,6 +78,8 @@ Since these vulnerabilities exist in transitive dev dependencies of Prisma (not 
   "chevrotain": "^11.1.1"
 }
 ```
+
+**Note:** The `lodash` override is not strictly necessary since chevrotain 11.1.1 switched to `lodash-es` instead of `lodash`. However, it's included as a safeguard in case any other dependency still uses the vulnerable lodash version.
 
 ### Why Not Direct Upgrades?
 
