@@ -82,6 +82,13 @@ model Run {
   publishedAt   DateTime? // When actually published
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
+
+  @@index([status])
+  @@index([projectId])
+  @@index([scheduledPublishAt])
+  @@index([createdAt])
+  @@index([projectId, createdAt])
+  @@index([status, createdAt])
 }
 
 model Cache {
