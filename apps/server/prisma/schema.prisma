@@ -87,6 +87,8 @@ model Run {
   @@index([projectId])
   @@index([scheduledPublishAt])
   @@index([createdAt])
+  @@index([projectId, createdAt])
+  @@index([status, createdAt])
 }
 
 model Cache {
