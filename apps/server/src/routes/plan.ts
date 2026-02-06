@@ -154,35 +154,38 @@ planRoutes.put('/:planVersionId', async (req, res) => {
       });
     }
 
-    // Update scenes if provided (now we know all scenes are valid)
+    // P0-3 FIX: Update scenes if provided (now we know all scenes are valid)
+    // Wrap in transaction to ensure all-or-nothing updates
     if (scenes && Array.isArray(scenes) && scenesToUpdate.size > 0) {
-      for (const scene of scenes) {
-        if (!scene.id) continue;
+      await prisma.$transaction(async (tx) => {
+        for (const scene of scenes) {
+          if (!scene.id) continue;
 
-        const existingScene = scenesToUpdate.get(scene.id);
-        if (!existingScene) continue; // Scene was filtered out in validation
+          const existingScene = scenesToUpdate.get(scene.id);
+          if (!existingScene) continue; // Scene was filtered out in validation
 
-        if (!existingScene.isLocked) {
-          await prisma.scene.update({
-            where: { id: scene.id },
-            data: {
-              narrationText: scene.narrationText ?? existingScene.narrationText,
-              onScreenText: scene.onScreenText ?? existingScene.onScreenText,
-              visualPrompt: scene.visualPrompt ?? existingScene.visualPrompt,
-              negativePrompt: scene.negativePrompt ?? existingScene.negativePrompt,
-              effectPreset: scene.effectPreset ?? existingScene.effectPreset,
-              durationTargetSec: scene.durationTargetSec ?? existingScene.durationTargetSec,
-              isLocked: scene.isLocked ?? existingScene.isLocked,
-            },
-          });
-        } else if (existingScene.isLocked && scene.isLocked === false) {
-          // Allow unlocking
-          await prisma.scene.update({
-            where: { id: scene.id },
-            data: { isLocked: false },
-          });
+          if (!existingScene.isLocked) {
+            await tx.scene.update({
+              where: { id: scene.id },
+              data: {
+                narrationText: scene.narrationText ?? existingScene.narrationText,
+                onScreenText: scene.onScreenText ?? existingScene.onScreenText,
+                visualPrompt: scene.visualPrompt ?? existingScene.visualPrompt,
+                negativePrompt: scene.negativePrompt ?? existingScene.negativePrompt,
+                effectPreset: scene.effectPreset ?? existingScene.effectPreset,
+                durationTargetSec: scene.durationTargetSec ?? existingScene.durationTargetSec,
+                isLocked: scene.isLocked ?? existingScene.isLocked,
+              },
+            });
+          } else if (existingScene.isLocked && scene.isLocked === false) {
+            // Allow unlocking
+            await tx.scene.update({
+              where: { id: scene.id },
+              data: { isLocked: false },
+            });
+          }
         }
-      }
+      });
     }
 
     // Fetch updated plan

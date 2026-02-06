@@ -9,6 +9,7 @@ import { isOpenAIConfigured, isRenderDryRun, isTestMode } from '../env.js';
 import { checkFFmpegAvailable } from '../services/ffmpeg/ffmpegUtils.js';
 import { v4 as uuid } from 'uuid';
 import { logError } from '../utils/logger.js';
+import type { Project, PlanVersion, Scene } from '@prisma/client';
 
 export const batchRoutes = Router();
 
@@ -86,11 +87,33 @@ batchRoutes.post('/', async (req, res) => {
       return res.status(400).json({ error: 'Invalid niche pack' });
     }
 
-    const runIds: string[] = [];
+    // P0-1 FIX: Validate all topics are non-empty before processing
+    const emptyTopics: number[] = [];
+    topics.forEach((topic, index) => {
+      if (!topic.trim()) {
+        emptyTopics.push(index);
+      }
+    });
+
+    if (emptyTopics.length > 0) {
+      return res.status(400).json({
+        error: 'Empty or whitespace-only topics not allowed',
+        emptyTopicIndexes: emptyTopics,
+        message: `Topics at indexes [${emptyTopics.join(', ')}] are empty or contain only whitespace`,
+      });
+    }
+
+    // P0-2 FIX: Two-phase processing - generate and validate ALL plans before queueing ANY runs
+    // Phase 1: Generate and validate all plans
+    interface BatchPlanResult {
+      project: Project;
+      planVersion: PlanVersion & { scenes: Scene[]; project: Project };
+      topic: string;
+    }
+    const validatedPlans: BatchPlanResult[] = [];
 
     for (const topic of topics) {
       const trimmed = topic.trim();
-      if (!trimmed) continue;
 
       const project = await prisma.project.create({
         data: {
@@ -116,37 +139,66 @@ batchRoutes.post('/', async (req, res) => {
         data: { latestPlanVersionId: planVersion.id, status: 'PLAN_READY' },
       });
 
-      const fullPlan = await prisma.planVersion.findUnique({
-        where: { id: planVersion.id },
-        include: {
-          scenes: { orderBy: { idx: 'asc' } },
-          project: true,
-        },
-      });
+      // P0-4 FIX: Add retry logic for plan lookup with error instead of silent continue
+      let fullPlan = null;
+      for (let attempt = 0; attempt < 3; attempt++) {
+        fullPlan = await prisma.planVersion.findUnique({
+          where: { id: planVersion.id },
+          include: {
+            scenes: { orderBy: { idx: 'asc' } },
+            project: true,
+          },
+        });
+        if (fullPlan) break;
+        // Wait 500ms before retry
+        await new Promise((resolve) => setTimeout(resolve, 500));
+      }
 
       if (!fullPlan) {
-        continue;
+        logError('Plan not found after 3 attempts in batch endpoint', {
+          planVersionId: planVersion.id,
+          topic: trimmed,
+        });
+        // Clean up projects created so far
+        for (const validated of validatedPlans) {
+          await prisma.project.delete({ where: { id: validated.project.id } }).catch(() => {});
+        }
+        await prisma.project.delete({ where: { id: project.id } }).catch(() => {});
+        return res.status(500).json({
+          error: `Plan lookup failed for topic: ${trimmed}`,
+          projectId: project.id,
+          planVersionId: planVersion.id,
+          message:
+            'Project and plan were created but lookup failed. All batch projects rolled back.',
+        });
       }
 
       const validation = validatePlan(fullPlan, fullPlan.project);
       if (validation.errors.length > 0) {
-        await prisma.project.update({
-          where: { id: project.id },
-          data: { status: 'FAILED' },
-        });
-        // Fail-fast: earlier topics may already have runs in the queue
+        // Clean up all projects created in this batch
+        for (const validated of validatedPlans) {
+          await prisma.project.delete({ where: { id: validated.project.id } }).catch(() => {});
+        }
+        await prisma.project.delete({ where: { id: project.id } }).catch(() => {});
         return res.status(400).json({
           error: `Plan validation failed for topic "${trimmed.substring(0, 50)}..."`,
           validation,
+          message: 'Validation failed. No runs were queued. All batch projects rolled back.',
         });
       }
 
+      validatedPlans.push({ project, planVersion: fullPlan, topic: trimmed });
+    }
+
+    // Phase 2: All plans valid, now queue all runs
+    const runIds: string[] = [];
+    for (const { project, planVersion } of validatedPlans) {
       await prisma.project.update({
         where: { id: project.id },
         data: { status: 'APPROVED' },
       });
 
-      const run = await startRenderPipeline(fullPlan);
+      const run = await startRenderPipeline(planVersion);
       runIds.push(run.id);
     }
 
