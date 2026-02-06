@@ -38,7 +38,7 @@ const artifactQuerySchema = z
   .object({
     path: z.string().min(1).max(500),
   })
-  .passthrough();
+  .strict();
 
 // Active SSE connections per runId (response objects)
 const sseConnections = new Map<string, Set<import('express').Response>>();

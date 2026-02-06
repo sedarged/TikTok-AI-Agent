@@ -120,8 +120,16 @@ export async function getFFprobePath(): Promise<string> {
     if (ffmpegPath && fs.existsSync(ffmpegPath)) {
       const candidate = path.join(path.dirname(ffmpegPath), 'ffprobe');
       if (fs.existsSync(candidate)) {
-        ffprobePath = candidate;
-        return ffprobePath;
+        try {
+          await runCommand(candidate, ['-version'], 10000);
+          ffprobePath = candidate;
+          return ffprobePath;
+        } catch (probeError) {
+          logDebug('Found ffprobe next to FFmpeg but it is not usable', {
+            error: probeError,
+            candidate,
+          });
+        }
       }
     }
     throw new Error('FFprobe not found. Install system ffprobe or set FFPROBE_PATH.');
