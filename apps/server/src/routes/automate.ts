@@ -86,35 +86,37 @@ automateRoutes.post('/', async (req, res) => {
       return res.status(400).json({ error: 'Invalid niche pack' });
     }
 
-    // 1. Create project
-    const project = await prisma.project.create({
-      data: {
-        id: uuid(),
-        title: topic.substring(0, 100),
-        topic,
-        nichePackId,
-        language,
-        targetLengthSec,
-        tempo,
-        voicePreset,
-        visualStylePreset,
-        seoKeywords: seoKeywords ?? null,
-        status: 'DRAFT_PLAN',
-      },
-    });
+    const { project, planVersion } = await prisma.$transaction(async (tx) => {
+      const createdProject = await tx.project.create({
+        data: {
+          id: uuid(),
+          title: topic.substring(0, 100),
+          topic,
+          nichePackId,
+          language,
+          targetLengthSec,
+          tempo,
+          voicePreset,
+          visualStylePreset,
+          seoKeywords: seoKeywords ?? null,
+          status: 'DRAFT_PLAN',
+        },
+      });
 
-    // 2. Generate plan (optionally with script template)
-    const planVersion = await generatePlan(project, {
-      scriptTemplateId: scriptTemplateId ?? undefined,
-    });
+      const createdPlan = await generatePlan(createdProject, {
+        scriptTemplateId: scriptTemplateId ?? undefined,
+        db: tx,
+      });
 
-    // 3. Update project with latest plan
-    await prisma.project.update({
-      where: { id: project.id },
-      data: {
-        latestPlanVersionId: planVersion.id,
-        status: 'PLAN_READY',
-      },
+      await tx.project.update({
+        where: { id: createdProject.id },
+        data: {
+          latestPlanVersionId: createdPlan.id,
+          status: 'PLAN_READY',
+        },
+      });
+
+      return { project: createdProject, planVersion: createdPlan };
     });
 
     // P1-6 FIX: Add retry logic for plan lookup

@@ -1,5 +1,6 @@
 import { spawn } from 'child_process';
 import { logError, logDebug } from '../../utils/logger.js';
+import { safeJsonParse } from '../../utils/safeJsonParse.js';
 import path from 'path';
 import fs from 'fs';
 
@@ -219,10 +220,10 @@ export async function validateVideo(videoPath: string): Promise<{
       ],
       30000
     );
-    const data = JSON.parse(stdout) as {
+    const data = safeJsonParse<{
       format?: { duration?: string };
       streams?: Array<{ width?: number; height?: number }>;
-    };
+    }>(stdout, {});
     const duration = parseFloat(data.format?.duration || '0');
     const videoStream = data.streams?.find((s) => s.width && s.height);
     return {

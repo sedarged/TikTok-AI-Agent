@@ -20,6 +20,7 @@ import { requireAuthForWrites } from './middleware/auth.js';
 import { ensureConnection } from './db/client.js';
 import { resetStuckRuns } from './services/render/renderPipeline.js';
 import { logError, logWarn, logInfo, logDebug } from './utils/logger.js';
+import { safeJsonParse } from './utils/safeJsonParse.js';
 
 function getAppVersion(): string {
   if (env.APP_VERSION) {
@@ -35,7 +36,7 @@ function getAppVersion(): string {
     if (fs.existsSync(pkgPath)) {
       try {
         const content = fs.readFileSync(pkgPath, 'utf-8');
-        const parsed = JSON.parse(content) as { version?: string };
+        const parsed = safeJsonParse<{ version?: string }>(content, {}, { path: pkgPath });
         if (parsed.version) {
           return parsed.version;
         }

@@ -1,5 +1,6 @@
 import { callOpenAI } from './providers/openai.js';
 import { getNichePack } from './nichePacks.js';
+import { safeJsonParse } from '../utils/safeJsonParse.js';
 
 export interface TikTokMeta {
   caption: string;
@@ -36,7 +37,11 @@ Context:
 Return only a JSON object with keys: "caption", "hashtags", "title".`;
 
   const raw = await callOpenAI(prompt, 'json');
-  const parsed = JSON.parse(raw) as { caption?: string; hashtags?: string[]; title?: string };
+  const parsed = safeJsonParse<{ caption?: string; hashtags?: string[]; title?: string }>(raw, {
+    caption: topic,
+    hashtags: [],
+    title: topic,
+  });
 
   const caption = typeof parsed.caption === 'string' ? parsed.caption : topic;
   const hashtags = Array.isArray(parsed.hashtags)

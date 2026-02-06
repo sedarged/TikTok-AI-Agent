@@ -31,7 +31,7 @@ export default function Projects() {
     return () => controller.abort();
   }, []);
 
-  // Close menu when clicking outside
+  // Close menu when clicking outside or pressing Escape
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       Object.values(menuRefs.current).forEach((ref) => {
@@ -40,8 +40,17 @@ export default function Projects() {
         }
       });
     };
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setOpenMenuId(null);
+      }
+    };
     document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
+    document.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('keydown', handleKeyDown);
+    };
   }, []);
 
   const handleDelete = async (id: string) => {
@@ -78,11 +87,17 @@ export default function Projects() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-[400px]">
+      <div
+        className="flex items-center justify-center min-h-[400px]"
+        role="status"
+        aria-live="polite"
+        aria-busy="true"
+      >
         <div
           className="w-10 h-10 border-4 border-t-transparent rounded-full animate-spin"
           style={{ borderColor: 'var(--color-primary)', borderTopColor: 'transparent' }}
         />
+        <span className="sr-only">Loading projects</span>
       </div>
     );
   }
@@ -162,12 +177,17 @@ export default function Projects() {
                     <button
                       onClick={() => setOpenMenuId(openMenuId === project.id ? null : project.id)}
                       className="btn btn-secondary text-sm px-3"
+                      aria-label="Open project actions"
+                      aria-haspopup="menu"
+                      aria-expanded={openMenuId === project.id}
+                      aria-controls={`project-menu-${project.id}`}
                     >
                       <svg
                         className="w-5 h-5"
                         fill="none"
                         stroke="currentColor"
                         viewBox="0 0 24 24"
+                        aria-hidden="true"
                       >
                         <path
                           strokeLinecap="round"
@@ -180,6 +200,8 @@ export default function Projects() {
 
                     {openMenuId === project.id && (
                       <div
+                        id={`project-menu-${project.id}`}
+                        role="menu"
                         className="absolute right-0 mt-2 w-48 rounded-lg shadow-lg z-10 border"
                         style={{
                           background: 'var(--color-surface)',
@@ -192,6 +214,7 @@ export default function Projects() {
                             project.runs[0] && (
                               <Link
                                 to={`/run/${project.runs[0].id}`}
+                                role="menuitem"
                                 className="block w-full text-left px-4 py-2 text-sm hover:bg-opacity-50 transition-colors"
                                 style={{ color: 'var(--color-text)' }}
                                 onMouseEnter={(e) =>
@@ -208,6 +231,7 @@ export default function Projects() {
                           {project.status === 'DONE' && project.runs && project.runs[0] && (
                             <Link
                               to={`/run/${project.runs[0].id}`}
+                              role="menuitem"
                               className="block w-full text-left px-4 py-2 text-sm hover:bg-opacity-50 transition-colors"
                               style={{ color: 'var(--color-text)' }}
                               onMouseEnter={(e) =>
@@ -223,6 +247,7 @@ export default function Projects() {
                           )}
                           <Link
                             to={`/project/${project.id}/plan`}
+                            role="menuitem"
                             className="block w-full text-left px-4 py-2 text-sm hover:bg-opacity-50 transition-colors"
                             style={{ color: 'var(--color-text)' }}
                             onMouseEnter={(e) =>
@@ -238,6 +263,7 @@ export default function Projects() {
                               handleDuplicate(project.id);
                               setOpenMenuId(null);
                             }}
+                            role="menuitem"
                             className="block w-full text-left px-4 py-2 text-sm hover:bg-opacity-50 transition-colors"
                             style={{ color: 'var(--color-text)' }}
                             onMouseEnter={(e) =>
@@ -252,6 +278,7 @@ export default function Projects() {
                               handleDelete(project.id);
                               setOpenMenuId(null);
                             }}
+                            role="menuitem"
                             className="block w-full text-left px-4 py-2 text-sm hover:bg-opacity-50 transition-colors"
                             style={{ color: 'var(--color-danger)' }}
                             onMouseEnter={(e) =>

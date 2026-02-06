@@ -4,6 +4,7 @@
 import { callOpenAI, createHash, getCachedResult, cacheResult } from '../providers/openai.js';
 import { getNichePack } from '../nichePacks.js';
 import { logError, logDebug } from '../../utils/logger.js';
+import { safeJsonParse } from '../../utils/safeJsonParse.js';
 
 /**
  * Helper to unwrap an array from either raw array or {field: array} wrapper object.
@@ -31,14 +32,12 @@ export async function getTopicSuggestions(
   const cached = await getCachedResult(cacheKey);
 
   if (cached && cached.resultJson) {
-    try {
-      const result = JSON.parse(cached.resultJson) as { topics: string[] };
-      if (result.topics && Array.isArray(result.topics)) {
-        logDebug(`Cache hit for topic suggestions: ${cacheKey}`);
-        return result.topics;
-      }
-    } catch (error) {
-      logError('Failed to parse cached topic suggestions:', error);
+    const result = safeJsonParse<{ topics?: string[] }>(cached.resultJson, {
+      topics: undefined,
+    });
+    if (result.topics && Array.isArray(result.topics)) {
+      logDebug(`Cache hit for topic suggestions: ${cacheKey}`);
+      return result.topics;
     }
   }
 
@@ -50,11 +49,9 @@ export async function getTopicSuggestions(
   const raw = await callOpenAI(prompt, 'json', 'gpt-4o-mini');
   const trimmed = raw.trim();
 
-  let parsed: unknown;
-  try {
-    parsed = JSON.parse(trimmed);
-  } catch (error) {
-    logError('Failed to parse JSON response from OpenAI', error);
+  const parsed = safeJsonParse<unknown>(trimmed, null, { source: 'topicSuggestions' });
+  if (!parsed) {
+    logError('Failed to parse JSON response from OpenAI');
     throw new Error('Invalid JSON response from AI');
   }
 

@@ -111,8 +111,8 @@ batchRoutes.post('/', async (req, res) => {
     // Design decision: We create projects and plans immediately (Phase 1) before validation is complete,
     // then attempt rollback if validation fails. This approach is chosen because:
     // 1. generatePlan() requires a persisted Project record to function (foreign key constraint)
-    // 2. Alternative (transaction wrapping) would require refactoring generatePlan to work without DB records
-    // 3. Rollback errors are now logged and tracked in the response for visibility
+    // 2. Per-project DB writes are wrapped in transactions for consistency
+    // 3. Rollback errors are logged and tracked in the response for visibility
     // 4. The two-phase approach prevents partial batch execution (all-or-nothing semantics)
     // Phase 1: Generate and validate all plans
     interface BatchPlanResult {
@@ -125,28 +125,34 @@ batchRoutes.post('/', async (req, res) => {
     for (const topic of topics) {
       const trimmed = topic.trim();
 
-      const project = await prisma.project.create({
-        data: {
-          id: uuid(),
-          title: trimmed.substring(0, 100),
-          topic: trimmed,
-          nichePackId,
-          language,
-          targetLengthSec,
-          tempo,
-          voicePreset,
-          visualStylePreset,
-          seoKeywords: seoKeywords ?? null,
-          status: 'DRAFT_PLAN',
-        },
-      });
+      const { project, planVersion } = await prisma.$transaction(async (tx) => {
+        const createdProject = await tx.project.create({
+          data: {
+            id: uuid(),
+            title: trimmed.substring(0, 100),
+            topic: trimmed,
+            nichePackId,
+            language,
+            targetLengthSec,
+            tempo,
+            voicePreset,
+            visualStylePreset,
+            seoKeywords: seoKeywords ?? null,
+            status: 'DRAFT_PLAN',
+          },
+        });
 
-      const planVersion = await generatePlan(project, {
-        scriptTemplateId: scriptTemplateId ?? undefined,
-      });
-      await prisma.project.update({
-        where: { id: project.id },
-        data: { latestPlanVersionId: planVersion.id, status: 'PLAN_READY' },
+        const createdPlan = await generatePlan(createdProject, {
+          scriptTemplateId: scriptTemplateId ?? undefined,
+          db: tx,
+        });
+
+        await tx.project.update({
+          where: { id: createdProject.id },
+          data: { latestPlanVersionId: createdPlan.id, status: 'PLAN_READY' },
+        });
+
+        return { project: createdProject, planVersion: createdPlan };
       });
 
       // P0-4 FIX: Add retry logic for plan lookup with error instead of silent continue
@@ -173,22 +179,19 @@ batchRoutes.post('/', async (req, res) => {
         });
         // Clean up projects created so far - track rollback failures
         const rollbackErrors: string[] = [];
-        for (const validated of validatedPlans) {
-          await prisma.project.delete({ where: { id: validated.project.id } }).catch((err) => {
-            logError('Batch rollback: failed to delete project', {
-              projectId: validated.project.id,
+        const rollbackIds = [
+          ...validatedPlans.map((validated) => validated.project.id),
+          project.id,
+        ];
+        if (rollbackIds.length > 0) {
+          await prisma.project.deleteMany({ where: { id: { in: rollbackIds } } }).catch((err) => {
+            logError('Batch rollback: failed to delete projects', {
+              projectIds: rollbackIds,
               error: err,
             });
-            rollbackErrors.push(validated.project.id);
+            rollbackErrors.push(...rollbackIds);
           });
         }
-        await prisma.project.delete({ where: { id: project.id } }).catch((err) => {
-          logError('Batch rollback: failed to delete current project', {
-            projectId: project.id,
-            error: err,
-          });
-          rollbackErrors.push(project.id);
-        });
 
         const message =
           rollbackErrors.length > 0
@@ -208,22 +211,19 @@ batchRoutes.post('/', async (req, res) => {
       if (validation.errors.length > 0) {
         // Clean up all projects created in this batch - track rollback failures
         const rollbackErrors: string[] = [];
-        for (const validated of validatedPlans) {
-          await prisma.project.delete({ where: { id: validated.project.id } }).catch((err) => {
-            logError('Batch rollback: failed to delete project during validation failure', {
-              projectId: validated.project.id,
+        const rollbackIds = [
+          ...validatedPlans.map((validated) => validated.project.id),
+          project.id,
+        ];
+        if (rollbackIds.length > 0) {
+          await prisma.project.deleteMany({ where: { id: { in: rollbackIds } } }).catch((err) => {
+            logError('Batch rollback: failed to delete projects during validation failure', {
+              projectIds: rollbackIds,
               error: err,
             });
-            rollbackErrors.push(validated.project.id);
+            rollbackErrors.push(...rollbackIds);
           });
         }
-        await prisma.project.delete({ where: { id: project.id } }).catch((err) => {
-          logError('Batch rollback: failed to delete current project during validation failure', {
-            projectId: project.id,
-            error: err,
-          });
-          rollbackErrors.push(project.id);
-        });
 
         const message =
           rollbackErrors.length > 0

@@ -19,6 +19,7 @@ import type {
   SSEEvent,
 } from '../api/types';
 import { getErrorMessage } from '../utils/errors';
+import { safeJsonParse } from '../utils/safeJsonParse';
 
 interface OutputProps {
   status: ProviderStatus | null;
@@ -71,11 +72,7 @@ export default function Output({ status }: OutputProps) {
           likes: String(data.likes ?? ''),
           retention: String(data.retention ?? ''),
         });
-        try {
-          setLogs(JSON.parse(data.logsJson || '[]'));
-        } catch {
-          setLogs([]);
-        }
+        setLogs(safeJsonParse<LogEntry[]>(data.logsJson || '[]', []));
       })
       .catch((err) => {
         if (signal.aborted) return;
@@ -207,12 +204,7 @@ export default function Output({ status }: OutputProps) {
     );
   }
 
-  let artifacts: Artifacts = {};
-  try {
-    artifacts = JSON.parse(run.artifactsJson || '{}') as Artifacts;
-  } catch {
-    artifacts = {};
-  }
+  const artifacts = safeJsonParse<Artifacts>(run.artifactsJson || '{}', {});
   const isComplete = run.status === 'done';
   const isRunning = run.status === 'running' || run.status === 'queued';
   const isFailed = run.status === 'failed';

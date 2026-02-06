@@ -1,5 +1,6 @@
 import OpenAI from 'openai';
 import { logError, logDebug, logWarn } from '../../utils/logger.js';
+import { safeJsonParse } from '../../utils/safeJsonParse.js';
 import pRetry, { type RetryContext } from 'p-retry';
 import { env, isOpenAIConfigured } from '../../env.js';
 import { prisma } from '../../db/client.js';
@@ -238,7 +239,10 @@ export async function transcribeAudio(audioPath: string): Promise<TranscribeAudi
   const cached = await getCachedResult(hashKey);
 
   if (cached && cached.resultJson) {
-    const result = JSON.parse(cached.resultJson) as TranscribeAudioResult;
+    const result = safeJsonParse<TranscribeAudioResult>(cached.resultJson, {
+      text: '',
+      estimatedCostUsd: 0,
+    });
     result.estimatedCostUsd = 0;
     return result;
   }
@@ -291,7 +295,12 @@ export async function getCachedResult(hashKey: string) {
   }
 }
 
-export async function cacheResult(hashKey: string, kind: string, result: unknown, payloadPath?: string) {
+export async function cacheResult(
+  hashKey: string,
+  kind: string,
+  result: unknown,
+  payloadPath?: string
+) {
   try {
     await prisma.cache.upsert({
       where: { hashKey },

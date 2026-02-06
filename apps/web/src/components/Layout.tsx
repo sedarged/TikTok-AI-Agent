@@ -100,6 +100,17 @@ export default function Layout({ children, status, statusError }: LayoutProps) {
   const location = useLocation();
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
 
+  useEffect(() => {
+    if (!mobileNavOpen) return;
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setMobileNavOpen(false);
+      }
+    };
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [mobileNavOpen]);
+
   const navItems = [
     { path: '/create', label: 'Create' },
     { path: '/batch-create', label: 'Batch Create' },
@@ -160,9 +171,18 @@ export default function Layout({ children, status, statusError }: LayoutProps) {
               className="p-2 rounded-lg"
               style={{ color: 'var(--color-text)' }}
               aria-label="Menu"
+              aria-haspopup="menu"
+              aria-expanded={mobileNavOpen}
+              aria-controls="mobile-nav-menu"
             >
               {mobileNavOpen ? (
-                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg
+                  className="w-6 h-6"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                  aria-hidden="true"
+                >
                   <path
                     strokeLinecap="round"
                     strokeLinejoin="round"
@@ -171,7 +191,13 @@ export default function Layout({ children, status, statusError }: LayoutProps) {
                   />
                 </svg>
               ) : (
-                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg
+                  className="w-6 h-6"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                  aria-hidden="true"
+                >
                   <path
                     strokeLinecap="round"
                     strokeLinejoin="round"
@@ -189,6 +215,8 @@ export default function Layout({ children, status, statusError }: LayoutProps) {
                   aria-hidden="true"
                 />
                 <div
+                  id="mobile-nav-menu"
+                  role="menu"
                   className="absolute right-0 top-full mt-2 w-48 rounded-lg border py-2 z-50"
                   style={{ background: 'var(--color-surface)', borderColor: 'var(--color-border)' }}
                 >
@@ -251,29 +279,46 @@ function StatusPanel({ status }: { status: ProviderStatus | null }) {
   const hasIssues = !status.providers.openai || !status.providers.ffmpeg;
 
   return (
-    <div className="flex items-center justify-between">
-      <div className="flex items-center gap-4">
-        <StatusIndicator label="OpenAI" active={status.providers.openai ?? false} />
-        <StatusIndicator label="FFmpeg" active={status.providers.ffmpeg ?? false} />
-        {status.renderDryRun && !status.testMode && <StatusIndicator label="Dry-Run" active />}
+    <div className="space-y-2">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-4">
+          <StatusIndicator label="OpenAI" active={status.providers.openai ?? false} />
+          <StatusIndicator label="FFmpeg" active={status.providers.ffmpeg ?? false} />
+          {status.renderDryRun && !status.testMode && <StatusIndicator label="Dry-Run" active />}
+        </div>
+
+        {hasIssues && (
+          <button
+            onClick={() => setExpanded(!expanded)}
+            className="flex items-center gap-1 text-xs"
+            style={{ color: 'var(--color-text-muted)' }}
+            aria-expanded={expanded}
+            aria-controls="status-details"
+          >
+            <svg
+              className={`w-4 h-4 transition-transform ${expanded ? 'rotate-180' : ''}`}
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+              aria-hidden="true"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M19 9l-7 7-7-7"
+              />
+            </svg>
+            {expanded ? 'Hide details' : 'Show details'}
+          </button>
+        )}
       </div>
 
-      {hasIssues && (
-        <button
-          onClick={() => setExpanded(!expanded)}
-          className="flex items-center gap-1 text-xs"
-          style={{ color: 'var(--color-text-muted)' }}
-        >
-          <svg
-            className={`w-4 h-4 transition-transform ${expanded ? 'rotate-180' : ''}`}
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-          >
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-          </svg>
-          {expanded ? 'Hide details' : 'Show details'}
-        </button>
+      {hasIssues && expanded && (
+        <div id="status-details" className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
+          {!status.providers.openai && <p>OpenAI key not configured.</p>}
+          {!status.providers.ffmpeg && <p>FFmpeg not available.</p>}
+        </div>
       )}
     </div>
   );

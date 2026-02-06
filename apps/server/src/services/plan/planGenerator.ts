@@ -4,10 +4,11 @@ import { getNichePack, getScenePacing, type NichePack } from '../nichePacks.js';
 import { getScriptTemplate } from './scriptTemplates.js';
 import { isOpenAIConfigured, isTestMode } from '../../env.js';
 import { callOpenAI } from '../providers/openai.js';
-import type { Project, Scene } from '@prisma/client';
+import type { Project, Scene, Prisma } from '@prisma/client';
 import type { EffectPreset, SceneData } from '../../utils/types.js';
 import { EFFECT_PRESETS } from '../../utils/types.js';
 import { logError } from '../../utils/logger.js';
+import { safeJsonParse } from '../../utils/safeJsonParse.js';
 
 interface OpenAISceneRaw {
   narrationText?: string;
@@ -44,10 +45,12 @@ function unwrapArrayField<T>(parsed: unknown, fieldName: string): T[] | null {
 
 export interface GeneratePlanOptions {
   scriptTemplateId?: string;
+  db?: Prisma.TransactionClient;
 }
 
 // Generate complete plan for a project
 export async function generatePlan(project: Project, options?: GeneratePlanOptions) {
+  const db = options?.db ?? prisma;
   const pack = getNichePack(project.nichePackId);
   if (!pack) {
     throw new Error(`Niche pack not found: ${project.nichePackId}`);
@@ -90,7 +93,7 @@ export async function generatePlan(project: Project, options?: GeneratePlanOptio
 
   // Create plan version in DB (always UUID for API param validation)
   const planVersionId = uuid();
-  const planVersion = await prisma.planVersion.create({
+  const planVersion = await db.planVersion.create({
     data: {
       id: planVersionId,
       projectId: project.id,
@@ -115,26 +118,28 @@ export async function generatePlan(project: Project, options?: GeneratePlanOptio
 
   // Create scenes in DB
   let currentTime = 0;
-  for (const sceneData of scenesData) {
-    const sceneId = sceneData.id;
-    await prisma.scene.create({
-      data: {
-        id: sceneId,
-        projectId: project.id,
-        planVersionId: planVersionId,
-        idx: sceneData.idx,
-        narrationText: sceneData.narrationText,
-        onScreenText: sceneData.onScreenText,
-        visualPrompt: sceneData.visualPrompt,
-        negativePrompt: sceneData.negativePrompt,
-        effectPreset: sceneData.effectPreset,
-        durationTargetSec: sceneData.durationTargetSec,
-        startTimeSec: currentTime,
-        endTimeSec: currentTime + sceneData.durationTargetSec,
-        isLocked: false,
-      },
-    });
-    currentTime += sceneData.durationTargetSec;
+  const sceneRows = scenesData.map((sceneData) => {
+    const startTimeSec = currentTime;
+    const endTimeSec = currentTime + sceneData.durationTargetSec;
+    currentTime = endTimeSec;
+    return {
+      id: sceneData.id,
+      projectId: project.id,
+      planVersionId: planVersionId,
+      idx: sceneData.idx,
+      narrationText: sceneData.narrationText,
+      onScreenText: sceneData.onScreenText,
+      visualPrompt: sceneData.visualPrompt,
+      negativePrompt: sceneData.negativePrompt,
+      effectPreset: sceneData.effectPreset,
+      durationTargetSec: sceneData.durationTargetSec,
+      startTimeSec,
+      endTimeSec,
+      isLocked: false,
+    };
+  });
+  if (sceneRows.length > 0) {
+    await db.scene.createMany({ data: sceneRows });
   }
 
   return planVersion;
@@ -169,11 +174,8 @@ Return ONLY a JSON object with a "hooks" array containing exactly 5 hook strings
   try {
     const response = await callOpenAI(prompt, 'json');
 
-    let hooks: unknown;
-    try {
-      hooks = JSON.parse(response);
-    } catch (error) {
-      logError('Failed to parse hooks JSON:', error);
+    const hooks = safeJsonParse<unknown>(response, null, { source: 'generateHooks' });
+    if (!hooks) {
       return generateTemplateHooks(project.topic, pack);
     }
 
@@ -308,11 +310,8 @@ Requirements:
   try {
     const response = await callOpenAI(prompt, 'json');
 
-    let scenes: unknown;
-    try {
-      scenes = JSON.parse(response);
-    } catch (error) {
-      logError('Failed to parse scenes JSON:', error);
+    const scenes = safeJsonParse<unknown>(response, null, { source: 'generateScenes' });
+    if (!scenes) {
       throw new Error('Invalid JSON response for scenes');
     }
 
@@ -400,11 +399,8 @@ Keep scene count the same. Make the script flow naturally.`;
   try {
     const response = await callOpenAI(prompt, 'json');
 
-    let updates: unknown;
-    try {
-      updates = JSON.parse(response);
-    } catch (error) {
-      logError('Failed to parse script updates JSON:', error);
+    const updates = safeJsonParse<unknown>(response, null, { source: 'regenerateScript' });
+    if (!updates) {
       throw new Error('Invalid JSON response for script updates');
     }
 
@@ -478,15 +474,12 @@ Return JSON:
   try {
     const response = await callOpenAI(prompt, 'json');
 
-    let result: { narrationText?: string; onScreenText?: string; visualPrompt?: string };
-    try {
-      result = JSON.parse(response) as {
-        narrationText?: string;
-        onScreenText?: string;
-        visualPrompt?: string;
-      };
-    } catch (error) {
-      logError('Failed to parse scene regeneration JSON:', error);
+    const result = safeJsonParse<{
+      narrationText?: string;
+      onScreenText?: string;
+      visualPrompt?: string;
+    } | null>(response, null, { source: 'regenerateScene' });
+    if (!result) {
       return {
         narrationText: scene.narrationText,
         onScreenText: scene.onScreenText,
