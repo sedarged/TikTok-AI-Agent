@@ -48,17 +48,31 @@ export interface GeneratePlanOptions {
   db?: Prisma.TransactionClient;
 }
 
-// Generate complete plan for a project
-export async function generatePlan(project: Project, options?: GeneratePlanOptions) {
-  const db = options?.db ?? prisma;
+export interface PlanData {
+  hookOptions: string[];
+  hookSelected: string;
+  outline: string;
+  scriptFull: string;
+  scriptTemplateId: string | null;
+  estimatesJson: string;
+  validationJson: string;
+  scenesData: SceneData[];
+}
+
+/**
+ * Generate plan content (hooks, outline, scenes) without DB writes.
+ * This function performs OpenAI calls and can be called outside transactions.
+ */
+export async function generatePlanData(
+  project: Project,
+  scriptTemplateId?: string
+): Promise<PlanData> {
   const pack = getNichePack(project.nichePackId);
   if (!pack) {
     throw new Error(`Niche pack not found: ${project.nichePackId}`);
   }
 
-  const scriptTemplate = options?.scriptTemplateId
-    ? getScriptTemplate(options.scriptTemplateId)
-    : undefined;
+  const scriptTemplate = scriptTemplateId ? getScriptTemplate(scriptTemplateId) : undefined;
 
   const pacing = getScenePacing(pack, project.targetLengthSec);
   const baseSceneCount = Math.round((pacing.minScenes + pacing.maxScenes) / 2);
@@ -91,34 +105,52 @@ export async function generatePlan(project: Project, options?: GeneratePlanOptio
   const wpm = project.tempo === 'slow' ? 120 : project.tempo === 'fast' ? 180 : 150;
   const estimatedLengthSec = Math.round((totalWords / wpm) * 60);
 
-  // Create plan version in DB (always UUID for API param validation)
+  return {
+    hookOptions,
+    hookSelected,
+    outline,
+    scriptFull,
+    scriptTemplateId: scriptTemplate?.id ?? null,
+    estimatesJson: JSON.stringify({
+      wpm,
+      estimatedLengthSec,
+      targetLengthSec: project.targetLengthSec,
+    }),
+    validationJson: JSON.stringify({
+      errors: [],
+      warnings: [],
+      suggestions: [],
+    }),
+    scenesData,
+  };
+}
+
+/**
+ * Save plan data to database. Can be called within a transaction.
+ */
+export async function savePlanData(
+  project: Project,
+  planData: PlanData,
+  db: Prisma.TransactionClient | typeof prisma = prisma
+) {
   const planVersionId = uuid();
   const planVersion = await db.planVersion.create({
     data: {
       id: planVersionId,
       projectId: project.id,
-      hookOptionsJson: JSON.stringify(hookOptions),
-      hookSelected,
-      outline,
-      scriptFull,
-      // Only persist a template ID if it resolved to a known scriptTemplate
-      scriptTemplateId: scriptTemplate?.id ?? null,
-      estimatesJson: JSON.stringify({
-        wpm,
-        estimatedLengthSec,
-        targetLengthSec: project.targetLengthSec,
-      }),
-      validationJson: JSON.stringify({
-        errors: [],
-        warnings: [],
-        suggestions: [],
-      }),
+      hookOptionsJson: JSON.stringify(planData.hookOptions),
+      hookSelected: planData.hookSelected,
+      outline: planData.outline,
+      scriptFull: planData.scriptFull,
+      scriptTemplateId: planData.scriptTemplateId,
+      estimatesJson: planData.estimatesJson,
+      validationJson: planData.validationJson,
     },
   });
 
   // Create scenes in DB
   let currentTime = 0;
-  const sceneRows = scenesData.map((sceneData) => {
+  const sceneRows = planData.scenesData.map((sceneData) => {
     const startTimeSec = currentTime;
     const endTimeSec = currentTime + sceneData.durationTargetSec;
     currentTime = endTimeSec;
@@ -143,6 +175,17 @@ export async function generatePlan(project: Project, options?: GeneratePlanOptio
   }
 
   return planVersion;
+}
+
+// Generate complete plan for a project
+export async function generatePlan(project: Project, options?: GeneratePlanOptions) {
+  const db = options?.db ?? prisma;
+
+  // Generate plan content (performs OpenAI calls)
+  const planData = await generatePlanData(project, options?.scriptTemplateId);
+
+  // Save to database
+  return savePlanData(project, planData, db);
 }
 
 // Generate 5 hook options

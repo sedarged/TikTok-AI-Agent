@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { z } from 'zod';
 import { prisma } from '../db/client.js';
-import { generatePlan } from '../services/plan/planGenerator.js';
+import { generatePlanData, savePlanData } from '../services/plan/planGenerator.js';
 import { validatePlan } from '../services/plan/planValidator.js';
 import { getNichePack } from '../services/nichePacks.js';
 import { startRenderPipeline } from '../services/render/renderPipeline.js';
@@ -86,29 +86,38 @@ automateRoutes.post('/', async (req, res) => {
       return res.status(400).json({ error: 'Invalid niche pack' });
     }
 
+    // Step 1: Create project
+    const createdProject = await prisma.project.create({
+      data: {
+        id: uuid(),
+        title: topic.substring(0, 100),
+        topic,
+        nichePackId,
+        language,
+        targetLengthSec,
+        tempo,
+        voicePreset,
+        visualStylePreset,
+        seoKeywords: seoKeywords ?? null,
+        status: 'DRAFT_PLAN',
+      },
+    });
+
+    // Step 2: Generate plan content (performs OpenAI calls outside transaction)
+    let planData;
+    try {
+      planData = await generatePlanData(createdProject, scriptTemplateId ?? undefined);
+    } catch (planError) {
+      // Clean up project on plan generation failure
+      await prisma.project.delete({ where: { id: createdProject.id } });
+      throw planError;
+    }
+
+    // Step 3: Save plan to DB in a transaction
     const { project, planVersion } = await prisma.$transaction(async (tx) => {
-      const createdProject = await tx.project.create({
-        data: {
-          id: uuid(),
-          title: topic.substring(0, 100),
-          topic,
-          nichePackId,
-          language,
-          targetLengthSec,
-          tempo,
-          voicePreset,
-          visualStylePreset,
-          seoKeywords: seoKeywords ?? null,
-          status: 'DRAFT_PLAN',
-        },
-      });
+      const createdPlan = await savePlanData(createdProject, planData, tx);
 
-      const createdPlan = await generatePlan(createdProject, {
-        scriptTemplateId: scriptTemplateId ?? undefined,
-        db: tx,
-      });
-
-      await tx.project.update({
+      const updatedProject = await tx.project.update({
         where: { id: createdProject.id },
         data: {
           latestPlanVersionId: createdPlan.id,
@@ -116,7 +125,7 @@ automateRoutes.post('/', async (req, res) => {
         },
       });
 
-      return { project: createdProject, planVersion: createdPlan };
+      return { project: updatedProject, planVersion: createdPlan };
     });
 
     // P1-6 FIX: Add retry logic for plan lookup

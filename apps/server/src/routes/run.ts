@@ -437,14 +437,22 @@ runRoutes.get('/:runId/download', async (req, res) => {
       return res.status(404).json({ error: 'Run not found' });
     }
 
-    const artifacts = safeJsonParse<Artifacts>(
-      run.artifactsJson,
-      {},
-      {
-        runId,
-        source: 'downloadArtifacts',
+    let artifacts: Artifacts = {};
+
+    if (run.artifactsJson) {
+      try {
+        artifacts = JSON.parse(run.artifactsJson) as Artifacts;
+      } catch (parseError) {
+        logError('Failed to parse run.artifactsJson for download', parseError, {
+          runId,
+          source: 'downloadArtifacts',
+        });
+        return res.status(500).json({
+          error: 'Failed to download',
+          artifactsParseError: true,
+        });
       }
-    );
+    }
 
     if (artifacts.dryRun === true) {
       return res.status(409).json({
@@ -562,14 +570,22 @@ runRoutes.get('/:runId/export', async (req, res) => {
       return res.status(404).json({ error: 'Run not found' });
     }
 
-    const artifacts = safeJsonParse<Artifacts>(
-      run.artifactsJson,
-      {},
-      {
-        runId,
-        source: 'exportArtifacts',
+    let artifacts: Artifacts = {};
+
+    if (run.artifactsJson) {
+      try {
+        artifacts = JSON.parse(run.artifactsJson) as Artifacts;
+      } catch (parseError) {
+        logError('Failed to parse run.artifactsJson for export', parseError, {
+          runId,
+          source: 'exportArtifacts',
+        });
+        return res.status(500).json({
+          error: 'Failed to export',
+          artifactsParseError: true,
+        });
       }
-    );
+    }
 
     const tiktokCaption = artifacts.tiktokCaption as string | undefined;
     const tiktokHashtags = Array.isArray(artifacts.tiktokHashtags)
