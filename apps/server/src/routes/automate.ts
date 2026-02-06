@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { z } from 'zod';
 import { prisma } from '../db/client.js';
-import { generatePlanData, savePlanData } from '../services/plan/planGenerator.js';
+import { generatePlanData, savePlanData, type PlanData } from '../services/plan/planGenerator.js';
 import { validatePlan } from '../services/plan/planValidator.js';
 import { getNichePack } from '../services/nichePacks.js';
 import { startRenderPipeline } from '../services/render/renderPipeline.js';
@@ -104,7 +104,7 @@ automateRoutes.post('/', async (req, res) => {
     });
 
     // Step 2: Generate plan content (performs OpenAI calls outside transaction)
-    let planData;
+    let planData: PlanData;
     try {
       planData = await generatePlanData(createdProject, scriptTemplateId ?? undefined);
     } catch (planError) {

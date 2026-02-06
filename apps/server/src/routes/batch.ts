@@ -1,14 +1,14 @@
 import { Router } from 'express';
 import { z } from 'zod';
 import { prisma } from '../db/client.js';
-import { generatePlanData, savePlanData } from '../services/plan/planGenerator.js';
+import { generatePlanData, savePlanData, type PlanData } from '../services/plan/planGenerator.js';
 import { validatePlan } from '../services/plan/planValidator.js';
 import { getNichePack } from '../services/nichePacks.js';
 import { startRenderPipeline } from '../services/render/renderPipeline.js';
 import { isOpenAIConfigured, isRenderDryRun, isTestMode } from '../env.js';
 import { checkFFmpegAvailable } from '../services/ffmpeg/ffmpegUtils.js';
 import { v4 as uuid } from 'uuid';
-import { logError, logInfo } from '../utils/logger.js';
+import { logError } from '../utils/logger.js';
 import type { Project, PlanVersion, Scene } from '@prisma/client';
 
 // Plan lookup retry configuration
@@ -143,29 +143,38 @@ batchRoutes.post('/', async (req, res) => {
       });
 
       // Step 2: Generate plan content (performs OpenAI calls outside transaction)
-      let planData;
+      let planData: PlanData;
       try {
         planData = await generatePlanData(createdProject, scriptTemplateId ?? undefined);
-      } catch (planError) {
-        // Clean up project on plan generation failure
-        try {
-          await prisma.project.delete({ where: { id: createdProject.id } });
-          logInfo('Cleaned up project after plan generation failure in batch', {
-            projectId: createdProject.id,
-            topic: trimmed,
+      } catch {
+        // Clean up all projects created in this batch so far
+        const rollbackErrors: string[] = [];
+        const rollbackIds = [
+          ...validatedPlans.map((validated) => validated.project.id),
+          createdProject.id,
+        ];
+
+        if (rollbackIds.length > 0) {
+          await prisma.project.deleteMany({ where: { id: { in: rollbackIds } } }).catch((err) => {
+            logError('Batch rollback: failed to delete projects during plan generation failure', {
+              projectIds: rollbackIds,
+              error: err,
+            });
+            rollbackErrors.push(...rollbackIds);
           });
-        } catch (cleanupError) {
-          logError(
-            'Failed to clean up project after plan generation failure in batch',
-            cleanupError,
-            {
-              projectId: createdProject.id,
-              topic: trimmed,
-              originalError: planError,
-            }
-          );
         }
-        throw planError;
+
+        const message =
+          rollbackErrors.length > 0
+            ? `Plan generation failed. Rollback partially failed. Projects may still exist: ${rollbackErrors.join(', ')}`
+            : 'Plan generation failed. All batch projects rolled back.';
+
+        return res.status(500).json({
+          error: `Plan generation failed for topic: ${trimmed}`,
+          projectIds: rollbackIds,
+          message,
+          rollbackErrors: rollbackErrors.length > 0 ? rollbackErrors : undefined,
+        });
       }
 
       // Step 3: Save plan to DB in a transaction

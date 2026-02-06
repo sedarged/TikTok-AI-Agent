@@ -437,21 +437,16 @@ runRoutes.get('/:runId/download', async (req, res) => {
       return res.status(404).json({ error: 'Run not found' });
     }
 
-    let artifacts: Artifacts = {};
+    const artifacts = safeJsonParse<Artifacts | null>(run.artifactsJson, null, {
+      runId,
+      source: 'downloadArtifacts',
+    });
 
-    if (run.artifactsJson) {
-      try {
-        artifacts = JSON.parse(run.artifactsJson) as Artifacts;
-      } catch (parseError) {
-        logError('Failed to parse run.artifactsJson for download', parseError, {
-          runId,
-          source: 'downloadArtifacts',
-        });
-        return res.status(500).json({
-          error: 'Failed to download',
-          artifactsParseError: true,
-        });
-      }
+    if (artifacts === null) {
+      return res.status(500).json({
+        error: 'Failed to download',
+        artifactsParseError: true,
+      });
     }
 
     if (artifacts.dryRun === true) {
@@ -570,22 +565,19 @@ runRoutes.get('/:runId/export', async (req, res) => {
       return res.status(404).json({ error: 'Run not found' });
     }
 
-    let artifacts: Artifacts = {};
+    const parsedArtifacts = safeJsonParse<Artifacts | null>(run.artifactsJson, null, {
+      runId,
+      source: 'exportArtifacts',
+    });
 
-    if (run.artifactsJson) {
-      try {
-        artifacts = JSON.parse(run.artifactsJson) as Artifacts;
-      } catch (parseError) {
-        logError('Failed to parse run.artifactsJson for export', parseError, {
-          runId,
-          source: 'exportArtifacts',
-        });
-        return res.status(500).json({
-          error: 'Failed to export',
-          artifactsParseError: true,
-        });
-      }
+    if (parsedArtifacts === null) {
+      return res.status(500).json({
+        error: 'Failed to export',
+        artifactsParseError: true,
+      });
     }
+
+    const artifacts = parsedArtifacts ?? {};
 
     const tiktokCaption = artifacts.tiktokCaption as string | undefined;
     const tiktokHashtags = Array.isArray(artifacts.tiktokHashtags)
