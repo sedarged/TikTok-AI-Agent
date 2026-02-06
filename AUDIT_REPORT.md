@@ -152,10 +152,11 @@ Key modules:
 ## 6) Change Log
 
 - Added `AUDIT_REPORT.md` (this report).
+- **2026-02-06:** Fixed all 8 moderate npm dependency vulnerabilities. See `DEPENDENCY_VULNERABILITIES.md`.
 
 ## 7) Unknowns / Questions
 
-- **Dependency vulnerabilities:** `npm audit` not run here; run it to verify.
+- **Dependency vulnerabilities:** ✅ **FIXED** - All 8 moderate npm audit vulnerabilities resolved via overrides. See `DEPENDENCY_VULNERABILITIES.md`.
 - **E2E coverage:** `npm run test:e2e` and render tests were not run here.
 - **Production environment:** No verification of Railway/Cloud config, secrets rotation, or monitoring hooks.
 - **Scaling behavior:** Multi-instance behavior is untested; current in-memory queue is not horizontally safe.
