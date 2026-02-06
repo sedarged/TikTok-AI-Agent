@@ -11,6 +11,10 @@ import { v4 as uuid } from 'uuid';
 import { logError } from '../utils/logger.js';
 import type { Project, PlanVersion, Scene } from '@prisma/client';
 
+// Plan lookup retry configuration
+const PLAN_LOOKUP_MAX_ATTEMPTS = 3;
+const PLAN_LOOKUP_RETRY_DELAY_MS = 500;
+
 export const batchRoutes = Router();
 
 const batchSchema = z
@@ -104,6 +108,12 @@ batchRoutes.post('/', async (req, res) => {
     }
 
     // P0-2 FIX: Two-phase processing - generate and validate ALL plans before queueing ANY runs
+    // Design decision: We create projects and plans immediately (Phase 1) before validation is complete,
+    // then attempt rollback if validation fails. This approach is chosen because:
+    // 1. generatePlan() requires a persisted Project record to function (foreign key constraint)
+    // 2. Alternative (transaction wrapping) would require refactoring generatePlan to work without DB records
+    // 3. Rollback errors are now logged and tracked in the response for visibility
+    // 4. The two-phase approach prevents partial batch execution (all-or-nothing semantics)
     // Phase 1: Generate and validate all plans
     interface BatchPlanResult {
       project: Project;
@@ -141,7 +151,7 @@ batchRoutes.post('/', async (req, res) => {
 
       // P0-4 FIX: Add retry logic for plan lookup with error instead of silent continue
       let fullPlan = null;
-      for (let attempt = 0; attempt < 3; attempt++) {
+      for (let attempt = 0; attempt < PLAN_LOOKUP_MAX_ATTEMPTS; attempt++) {
         fullPlan = await prisma.planVersion.findUnique({
           where: { id: planVersion.id },
           include: {
@@ -150,8 +160,10 @@ batchRoutes.post('/', async (req, res) => {
           },
         });
         if (fullPlan) break;
-        // Wait 500ms before retry
-        await new Promise((resolve) => setTimeout(resolve, 500));
+        // Wait before retry, but not after the last attempt
+        if (attempt < PLAN_LOOKUP_MAX_ATTEMPTS - 1) {
+          await new Promise((resolve) => setTimeout(resolve, PLAN_LOOKUP_RETRY_DELAY_MS));
+        }
       }
 
       if (!fullPlan) {
@@ -159,31 +171,70 @@ batchRoutes.post('/', async (req, res) => {
           planVersionId: planVersion.id,
           topic: trimmed,
         });
-        // Clean up projects created so far
+        // Clean up projects created so far - track rollback failures
+        const rollbackErrors: string[] = [];
         for (const validated of validatedPlans) {
-          await prisma.project.delete({ where: { id: validated.project.id } }).catch(() => {});
+          await prisma.project.delete({ where: { id: validated.project.id } }).catch((err) => {
+            logError('Batch rollback: failed to delete project', {
+              projectId: validated.project.id,
+              error: err,
+            });
+            rollbackErrors.push(validated.project.id);
+          });
         }
-        await prisma.project.delete({ where: { id: project.id } }).catch(() => {});
+        await prisma.project.delete({ where: { id: project.id } }).catch((err) => {
+          logError('Batch rollback: failed to delete current project', {
+            projectId: project.id,
+            error: err,
+          });
+          rollbackErrors.push(project.id);
+        });
+
+        const message =
+          rollbackErrors.length > 0
+            ? `Plan lookup failed. Rollback partially failed. Projects may still exist: ${rollbackErrors.join(', ')}`
+            : 'Plan lookup failed. All batch projects rolled back.';
+
         return res.status(500).json({
           error: `Plan lookup failed for topic: ${trimmed}`,
           projectId: project.id,
           planVersionId: planVersion.id,
-          message:
-            'Project and plan were created but lookup failed. All batch projects rolled back.',
+          message,
+          rollbackErrors: rollbackErrors.length > 0 ? rollbackErrors : undefined,
         });
       }
 
       const validation = validatePlan(fullPlan, fullPlan.project);
       if (validation.errors.length > 0) {
-        // Clean up all projects created in this batch
+        // Clean up all projects created in this batch - track rollback failures
+        const rollbackErrors: string[] = [];
         for (const validated of validatedPlans) {
-          await prisma.project.delete({ where: { id: validated.project.id } }).catch(() => {});
+          await prisma.project.delete({ where: { id: validated.project.id } }).catch((err) => {
+            logError('Batch rollback: failed to delete project during validation failure', {
+              projectId: validated.project.id,
+              error: err,
+            });
+            rollbackErrors.push(validated.project.id);
+          });
         }
-        await prisma.project.delete({ where: { id: project.id } }).catch(() => {});
+        await prisma.project.delete({ where: { id: project.id } }).catch((err) => {
+          logError('Batch rollback: failed to delete current project during validation failure', {
+            projectId: project.id,
+            error: err,
+          });
+          rollbackErrors.push(project.id);
+        });
+
+        const message =
+          rollbackErrors.length > 0
+            ? `Validation failed. Rollback partially failed. Projects may still exist: ${rollbackErrors.join(', ')}`
+            : 'Validation failed. No runs were queued. All batch projects rolled back.';
+
         return res.status(400).json({
           error: `Plan validation failed for topic "${trimmed.substring(0, 50)}..."`,
           validation,
-          message: 'Validation failed. No runs were queued. All batch projects rolled back.',
+          message,
+          rollbackErrors: rollbackErrors.length > 0 ? rollbackErrors : undefined,
         });
       }
 

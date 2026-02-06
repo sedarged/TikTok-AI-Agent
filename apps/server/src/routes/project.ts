@@ -329,6 +329,9 @@ projectRoutes.delete('/:id', async (req, res) => {
     const { id } = parsed.data;
 
     // P2-3 FIX: Check for active runs before deleting project
+    // Note: There is a small race condition window between this check and the delete operation
+    // where a new run could be created. However, the foreign key cascade (Run.onDelete: Cascade)
+    // will handle this case, and the database constraint will prevent orphaned runs.
     const activeRuns = await prisma.run.findMany({
       where: {
         projectId: id,

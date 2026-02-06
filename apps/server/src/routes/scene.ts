@@ -132,7 +132,9 @@ sceneRoutes.post('/:sceneId/lock', async (req, res) => {
 
     res.json(scene);
   } catch (error) {
-    // Handle P2025 error consistently
+    // This P2025 error can still occur if the scene is deleted between the existence check above
+    // and the update call (race condition). Treat it as a 404 instead of a 500 for
+    // defense-in-depth, even though the normal path should be covered by findUnique.
     if ((error as { code?: string }).code === 'P2025') {
       return res.status(404).json({ error: 'Scene not found' });
     }

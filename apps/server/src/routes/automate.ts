@@ -10,6 +10,10 @@ import { checkFFmpegAvailable } from '../services/ffmpeg/ffmpegUtils.js';
 import { v4 as uuid } from 'uuid';
 import { logError } from '../utils/logger.js';
 
+// Plan lookup retry configuration (shared with batch.ts)
+const PLAN_LOOKUP_MAX_ATTEMPTS = 3;
+const PLAN_LOOKUP_RETRY_DELAY_MS = 500;
+
 export const automateRoutes = Router();
 
 const automateSchema = z
@@ -115,7 +119,7 @@ automateRoutes.post('/', async (req, res) => {
 
     // P1-6 FIX: Add retry logic for plan lookup
     let fullPlan = null;
-    for (let attempt = 0; attempt < 3; attempt++) {
+    for (let attempt = 0; attempt < PLAN_LOOKUP_MAX_ATTEMPTS; attempt++) {
       fullPlan = await prisma.planVersion.findUnique({
         where: { id: planVersion.id },
         include: {
@@ -124,7 +128,10 @@ automateRoutes.post('/', async (req, res) => {
         },
       });
       if (fullPlan) break;
-      await new Promise((resolve) => setTimeout(resolve, 500));
+      // Wait before retry, but not after the last attempt
+      if (attempt < PLAN_LOOKUP_MAX_ATTEMPTS - 1) {
+        await new Promise((resolve) => setTimeout(resolve, PLAN_LOOKUP_RETRY_DELAY_MS));
+      }
     }
 
     if (!fullPlan) {
