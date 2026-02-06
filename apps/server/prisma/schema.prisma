@@ -69,7 +69,7 @@ model Scene {
 
   @@index([planVersionId])
   @@index([projectId])
-  @@index([planVersionId, idx])
+  @@index([planVersionId, idx], map: "Scene_planVersionId_sceneIdx_idx")
 }
 
 model Run {
