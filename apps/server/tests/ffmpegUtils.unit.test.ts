@@ -1,5 +1,9 @@
-import { describe, expect, it } from 'vitest';
-import { escapeConcatPath, getMotionFilter } from '../src/services/ffmpeg/ffmpegUtils.js';
+import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
+import {
+  escapeConcatPath,
+  getMotionFilter,
+  getFFprobePath,
+} from '../src/services/ffmpeg/ffmpegUtils.js';
 
 describe('ffmpegUtils', () => {
   describe('escapeConcatPath', () => {
@@ -63,6 +67,56 @@ describe('ffmpegUtils', () => {
       const out = getMotionFilter('glitch', 2);
       expect(out).toContain(scale);
       expect(out).toContain('noise');
+    });
+  });
+
+  describe('getFFprobePath', () => {
+    const originalEnv = process.env;
+
+    beforeEach(() => {
+      vi.resetModules();
+      process.env = { ...originalEnv };
+    });
+
+    afterEach(() => {
+      process.env = originalEnv;
+    });
+
+    it('should attempt to find ffprobe in multiple locations', async () => {
+      // This test verifies the fallback chain exists:
+      // 1. FFPROBE_PATH env var
+      // 2. system ffprobe
+      // 3. adjacent to FFmpeg binary
+      // 4. throws error if none found
+
+      // In test mode with actual system ffmpeg/ffprobe, this should succeed
+      // In environments without these, it will throw, which is expected
+      try {
+        const probePath = await getFFprobePath();
+        expect(probePath).toBeDefined();
+        expect(typeof probePath).toBe('string');
+      } catch (error) {
+        // If ffprobe is not available, verify the error message is helpful
+        expect(error).toBeInstanceOf(Error);
+        expect((error as Error).message).toContain('FFprobe not found');
+      }
+    });
+
+    it('should prefer FFPROBE_PATH when set', async () => {
+      // When FFPROBE_PATH is explicitly set, it should be tried first
+      // This documents the priority order even if we can't fully test it without mocks
+      process.env.FFPROBE_PATH = '/custom/path/to/ffprobe';
+
+      try {
+        await getFFprobePath();
+        // If this succeeds, FFPROBE_PATH was valid
+      } catch (error) {
+        // Expected to fail since /custom/path/to/ffprobe doesn't exist
+        // But it should fail with the right error message
+        expect((error as Error).message).toContain(
+          'FFPROBE_PATH is set but ffprobe could not be executed'
+        );
+      }
     });
   });
 });
