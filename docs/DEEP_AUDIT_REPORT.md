@@ -755,7 +755,7 @@ npm audit
 **Deprecated Warnings (Non-Critical):**
 - `fluent-ffmpeg@2.1.3` - Package no longer supported
   - **Impact:** P3 - Should migrate to direct `ffmpeg` spawn (already implemented in code!)
-  - **Note:** Code uses `ffmpeg-static` + direct spawn, `fluent-ffmpeg` is unused import
+  - **Note:** Code uses direct `ffmpeg` spawn with system FFmpeg or `FFMPEG_PATH` override
 
 ---
 

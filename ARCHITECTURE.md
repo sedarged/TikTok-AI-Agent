@@ -24,7 +24,7 @@ TikTok-AI-Agent is a **full-stack monorepo** that generates TikTok-style vertica
 - **Runtime:** Node.js 20.19+ / 22.12+
 - **Framework:** Express 5.2.1 + TypeScript 5.3.3
 - **Database:** Prisma 7.3.0 + better-sqlite3 (SQLite) or PostgreSQL
-- **Video Processing:** fluent-ffmpeg 2.1.2 + ffmpeg-static 5.3.0
+- **Video Processing:** fluent-ffmpeg 2.1.2 + system FFmpeg (configurable via FFMPEG_PATH)
 - **AI Services:** OpenAI SDK 6.17.0 (GPT-4, DALL-E 3, TTS, Whisper)
 - **Security:** Helmet 8.1.0, express-rate-limit 8.2.1, API key auth
 - **Validation:** Zod 4.3.6

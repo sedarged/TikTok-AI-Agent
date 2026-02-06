@@ -11,6 +11,7 @@ import { startRenderPipeline } from '../services/render/renderPipeline.js';
 import { isOpenAIConfigured, isRenderDryRun, isTestMode } from '../env.js';
 import { checkFFmpegAvailable } from '../services/ffmpeg/ffmpegUtils.js';
 import { logError } from '../utils/logger.js';
+import type { Scene } from '@prisma/client';
 
 export const planRoutes = Router();
 
@@ -100,7 +101,7 @@ planRoutes.put('/:planVersionId', async (req, res) => {
     }
 
     // Validate and fetch scenes first if provided (before making any updates)
-    let scenesToUpdate: Map<string, any> = new Map();
+    let scenesToUpdate: Map<string, Scene> = new Map();
     if (scenes && Array.isArray(scenes)) {
       const sceneIds = scenes.filter((s) => s.id).map((s) => s.id);
 

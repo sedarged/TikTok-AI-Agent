@@ -63,28 +63,27 @@ function runCommand(cmd: string, args: string[], timeoutMs: number): Promise<voi
       if (code === 0) resolve();
       else reject(new Error(`exit ${code}`));
     });
-    proc.on('error', reject);
+    proc.on('error', (err) => {
+      clearTimeout(timer);
+      reject(err);
+    });
   });
 }
 
-// Get FFmpeg path (prefer ffmpeg-static, fallback to system)
+// Get FFmpeg path (prefer explicit env, fallback to system)
 export async function getFFmpegPath(): Promise<string> {
   if (ffmpegPath) return ffmpegPath;
 
-  // Try ffmpeg-static first
-  try {
-    const ffmpegStaticModule = await import('ffmpeg-static');
-    const ffmpegStaticPath = ffmpegStaticModule.default as unknown as string;
-    if (
-      ffmpegStaticPath &&
-      typeof ffmpegStaticPath === 'string' &&
-      fs.existsSync(ffmpegStaticPath)
-    ) {
-      ffmpegPath = ffmpegStaticPath;
+  const envFfmpegPath = process.env.FFMPEG_PATH;
+  if (envFfmpegPath) {
+    try {
+      await runCommand(envFfmpegPath, ['-version'], 10000);
+      ffmpegPath = envFfmpegPath;
       return ffmpegPath;
+    } catch (error) {
+      logError('FFMPEG_PATH is set but not usable', error);
+      throw new Error('FFMPEG_PATH is set but ffmpeg could not be executed.');
     }
-  } catch (error) {
-    logDebug('ffmpeg-static not installed or not accessible', { error });
   }
 
   // Try system ffmpeg (spawn, no shell)
@@ -93,8 +92,8 @@ export async function getFFmpegPath(): Promise<string> {
     ffmpegPath = 'ffmpeg';
     return ffmpegPath;
   } catch (error) {
-    logError('FFmpeg not found. Install ffmpeg-static or system ffmpeg.', error);
-    throw new Error('FFmpeg not found. Install ffmpeg-static or system ffmpeg.');
+    logError('FFmpeg not found. Install system ffmpeg or set FFMPEG_PATH.', error);
+    throw new Error('FFmpeg not found. Install system ffmpeg or set FFMPEG_PATH.');
   }
 }
 
@@ -102,28 +101,52 @@ export async function getFFmpegPath(): Promise<string> {
 export async function getFFprobePath(): Promise<string> {
   if (ffprobePath) return ffprobePath;
 
+  const envFfprobePath = process.env.FFPROBE_PATH;
+  if (envFfprobePath) {
+    try {
+      await runCommand(envFfprobePath, ['-version'], 10000);
+      ffprobePath = envFfprobePath;
+      return ffprobePath;
+    } catch (error) {
+      logError('FFPROBE_PATH is set but not usable', error);
+      throw new Error('FFPROBE_PATH is set but ffprobe could not be executed.');
+    }
+  }
+
   // Try system ffprobe first (spawn, no shell)
   try {
     await runCommand('ffprobe', ['-version'], 10000);
     ffprobePath = 'ffprobe';
     return ffprobePath;
   } catch (error) {
-    logDebug('System ffprobe not found, trying ffmpeg-static directory', { error });
-    // If ffmpeg-static is installed, ffprobe might be in same dir
+    logDebug('System ffprobe not found, checking alongside FFmpeg binary', { error });
+    // Ensure ffmpegPath is resolved before checking for adjacent ffprobe
     try {
-      const ffmpegStaticModule = await import('ffmpeg-static');
-      const ffmpegStaticPath = ffmpegStaticModule.default as unknown as string;
-      if (ffmpegStaticPath && typeof ffmpegStaticPath === 'string') {
-        const ffprobeStatic = ffmpegStaticPath.replace('ffmpeg', 'ffprobe');
-        if (fs.existsSync(ffprobeStatic)) {
-          ffprobePath = ffprobeStatic;
+      await getFFmpegPath();
+    } catch {
+      // If ffmpeg is not available, we can't check for adjacent ffprobe
+      throw new Error('FFprobe not found. Install system ffprobe or set FFPROBE_PATH.');
+    }
+
+    if (ffmpegPath && fs.existsSync(ffmpegPath)) {
+      const candidate = path.join(path.dirname(ffmpegPath), 'ffprobe');
+      if (fs.existsSync(candidate)) {
+        try {
+          await runCommand(candidate, ['-version'], 10000);
+          ffprobePath = candidate;
           return ffprobePath;
+        } catch (probeError) {
+          logDebug(
+            'Found ffprobe next to FFmpeg but failed version check (not executable or invalid binary)',
+            {
+              error: probeError,
+              candidate,
+            }
+          );
         }
       }
-    } catch (innerError) {
-      logDebug('ffmpeg-static ffprobe not available', { innerError });
     }
-    throw new Error('FFprobe not found');
+    throw new Error('FFprobe not found. Install system ffprobe or set FFPROBE_PATH.');
   }
 }
 

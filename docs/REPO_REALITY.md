@@ -18,7 +18,7 @@
   - Schema: `apps/server/prisma/schema.prisma`
 - **Video Processing:** 
   - FFmpeg via fluent-ffmpeg 2.1.2 (`apps/server/package.json`)
-  - ffmpeg-static 5.3.0 as fallback (`apps/server/package.json`)
+  - System FFmpeg with optional FFMPEG_PATH override (`apps/server/src/services/ffmpeg/ffmpegUtils.ts`)
   - Utils: `apps/server/src/services/ffmpeg/ffmpegUtils.ts`
 - **AI Providers:**
   - OpenAI SDK 6.17.0 for GPT-4, DALL-E 3, TTS, Whisper (`apps/server/package.json`)
@@ -405,7 +405,7 @@ File: `.env.example` (verified 2026-02-06)
   - Caption overlaying (ASS subtitles)
   - Thumbnail extraction
   - Scene concatenation
-- **Installation:** System FFmpeg or ffmpeg-static npm package
+- **Installation:** System FFmpeg (or set `FFMPEG_PATH`/`FFPROBE_PATH`)
 - **Verification:** Checked at startup in `index.ts` (health endpoint)
 
 ### Optional Services

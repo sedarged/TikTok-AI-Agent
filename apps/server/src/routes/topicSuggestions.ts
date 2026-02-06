@@ -7,10 +7,12 @@ import { logError } from '../utils/logger.js';
 
 export const topicSuggestionsRoutes = Router();
 
-const querySchema = z.object({
-  nichePackId: z.string().min(1),
-  limit: z.coerce.number().int().min(1).max(20).optional().default(10),
-});
+const querySchema = z
+  .object({
+    nichePackId: z.string().min(1),
+    limit: z.coerce.number().int().min(1).max(20).optional().default(10),
+  })
+  .strict();
 
 /**
  * GET /api/topic-suggestions?nichePackId=facts&limit=10

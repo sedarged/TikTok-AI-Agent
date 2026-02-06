@@ -2,7 +2,10 @@ import { beforeAll, beforeEach, afterAll, describe, expect, it } from 'vitest';
 import request from 'supertest';
 import type { Express } from 'express';
 import { v4 as uuid } from 'uuid';
+import path from 'path';
+import fs from 'fs';
 import { prisma } from '../src/db/client.js';
+import { env } from '../src/env.js';
 import {
   PlanVersionSchema,
   ProjectSchema,
@@ -242,6 +245,56 @@ describe('Plan and preview workflow (test mode)', () => {
     const runRes = await request(app).get(`/api/run/${run.id}`);
     expect(runRes.status).toBe(200);
     RunSchema.parse(runRes.body);
+  });
+
+  it('serves artifacts only from the run directory', async () => {
+    const createRes = await request(app).post('/api/project').send({
+      topic: 'Artifact access test',
+      nichePackId: 'facts',
+    });
+    const project = ProjectSchema.parse(createRes.body);
+
+    const planRes = await request(app).post(`/api/project/${project.id}/plan`);
+    const plan = PlanVersionSchema.parse(planRes.body);
+
+    const run = await prisma.run.create({
+      data: {
+        id: uuid(),
+        projectId: project.id,
+        planVersionId: plan.id,
+        status: 'queued',
+        progress: 0,
+        currentStep: '',
+        logsJson: JSON.stringify([]),
+        artifactsJson: JSON.stringify({}),
+        resumeStateJson: JSON.stringify({}),
+      },
+    });
+
+    const runDir = path.join(env.ARTIFACTS_DIR, project.id, run.id);
+    const filePath = path.join(runDir, 'artifact.txt');
+    fs.mkdirSync(runDir, { recursive: true });
+    fs.writeFileSync(filePath, 'ok', 'utf-8');
+
+    const goodRes = await request(app).get(
+      `/api/run/${run.id}/artifact?path=${encodeURIComponent(
+        `${project.id}/${run.id}/artifact.txt`
+      )}`
+    );
+    expect(goodRes.status).toBe(200);
+    expect(goodRes.text).toBe('ok');
+
+    const traversalRes = await request(app).get(
+      `/api/run/${run.id}/artifact?path=${encodeURIComponent('../secrets.txt')}`
+    );
+    expect(traversalRes.status).toBe(400);
+
+    const absoluteRes = await request(app).get(
+      `/api/run/${run.id}/artifact?path=${encodeURIComponent('/etc/passwd')}`
+    );
+    expect(absoluteRes.status).toBe(400);
+
+    fs.rmSync(runDir, { recursive: true, force: true });
   });
 
   it('POST /api/automate is disabled in TEST_MODE', async () => {
