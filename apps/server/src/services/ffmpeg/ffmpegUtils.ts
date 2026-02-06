@@ -63,7 +63,10 @@ function runCommand(cmd: string, args: string[], timeoutMs: number): Promise<voi
       if (code === 0) resolve();
       else reject(new Error(`exit ${code}`));
     });
-    proc.on('error', reject);
+    proc.on('error', (err) => {
+      clearTimeout(timer);
+      reject(err);
+    });
   });
 }
 
@@ -117,6 +120,14 @@ export async function getFFprobePath(): Promise<string> {
     return ffprobePath;
   } catch (error) {
     logDebug('System ffprobe not found, checking alongside FFmpeg binary', { error });
+    // Ensure ffmpegPath is resolved before checking for adjacent ffprobe
+    try {
+      await getFFmpegPath();
+    } catch {
+      // If ffmpeg is not available, we can't check for adjacent ffprobe
+      throw new Error('FFprobe not found. Install system ffprobe or set FFPROBE_PATH.');
+    }
+
     if (ffmpegPath && fs.existsSync(ffmpegPath)) {
       const candidate = path.join(path.dirname(ffmpegPath), 'ffprobe');
       if (fs.existsSync(candidate)) {
