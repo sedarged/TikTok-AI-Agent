@@ -125,10 +125,13 @@ export async function getFFprobePath(): Promise<string> {
           ffprobePath = candidate;
           return ffprobePath;
         } catch (probeError) {
-          logDebug('Found ffprobe next to FFmpeg but it is not usable', {
-            error: probeError,
-            candidate,
-          });
+          logDebug(
+            'Found ffprobe next to FFmpeg but failed version check (not executable or invalid binary)',
+            {
+              error: probeError,
+              candidate,
+            }
+          );
         }
       }
     }
