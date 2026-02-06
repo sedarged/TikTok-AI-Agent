@@ -20,6 +20,7 @@ import {
 import type { Project, PlanVersion, Scene, ProviderStatus, ValidationResult } from '../api/types';
 import { EFFECT_PRESETS } from '../api/types';
 import { getErrorMessage } from '../utils/errors';
+import { safeJsonParse } from '../utils/safeJsonParse';
 
 // Validation Panel Component
 function ValidationPanel({ validation }: { validation: ValidationResult }) {
@@ -227,13 +228,15 @@ export default function PlanStudio({ status }: PlanStudioProps) {
         setPlanVersion(pv);
         setScenes(pv.scenes || []);
 
-        try {
-          setHookOptions(JSON.parse(pv.hookOptionsJson || '[]'));
-          setEstimates(JSON.parse(pv.estimatesJson || '{}'));
-          setValidation(JSON.parse(pv.validationJson || '{}'));
-        } catch {
-          setHookOptions([]);
-        }
+        setHookOptions(safeJsonParse<string[]>(pv.hookOptionsJson || '[]', []));
+        setEstimates(
+          safeJsonParse<{
+            wpm: number;
+            estimatedLengthSec: number;
+            targetLengthSec: number;
+          } | null>(pv.estimatesJson || '{}', null)
+        );
+        setValidation(safeJsonParse<ValidationResult | null>(pv.validationJson || '{}', null));
       })
       .catch((err) => {
         if (signal.aborted) return;
@@ -396,7 +399,12 @@ export default function PlanStudio({ status }: PlanStudioProps) {
       if (updated.scenes) {
         setScenes(updated.scenes);
       }
-      setEstimates(JSON.parse(updated.estimatesJson || '{}'));
+      setEstimates(
+        safeJsonParse<{ wpm: number; estimatedLengthSec: number; targetLengthSec: number } | null>(
+          updated.estimatesJson || '{}',
+          null
+        )
+      );
     } catch (err) {
       setError(getErrorMessage(err));
     } finally {

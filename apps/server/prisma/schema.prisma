@@ -24,6 +24,9 @@ model Project {
 
   planVersions PlanVersion[]
   runs         Run[]
+
+  @@index([status])
+  @@index([createdAt])
 }
 
 model PlanVersion {
@@ -42,6 +45,9 @@ model PlanVersion {
 
   scenes Scene[]
   runs   Run[]
+
+  @@index([projectId])
+  @@index([createdAt])
 }
 
 model Scene {
@@ -60,6 +66,10 @@ model Scene {
   endTimeSec      Float    @default(5.0)
   isLocked        Boolean  @default(false)
   updatedAt       DateTime @updatedAt
+
+  @@index([planVersionId])
+  @@index([projectId])
+  @@index([planVersionId, idx])
 }
 
 model Run {
@@ -98,4 +108,6 @@ model Cache {
   resultJson  String   @default("{}")
   payloadPath String?
   createdAt   DateTime @default(now())
+
+  @@index([kind])
 }

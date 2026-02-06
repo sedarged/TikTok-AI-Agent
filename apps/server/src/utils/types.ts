@@ -104,6 +104,7 @@ export interface Artifacts {
 
 // Resume state
 export interface ResumeState {
+  completedSteps?: string[];
   lastCompletedStep?: string;
   completedSceneIdxs?: number[];
 }

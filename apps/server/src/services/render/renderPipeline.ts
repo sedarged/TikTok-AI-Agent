@@ -1,5 +1,6 @@
 import { prisma } from '../../db/client.js';
 import { logError, logWarn } from '../../utils/logger.js';
+import { safeJsonParse } from '../../utils/safeJsonParse.js';
 import { v4 as uuid } from 'uuid';
 import path from 'path';
 import fs from 'fs';
@@ -28,7 +29,7 @@ import { validateQa } from '../qa/qaValidator.js';
 import { generateTikTokMeta } from '../tiktokExport.js';
 import { broadcastRunUpdate } from '../../routes/run.js';
 import type { Run, PlanVersion, Scene, Project } from '@prisma/client';
-import type { Artifacts } from '../../utils/types.js';
+import type { Artifacts, ResumeState } from '../../utils/types.js';
 
 interface PlanWithDetails extends PlanVersion {
   scenes: Scene[];
@@ -81,11 +82,6 @@ const MAX_CONCURRENT_IMAGE_GENERATION =
         }
         return 3;
       })();
-
-interface ResumeState {
-  completedSteps?: RunStep[];
-  completedSceneIdxs?: number[];
-}
 
 // Active runs for cancellation
 const activeRuns = new Map<string, boolean>();
@@ -141,12 +137,11 @@ async function handlePipelineError(runId: string, error: unknown): Promise<void>
     const currentRun = await prisma.run.findUnique({ where: { id: runId } });
     if (currentRun && (currentRun.status === 'running' || currentRun.status === 'queued')) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-      let logs: Array<{ timestamp: string; message: string; level: string }>;
-      try {
-        logs = JSON.parse(currentRun.logsJson);
-      } catch {
-        logs = [];
-      }
+      const logs = safeJsonParse<Array<{ timestamp: string; message: string; level: string }>>(
+        currentRun.logsJson,
+        [],
+        { runId: currentRun.id, source: 'handlePipelineError' }
+      );
       logs.push({
         timestamp: new Date().toISOString(),
         message: `Pipeline failed: ${errorMessage}`,
@@ -280,13 +275,11 @@ async function executePipeline(run: Run, planVersion: PlanWithDetails) {
   };
 
   let totalCostUsd = 0;
-  let resumeState;
-  try {
-    resumeState = JSON.parse(run.resumeStateJson);
-  } catch (error) {
-    logError('Failed to parse resumeStateJson, starting fresh:', error);
-    resumeState = { completedSteps: [], completedSceneIdxs: [] };
-  }
+  const resumeState = safeJsonParse<ResumeState>(
+    run.resumeStateJson,
+    { completedSteps: [], completedSceneIdxs: [] },
+    { runId: run.id, source: 'startRenderPipeline' }
+  );
 
   const completedSteps = resumeState.completedSteps || [];
   let progress = 0;
@@ -612,7 +605,13 @@ async function executePipeline(run: Run, planVersion: PlanWithDetails) {
 
       if (!fs.existsSync(captionsPath)) {
         if (fs.existsSync(timestampsPath)) {
-          const transcription = JSON.parse(fs.readFileSync(timestampsPath, 'utf-8'));
+          const transcription = safeJsonParse<{
+            words?: Array<{ word: string; start: number; end: number }>;
+          }>(
+            fs.readFileSync(timestampsPath, 'utf-8'),
+            {},
+            { source: 'captionsTimestamps', path: timestampsPath }
+          );
 
           if (transcription.words && transcription.words.length > 0) {
             buildCaptionsFromWords(transcription.words, pack!.captionStyle, captionsPath);
@@ -989,12 +988,11 @@ export async function resetStuckRuns(): Promise<void> {
     select: { id: true, projectId: true, logsJson: true },
   });
   for (const run of stuck) {
-    let logs: Array<{ timestamp: string; message: string; level: string }>;
-    try {
-      logs = JSON.parse(run.logsJson);
-    } catch {
-      logs = [];
-    }
+    const logs = safeJsonParse<Array<{ timestamp: string; message: string; level: string }>>(
+      run.logsJson,
+      [],
+      { runId: run.id, source: 'resetStuckRuns' }
+    );
     logs.push({
       timestamp: new Date().toISOString(),
       message: 'Run was in "running" state at server start; marked as failed. Use Retry to resume.',
@@ -1059,12 +1057,11 @@ export async function retryRun(runId: string, fromStep?: string): Promise<Run> {
   }
 
   // Reset completed steps if retrying from a specific step
-  let resumeState: { completedSteps?: RunStep[] };
-  try {
-    resumeState = JSON.parse(run.resumeStateJson);
-  } catch {
-    resumeState = {};
-  }
+  const resumeState = safeJsonParse<{ completedSteps?: RunStep[] }>(
+    run.resumeStateJson,
+    {},
+    { runId: run.id, source: 'retryRun' }
+  );
   if (fromStep) {
     const stepIndex = STEPS.indexOf(fromStep as RunStep);
     if (stepIndex >= 0) {
@@ -1246,13 +1243,10 @@ async function processLogQueue(runId: string): Promise<void> {
       return;
     }
 
-    let logs: LogEntry[];
-    try {
-      logs = JSON.parse(run.logsJson);
-    } catch (error) {
-      logError('Failed to parse logsJson, starting fresh:', error);
-      logs = [];
-    }
+    const logs = safeJsonParse<LogEntry[]>(run.logsJson, [], {
+      runId: run.id,
+      source: 'processLogQueue',
+    });
 
     // Add new log entry
     logs.push(item.entry);
@@ -1326,13 +1320,11 @@ async function saveResumeState(runId: string, state: Partial<ResumeState>) {
 
   if (!run) return;
 
-  let currentState;
-  try {
-    currentState = JSON.parse(run.resumeStateJson);
-  } catch (error) {
-    logError('Failed to parse resumeStateJson, starting fresh:', error);
-    currentState = {};
-  }
+  const currentState = safeJsonParse<ResumeState>(
+    run.resumeStateJson,
+    {},
+    { runId: run.id, source: 'saveResumeState' }
+  );
 
   const newState = { ...currentState, ...state };
 

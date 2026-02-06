@@ -248,69 +248,70 @@ projectRoutes.post('/:id/duplicate', async (req, res) => {
     const newProjectId = uuid();
     const newPlanVersionId = uuid();
 
-    // Create new project
-    const newProject = await prisma.project.create({
-      data: {
-        id: newProjectId,
-        title: `${original.title} (Copy)`,
-        topic: original.topic,
-        nichePackId: original.nichePackId,
-        language: original.language,
-        targetLengthSec: original.targetLengthSec,
-        tempo: original.tempo,
-        voicePreset: original.voicePreset,
-        visualStylePreset: original.visualStylePreset,
-        seoKeywords: original.seoKeywords,
-        status: 'DRAFT_PLAN',
-      },
-    });
-
-    // Copy plan version if exists
-    if (original.planVersions.length > 0) {
-      const originalPlan = original.planVersions[0];
-
-      await prisma.planVersion.create({
+    const newProject = await prisma.$transaction(async (tx) => {
+      const createdProject = await tx.project.create({
         data: {
-          id: newPlanVersionId,
-          projectId: newProjectId,
-          hookOptionsJson: originalPlan.hookOptionsJson,
-          hookSelected: originalPlan.hookSelected,
-          outline: originalPlan.outline,
-          scriptFull: originalPlan.scriptFull,
-          estimatesJson: originalPlan.estimatesJson,
-          validationJson: originalPlan.validationJson,
+          id: newProjectId,
+          title: `${original.title} (Copy)`,
+          topic: original.topic,
+          nichePackId: original.nichePackId,
+          language: original.language,
+          targetLengthSec: original.targetLengthSec,
+          tempo: original.tempo,
+          voicePreset: original.voicePreset,
+          visualStylePreset: original.visualStylePreset,
+          seoKeywords: original.seoKeywords,
+          status: 'DRAFT_PLAN',
         },
       });
 
-      // Copy scenes
-      for (const scene of originalPlan.scenes) {
-        await prisma.scene.create({
+      if (original.planVersions.length > 0) {
+        const originalPlan = original.planVersions[0];
+
+        await tx.planVersion.create({
           data: {
-            id: uuid(),
+            id: newPlanVersionId,
             projectId: newProjectId,
-            planVersionId: newPlanVersionId,
-            idx: scene.idx,
-            narrationText: scene.narrationText,
-            onScreenText: scene.onScreenText,
-            visualPrompt: scene.visualPrompt,
-            negativePrompt: scene.negativePrompt,
-            effectPreset: scene.effectPreset,
-            durationTargetSec: scene.durationTargetSec,
-            startTimeSec: scene.startTimeSec,
-            endTimeSec: scene.endTimeSec,
-            isLocked: false,
+            hookOptionsJson: originalPlan.hookOptionsJson,
+            hookSelected: originalPlan.hookSelected,
+            outline: originalPlan.outline,
+            scriptFull: originalPlan.scriptFull,
+            estimatesJson: originalPlan.estimatesJson,
+            validationJson: originalPlan.validationJson,
+          },
+        });
+
+        if (originalPlan.scenes.length > 0) {
+          await tx.scene.createMany({
+            data: originalPlan.scenes.map((scene) => ({
+              id: uuid(),
+              projectId: newProjectId,
+              planVersionId: newPlanVersionId,
+              idx: scene.idx,
+              narrationText: scene.narrationText,
+              onScreenText: scene.onScreenText,
+              visualPrompt: scene.visualPrompt,
+              negativePrompt: scene.negativePrompt,
+              effectPreset: scene.effectPreset,
+              durationTargetSec: scene.durationTargetSec,
+              startTimeSec: scene.startTimeSec,
+              endTimeSec: scene.endTimeSec,
+              isLocked: false,
+            })),
+          });
+        }
+
+        await tx.project.update({
+          where: { id: newProjectId },
+          data: {
+            latestPlanVersionId: newPlanVersionId,
+            status: 'PLAN_READY',
           },
         });
       }
 
-      await prisma.project.update({
-        where: { id: newProjectId },
-        data: {
-          latestPlanVersionId: newPlanVersionId,
-          status: 'PLAN_READY',
-        },
-      });
-    }
+      return createdProject;
+    });
 
     res.json(newProject);
   } catch (error) {

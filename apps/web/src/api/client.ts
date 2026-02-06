@@ -9,6 +9,7 @@ import type {
   ProviderStatus,
   SSEEvent,
 } from './types';
+import { safeJsonParse } from '../utils/safeJsonParse';
 
 const API_BASE = '/api';
 const DEFAULT_FETCH_TIMEOUT_MS = 30000;
@@ -336,11 +337,9 @@ export function subscribeToRun(
 
     eventSource.onmessage = (event) => {
       reconnectAttempts = 0;
-      try {
-        const data = JSON.parse(event.data) as SSEEvent;
+      const data = safeJsonParse<SSEEvent | null>(event.data, null);
+      if (data) {
         onEvent(data);
-      } catch (e) {
-        console.error('Failed to parse SSE event:', e);
       }
     };
 

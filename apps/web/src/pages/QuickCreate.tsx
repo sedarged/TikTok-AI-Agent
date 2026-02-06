@@ -201,7 +201,9 @@ export default function QuickCreate({ status }: QuickCreateProps) {
         {/* Topic */}
         <div>
           <div className="flex items-center justify-between mb-2">
-            <label className="block text-sm font-medium text-gray-300">Topic / Seed</label>
+            <label htmlFor="topic-input" className="block text-sm font-medium text-gray-300">
+              Topic / Seed
+            </label>
             <button
               type="button"
               onClick={handleSuggestTopics}
@@ -213,6 +215,7 @@ export default function QuickCreate({ status }: QuickCreateProps) {
             </button>
           </div>
           <textarea
+            id="topic-input"
             className="textarea"
             rows={3}
             placeholder="e.g., 5 surprising facts about the deep ocean, The real story behind the Titanic..."
@@ -248,10 +251,14 @@ export default function QuickCreate({ status }: QuickCreateProps) {
         {/* Script template */}
         {scriptTemplates.length > 0 && (
           <div>
-            <label className="block text-sm font-medium text-gray-300 mb-2">
+            <label
+              htmlFor="script-template-select"
+              className="block text-sm font-medium text-gray-300 mb-2"
+            >
               Script template (optional)
             </label>
             <select
+              id="script-template-select"
               className="input w-full"
               value={formData.scriptTemplateId}
               onChange={(e) => setFormData({ ...formData, scriptTemplateId: e.target.value })}
@@ -274,10 +281,14 @@ export default function QuickCreate({ status }: QuickCreateProps) {
 
         {/* SEO keywords */}
         <div>
-          <label className="block text-sm font-medium text-gray-300 mb-2">
+          <label
+            htmlFor="seo-keywords-input"
+            className="block text-sm font-medium text-gray-300 mb-2"
+          >
             SEO keywords (comma-separated, optional)
           </label>
           <input
+            id="seo-keywords-input"
             type="text"
             className="input w-full"
             placeholder="e.g. fitness tips, morning routine"
@@ -367,6 +378,8 @@ export default function QuickCreate({ status }: QuickCreateProps) {
             type="button"
             onClick={() => setShowOptions(!showOptions)}
             className="w-full flex items-center justify-between text-left"
+            aria-expanded={showOptions}
+            aria-controls="quick-create-options"
           >
             <span className="text-sm font-medium" style={{ color: 'var(--color-text)' }}>
               Options
@@ -377,6 +390,7 @@ export default function QuickCreate({ status }: QuickCreateProps) {
               stroke="currentColor"
               viewBox="0 0 24 24"
               style={{ color: 'var(--color-text-muted)' }}
+              aria-hidden="true"
             >
               <path
                 strokeLinecap="round"
@@ -389,14 +403,21 @@ export default function QuickCreate({ status }: QuickCreateProps) {
 
           {showOptions && (
             <div
+              id="quick-create-options"
               className="mt-4 space-y-4 pt-4 border-t"
               style={{ borderColor: 'var(--color-border)' }}
             >
               {/* Row: Language + Tempo + Voice */}
               <div className="grid grid-cols-3 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-300 mb-2">Language</label>
+                  <label
+                    htmlFor="language-select"
+                    className="block text-sm font-medium text-gray-300 mb-2"
+                  >
+                    Language
+                  </label>
                   <select
+                    id="language-select"
                     className="select"
                     value={formData.language}
                     onChange={(e) => setFormData({ ...formData, language: e.target.value })}
@@ -448,8 +469,14 @@ export default function QuickCreate({ status }: QuickCreateProps) {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-300 mb-2">Voice</label>
+                  <label
+                    htmlFor="voice-select"
+                    className="block text-sm font-medium text-gray-300 mb-2"
+                  >
+                    Voice
+                  </label>
                   <select
+                    id="voice-select"
                     className="select"
                     value={formData.voicePreset}
                     onChange={(e) => setFormData({ ...formData, voicePreset: e.target.value })}
@@ -522,6 +549,8 @@ export default function QuickCreate({ status }: QuickCreateProps) {
             type="button"
             onClick={() => setShowBatch(!showBatch)}
             className="w-full flex items-center justify-between text-left"
+            aria-expanded={showBatch}
+            aria-controls="batch-create-form"
           >
             <span className="font-medium" style={{ color: 'var(--color-text)' }}>
               Batch (multiple topics)
@@ -532,6 +561,7 @@ export default function QuickCreate({ status }: QuickCreateProps) {
               stroke="currentColor"
               viewBox="0 0 24 24"
               style={{ color: 'var(--color-text-muted)' }}
+              aria-hidden="true"
             >
               <path
                 strokeLinecap="round"
@@ -542,12 +572,16 @@ export default function QuickCreate({ status }: QuickCreateProps) {
             </svg>
           </button>
           {showBatch && (
-            <form onSubmit={handleBatch} className="mt-4 space-y-3">
+            <form onSubmit={handleBatch} className="mt-4 space-y-3" id="batch-create-form">
               <div>
-                <label className="block text-sm font-medium text-gray-300 mb-1">
+                <label
+                  htmlFor="batch-topics"
+                  className="block text-sm font-medium text-gray-300 mb-1"
+                >
                   Topics (one per line, max 50)
                 </label>
                 <textarea
+                  id="batch-topics"
                   className="textarea"
                   rows={5}
                   placeholder="Topic 1&#10;Topic 2&#10;Topic 3"

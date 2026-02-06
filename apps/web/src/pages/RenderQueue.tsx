@@ -3,6 +3,7 @@ import { useParams, Link } from 'react-router-dom';
 import { getProject, retryRun, cancelRun, subscribeToRun } from '../api/client';
 import type { Project, Run, LogEntry, SSEEvent } from '../api/types';
 import { getErrorMessage } from '../utils/errors';
+import { safeJsonParse } from '../utils/safeJsonParse';
 
 export default function RenderQueue() {
   const { projectId } = useParams<{ projectId: string }>();
@@ -141,11 +142,7 @@ function RunCard({
   const [showLogs, setShowLogs] = useState(false);
 
   useEffect(() => {
-    try {
-      setLogs(JSON.parse(run.logsJson || '[]'));
-    } catch {
-      setLogs([]);
-    }
+    setLogs(safeJsonParse<LogEntry[]>(run.logsJson || '[]', []));
   }, [run.logsJson]);
 
   // SSE subscription when run is active; reconnect in client; unsubscribe when status leaves running/queued

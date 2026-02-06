@@ -7,6 +7,8 @@ import { env, isTestMode } from '../env.js';
 import path from 'path';
 import fs from 'fs';
 import { logError, logDebug } from '../utils/logger.js';
+import { safeJsonParse } from '../utils/safeJsonParse.js';
+import type { Artifacts } from '../utils/types.js';
 
 export const runRoutes = Router();
 
@@ -248,12 +250,7 @@ runRoutes.get('/:runId/stream', async (req, res) => {
   });
 
   if (run) {
-    let logs: unknown[] = [];
-    try {
-      logs = JSON.parse(run.logsJson) as unknown[];
-    } catch (error) {
-      logError('Failed to parse run logs JSON:', error);
-    }
+    const logs = safeJsonParse<unknown[]>(run.logsJson, [], { runId, source: 'runLogs' });
     try {
       if (!res.writableEnded) {
         res.write(
@@ -440,13 +437,14 @@ runRoutes.get('/:runId/download', async (req, res) => {
       return res.status(404).json({ error: 'Run not found' });
     }
 
-    let artifacts;
-    try {
-      artifacts = JSON.parse(run.artifactsJson);
-    } catch (error) {
-      logError('Failed to parse artifacts JSON:', error);
-      return res.status(500).json({ error: 'Invalid artifacts data' });
-    }
+    const artifacts = safeJsonParse<Artifacts>(
+      run.artifactsJson,
+      {},
+      {
+        runId,
+        source: 'downloadArtifacts',
+      }
+    );
 
     if (artifacts.dryRun === true) {
       return res.status(409).json({
@@ -564,13 +562,14 @@ runRoutes.get('/:runId/export', async (req, res) => {
       return res.status(404).json({ error: 'Run not found' });
     }
 
-    let artifacts;
-    try {
-      artifacts = JSON.parse(run.artifactsJson);
-    } catch (error) {
-      logError('Failed to parse artifacts JSON:', error);
-      return res.status(500).json({ error: 'Invalid artifacts data' });
-    }
+    const artifacts = safeJsonParse<Artifacts>(
+      run.artifactsJson,
+      {},
+      {
+        runId,
+        source: 'exportArtifacts',
+      }
+    );
 
     const tiktokCaption = artifacts.tiktokCaption as string | undefined;
     const tiktokHashtags = Array.isArray(artifacts.tiktokHashtags)

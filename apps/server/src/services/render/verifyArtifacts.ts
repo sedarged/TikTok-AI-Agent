@@ -3,6 +3,8 @@ import path from 'path';
 import { env, isRenderDryRun } from '../../env.js';
 import { validateVideo, getMediaDuration } from '../ffmpeg/ffmpegUtils.js';
 import type { Run, Project, PlanVersion, Scene } from '@prisma/client';
+import type { Artifacts } from '../../utils/types.js';
+import { safeJsonParse } from '../../utils/safeJsonParse.js';
 
 interface RunWithDetails extends Run {
   project: Project;
@@ -27,7 +29,14 @@ export interface VerificationResult {
 
 export async function verifyArtifacts(run: RunWithDetails): Promise<VerificationResult> {
   const checks: VerificationResult['checks'] = [];
-  const artifacts = JSON.parse(run.artifactsJson);
+  const artifacts = safeJsonParse<Artifacts>(
+    run.artifactsJson,
+    {},
+    {
+      runId: run.id,
+      source: 'verifyArtifacts',
+    }
+  );
   const project = run.project;
   const scenes = run.planVersion.scenes;
   const dryRun = isRenderDryRun() || artifacts.dryRun === true;
@@ -314,8 +323,15 @@ export async function verifyArtifacts(run: RunWithDetails): Promise<Verification
 
   if (exportPath && fs.existsSync(exportPath)) {
     try {
-      const exportData = JSON.parse(fs.readFileSync(exportPath, 'utf-8'));
-      const hasRequiredFields = exportData.project && exportData.plan && exportData.render;
+      const exportData = safeJsonParse<Record<string, unknown>>(
+        fs.readFileSync(exportPath, 'utf-8'),
+        {},
+        { source: 'exportJson', path: exportPath }
+      );
+      const hasProject = Boolean(exportData.project);
+      const hasPlan = Boolean(exportData.plan);
+      const hasRender = Boolean(exportData.render);
+      const hasRequiredFields = hasProject && hasPlan && hasRender;
 
       checks.push({
         name: 'Export JSON',
@@ -324,9 +340,9 @@ export async function verifyArtifacts(run: RunWithDetails): Promise<Verification
           ? 'Export JSON valid with all required fields'
           : 'Export JSON missing required fields',
         details: {
-          hasProject: !!exportData.project,
-          hasPlan: !!exportData.plan,
-          hasRender: !!exportData.render,
+          hasProject,
+          hasPlan,
+          hasRender,
         },
       });
     } catch {
