@@ -286,7 +286,7 @@ npm run test:only       # Skip prisma generate
 npm run test:render:only
 ```
 
-See [testing.md (Windows section)](../testing.md (Windows section)) for Windows-specific testing guide.
+See [testing.md](testing.md#eperm-errors-on-windows) for Windows-specific testing guide.
 
 ---
 
@@ -568,7 +568,7 @@ npm run db:generate
 npm run test:only
 ```
 
-See [testing.md (Windows section)](../testing.md (Windows section)) for detailed Windows testing guide.
+See [testing.md](testing.md#eperm-errors-on-windows) for detailed Windows testing guide.
 
 ### Error: `Error: P1003: Database dev.db does not exist`
 

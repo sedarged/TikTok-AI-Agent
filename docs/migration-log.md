@@ -50,11 +50,12 @@ These fixes were completed in previous PRs and verified in the Feb 2026 audit:
 | Automate missing error handling | `apps/server/src/routes/automate.ts` | ✅ FIXED | Added 3-attempt retry with detailed error message | AUDIT_SUMMARY_COMMENT.md (P1-6) |
 | Project delete no run check | `apps/server/src/routes/project.ts` | ✅ FIXED | Returns 409 Conflict if active runs exist, with run IDs | AUDIT_SUMMARY_COMMENT.md (P2-3) |
 | Node version mismatch | `README.md` | ✅ FIXED | Updated to specify Node 20.19+ or 22.12+ | AUDIT_REPORT.md, line 54 |
-| Dependency vulnerabilities (8 issues) | `package.json` overrides | ✅ FIXED | Fixed hono, lodash, chevrotain using npm overrides | DEPENDENCY_VULNERABILITIES.md |
+| Dependency vulnerabilities (8 issues) | `package.json` overrides | ✅ FIXED | Fixed hono, lodash, chevrotain using npm overrides | docs/security.md (Dependency Vulnerabilities section) |
 
 **Migration to Canonical Docs:**
 - Security fixes documented in `docs/security.md` (Security Audit Findings section)
-- Dependency fix details preserved in `DEPENDENCY_VULNERABILITIES.md` (to be deleted after extracting to docs/security.md)
+- Dependency vulnerability details migrated to `docs/security.md` (Dependency Vulnerabilities section)
+- `DEPENDENCY_VULNERABILITIES.md` deleted after content migration
 
 ---
 

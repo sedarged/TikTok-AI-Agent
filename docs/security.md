@@ -425,7 +425,7 @@ if (relative.startsWith('..') || path.isAbsolute(relative)) {
 }
 ```
 
-**Evidence:** AUDIT_REPORT.md (P1-3), DEEP_AUDIT_REPORT.md  
+**Evidence:** ISSUES_TODO.md (Issue 17: Path Traversal Weakness)  
 **Reported:** 2026-02-06
 
 ---
@@ -451,7 +451,7 @@ scriptSrc: ['self', 'unsafe-inline']
 
 **Mitigation:** This is LOW priority since React provides XSS protection by default.
 
-**Evidence:** DEEP_AUDIT_FINDINGS.md Section 1.3  
+**Evidence:** ISSUES_TODO.md (Issue 18: Weak CSP Policy)  
 **Reported:** 2026-02-06
 
 ---
@@ -479,7 +479,7 @@ testRoutes.post('/dry-run-config', async (req, res) => {
 
 **Mitigation:** Ensure `NODE_ENV=production` never enables test routes, add explicit environment checks.
 
-**Evidence:** AUDIT_SUMMARY_COMMENT.md (P2-5)  
+**Evidence:** ISSUES_TODO.md (Issue 19: Test Route Missing Authentication)  
 **Reported:** 2026-02-06
 
 ---
@@ -494,7 +494,7 @@ testRoutes.post('/dry-run-config', async (req, res) => {
 - `lodash` - Fixed: Chevrotain 11.1.1 switched to lodash-es
 - `chevrotain` - Fixed: 10.5.0 → 11.1.1
 
-**Details:** See DEPENDENCY_VULNERABILITIES.md for complete fix documentation.
+**Details:** Complete fix documentation is in docs/security.md (Dependency Vulnerabilities section).
 
 **Verification:**
 
@@ -569,10 +569,12 @@ const signedUrl = await s3.getSignedUrlPromise('getObject', {
 ### Major Fixes (Jan 2026 Audit)
 
 1. **CORS Vulnerability** - ✅ Fixed: Requires `ALLOWED_ORIGINS` in production
-2. **Path Traversal** - ✅ Fixed: UUID validation on all file paths
+2. **Input Validation** - ✅ Fixed: UUID validation added for all file path parameters
 3. **JSON Parsing** - ✅ Fixed: All `JSON.parse()` wrapped in try-catch
 4. **Input Validation** - ✅ Fixed: Added Zod constraints (length, range, enum)
 5. **Dependency Vulnerabilities** - ✅ Fixed: 8 moderate vulnerabilities resolved (Feb 2026)
+
+**Note on Path Traversal:** UUID validation prevents most path traversal attacks by ensuring only valid UUID-based paths are accepted. However, a secondary weakness in artifact download validation (using `startsWith()` check) remains and is documented as an active vulnerability above.
 
 ### Completed Fixes (Feb 2026 Audit)
 

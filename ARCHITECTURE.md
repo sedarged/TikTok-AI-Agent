@@ -29,6 +29,9 @@ Please refer to the complete documentation in the [docs/ directory](docs/archite
 3. Render Execution (FFmpeg + OpenAI produce MP4)
 
 **See [docs/architecture.md](docs/architecture.md) for complete architecture documentation.**
+
+```
+┌──────────────────────────────────────────────────────────────┐
 │                         Frontend (React)                      │
 │  ┌────────────┐  ┌─────────────┐  ┌──────────────┐          │
 │  │ QuickCreate │  │ PlanStudio  │  │ RenderQueue  │ + 5 more │
