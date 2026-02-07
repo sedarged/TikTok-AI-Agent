@@ -1,6 +1,13 @@
 import { Router } from 'express';
 import { z } from 'zod';
-import { isRenderDryRun, isTestMode, getDryRunConfig, setDryRunConfig } from '../env.js';
+import {
+  isRenderDryRun,
+  isTestMode,
+  getDryRunConfig,
+  setDryRunConfig,
+  isProduction,
+} from '../env.js';
+import { requireAuth } from '../middleware/auth.js';
 
 export const testRoutes = Router();
 
@@ -22,10 +29,14 @@ const dryRunConfigSchema = z
   .strict();
 
 function isEnabled(): boolean {
+  // Never enable test routes in production, even if dry-run flags are set
+  if (isProduction()) {
+    return false;
+  }
   return isRenderDryRun() || isTestMode();
 }
 
-testRoutes.get('/dry-run-config', (req, res) => {
+testRoutes.get('/dry-run-config', requireAuth, (req, res) => {
   if (!isEnabled()) {
     return res.status(404).json({ error: 'Not found' });
   }
@@ -33,7 +44,7 @@ testRoutes.get('/dry-run-config', (req, res) => {
   res.json(getDryRunConfig());
 });
 
-testRoutes.post('/dry-run-config', (req, res) => {
+testRoutes.post('/dry-run-config', requireAuth, (req, res) => {
   if (!isEnabled()) {
     return res.status(404).json({ error: 'Not found' });
   }

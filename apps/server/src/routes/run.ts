@@ -465,11 +465,9 @@ runRoutes.get('/:runId/download', async (req, res) => {
     const resolvedPath = path.resolve(videoPath);
     const resolvedArtifactsDir = path.resolve(env.ARTIFACTS_DIR);
 
-    // Ensure the resolved path is within artifacts directory (including path separator check)
-    if (
-      !resolvedPath.startsWith(resolvedArtifactsDir + path.sep) &&
-      resolvedPath !== resolvedArtifactsDir
-    ) {
+    // Use path.relative() for secure path validation
+    const relativePath = path.relative(resolvedArtifactsDir, resolvedPath);
+    if (relativePath.startsWith('..') || path.isAbsolute(relativePath)) {
       logError('Path traversal attempt detected:', artifacts.mp4Path);
       return res.status(403).json({ error: 'Invalid file path' });
     }
@@ -521,13 +519,14 @@ runRoutes.get('/:runId/artifact', async (req, res) => {
     const resolvedArtifactsDir = path.resolve(env.ARTIFACTS_DIR);
     const runPrefix = path.join(resolvedArtifactsDir, run.projectId, runId);
 
-    if (
-      !resolvedPath.startsWith(resolvedArtifactsDir + path.sep) &&
-      resolvedPath !== resolvedArtifactsDir
-    ) {
+    // Use path.relative() for secure path validation
+    const relativeToArtifacts = path.relative(resolvedArtifactsDir, resolvedPath);
+    if (relativeToArtifacts.startsWith('..') || path.isAbsolute(relativeToArtifacts)) {
       return res.status(403).json({ error: 'Invalid file path' });
     }
-    if (!resolvedPath.startsWith(runPrefix + path.sep) && resolvedPath !== runPrefix) {
+
+    const relativeToRun = path.relative(runPrefix, resolvedPath);
+    if (relativeToRun.startsWith('..') || path.isAbsolute(relativeToRun)) {
       return res.status(403).json({ error: 'Path not allowed for this run' });
     }
     if (!fs.existsSync(resolvedPath) || !fs.statSync(resolvedPath).isFile()) {

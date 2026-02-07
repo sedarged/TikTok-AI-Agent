@@ -78,10 +78,17 @@ export function createApp() {
         : {
             directives: {
               defaultSrc: ["'self'"],
-              scriptSrc: ["'self'", "'unsafe-inline'"],
+              // Remove 'unsafe-inline' for scripts (React+Vite apps don't need it)
+              // All scripts are bundled and loaded from 'self'
+              scriptSrc: ["'self'"],
+              // Keep 'unsafe-inline' for styles as Tailwind and other CSS-in-JS may require it
               styleSrc: ["'self'", "'unsafe-inline'"],
               imgSrc: ["'self'", 'data:', 'https:'],
               connectSrc: ["'self'"],
+              fontSrc: ["'self'", 'data:'],
+              objectSrc: ["'none'"],
+              mediaSrc: ["'self'"],
+              frameSrc: ["'none'"],
             },
           },
     })
