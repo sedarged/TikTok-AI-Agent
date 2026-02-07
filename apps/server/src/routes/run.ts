@@ -465,17 +465,29 @@ runRoutes.get('/:runId/download', async (req, res) => {
     const resolvedPath = path.resolve(videoPath);
     const resolvedArtifactsDir = path.resolve(env.ARTIFACTS_DIR);
 
-    // Ensure the resolved path is within artifacts directory (including path separator check)
-    if (
-      !resolvedPath.startsWith(resolvedArtifactsDir + path.sep) &&
-      resolvedPath !== resolvedArtifactsDir
-    ) {
+    // Use path.relative() for secure path validation
+    const relativePath = path.relative(resolvedArtifactsDir, resolvedPath);
+    if (relativePath.startsWith('..') || path.isAbsolute(relativePath)) {
       logError('Path traversal attempt detected:', artifacts.mp4Path);
       return res.status(403).json({ error: 'Invalid file path' });
     }
 
     if (!fs.existsSync(resolvedPath)) {
       return res.status(404).json({ error: 'Video file not found on disk' });
+    }
+
+    // Additional symlink protection: resolve real paths and verify containment
+    try {
+      const realPath = fs.realpathSync(resolvedPath);
+      const realArtifactsDir = fs.realpathSync(resolvedArtifactsDir);
+      const realRelative = path.relative(realArtifactsDir, realPath);
+      if (realRelative.startsWith('..') || path.isAbsolute(realRelative)) {
+        logError('Symlink escape attempt detected:', artifacts.mp4Path);
+        return res.status(403).json({ error: 'Invalid file path' });
+      }
+    } catch (error) {
+      logError('Error resolving real path:', error);
+      return res.status(403).json({ error: 'Invalid file path' });
     }
 
     res.download(resolvedPath, 'final.mp4');
@@ -521,17 +533,38 @@ runRoutes.get('/:runId/artifact', async (req, res) => {
     const resolvedArtifactsDir = path.resolve(env.ARTIFACTS_DIR);
     const runPrefix = path.join(resolvedArtifactsDir, run.projectId, runId);
 
-    if (
-      !resolvedPath.startsWith(resolvedArtifactsDir + path.sep) &&
-      resolvedPath !== resolvedArtifactsDir
-    ) {
+    // Use path.relative() for secure path validation
+    const relativeToArtifacts = path.relative(resolvedArtifactsDir, resolvedPath);
+    if (relativeToArtifacts.startsWith('..') || path.isAbsolute(relativeToArtifacts)) {
       return res.status(403).json({ error: 'Invalid file path' });
     }
-    if (!resolvedPath.startsWith(runPrefix + path.sep) && resolvedPath !== runPrefix) {
+
+    const relativeToRun = path.relative(runPrefix, resolvedPath);
+    if (relativeToRun.startsWith('..') || path.isAbsolute(relativeToRun)) {
       return res.status(403).json({ error: 'Path not allowed for this run' });
     }
     if (!fs.existsSync(resolvedPath) || !fs.statSync(resolvedPath).isFile()) {
       return res.status(404).json({ error: 'File not found' });
+    }
+
+    // Additional symlink protection: resolve real paths and verify containment
+    try {
+      const realPath = fs.realpathSync(resolvedPath);
+      const realArtifactsDir = fs.realpathSync(resolvedArtifactsDir);
+      const realRunPrefix = fs.realpathSync(runPrefix);
+
+      const realRelativeToArtifacts = path.relative(realArtifactsDir, realPath);
+      if (realRelativeToArtifacts.startsWith('..') || path.isAbsolute(realRelativeToArtifacts)) {
+        return res.status(403).json({ error: 'Invalid file path' });
+      }
+
+      const realRelativeToRun = path.relative(realRunPrefix, realPath);
+      if (realRelativeToRun.startsWith('..') || path.isAbsolute(realRelativeToRun)) {
+        return res.status(403).json({ error: 'Path not allowed for this run' });
+      }
+    } catch (error) {
+      logError('Error resolving real path:', error);
+      return res.status(403).json({ error: 'Invalid file path' });
     }
 
     res.sendFile(resolvedPath);
