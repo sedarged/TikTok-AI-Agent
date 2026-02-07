@@ -476,6 +476,20 @@ runRoutes.get('/:runId/download', async (req, res) => {
       return res.status(404).json({ error: 'Video file not found on disk' });
     }
 
+    // Additional symlink protection: resolve real paths and verify containment
+    try {
+      const realPath = fs.realpathSync(resolvedPath);
+      const realArtifactsDir = fs.realpathSync(resolvedArtifactsDir);
+      const realRelative = path.relative(realArtifactsDir, realPath);
+      if (realRelative.startsWith('..') || path.isAbsolute(realRelative)) {
+        logError('Symlink escape attempt detected:', artifacts.mp4Path);
+        return res.status(403).json({ error: 'Invalid file path' });
+      }
+    } catch (error) {
+      logError('Error resolving real path:', error);
+      return res.status(403).json({ error: 'Invalid file path' });
+    }
+
     res.download(resolvedPath, 'final.mp4');
   } catch (error) {
     logError('Error downloading video:', error);
@@ -531,6 +545,26 @@ runRoutes.get('/:runId/artifact', async (req, res) => {
     }
     if (!fs.existsSync(resolvedPath) || !fs.statSync(resolvedPath).isFile()) {
       return res.status(404).json({ error: 'File not found' });
+    }
+
+    // Additional symlink protection: resolve real paths and verify containment
+    try {
+      const realPath = fs.realpathSync(resolvedPath);
+      const realArtifactsDir = fs.realpathSync(resolvedArtifactsDir);
+      const realRunPrefix = fs.realpathSync(runPrefix);
+
+      const realRelativeToArtifacts = path.relative(realArtifactsDir, realPath);
+      if (realRelativeToArtifacts.startsWith('..') || path.isAbsolute(realRelativeToArtifacts)) {
+        return res.status(403).json({ error: 'Invalid file path' });
+      }
+
+      const realRelativeToRun = path.relative(realRunPrefix, realPath);
+      if (realRelativeToRun.startsWith('..') || path.isAbsolute(realRelativeToRun)) {
+        return res.status(403).json({ error: 'Path not allowed for this run' });
+      }
+    } catch (error) {
+      logError('Error resolving real path:', error);
+      return res.status(403).json({ error: 'Invalid file path' });
     }
 
     res.sendFile(resolvedPath);

@@ -25,6 +25,7 @@ describe('Batch endpoint security tests', () => {
     process.env.APP_TEST_MODE = '0';
     process.env.APP_RENDER_DRY_RUN = '1';
     process.env.NODE_ENV = 'test';
+    delete process.env.API_KEY; // Ensure no API_KEY for hermetic tests
     vi.resetModules();
     const module = await import('../src/index.js');
     app = module.createApp();

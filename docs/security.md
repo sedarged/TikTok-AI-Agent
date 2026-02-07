@@ -442,7 +442,7 @@ Comprehensive test suite added (`tests/batchLimits.security.test.ts`):
 
 ---
 
-## Batch Endpoint Security
+## Secret Management
 
 ### Environment Variables
 
@@ -537,6 +537,11 @@ runRoutes.get('/:runId/download', async (req, res) => {
   }
 
   const artifacts = safeJsonParse<Artifacts | null>(run.artifactsJson, null);
+  if (!artifacts || !artifacts.mp4Path) {
+    logError('Missing artifacts.mp4Path for run', { runId: run.id, artifacts });
+    return res.status(500).json({ error: 'Video artifacts not available' });
+  }
+
   const videoPath = path.join(env.ARTIFACTS_DIR, artifacts.mp4Path);
   const resolvedPath = path.resolve(videoPath);
   const resolvedArtifactsDir = path.resolve(env.ARTIFACTS_DIR);
@@ -550,6 +555,20 @@ runRoutes.get('/:runId/download', async (req, res) => {
 
   if (!fs.existsSync(resolvedPath)) {
     return res.status(404).json({ error: 'Video file not found on disk' });
+  }
+
+  // Additional symlink protection: resolve real paths and verify containment
+  try {
+    const realPath = fs.realpathSync(resolvedPath);
+    const realArtifactsDir = fs.realpathSync(resolvedArtifactsDir);
+    const realRelative = path.relative(realArtifactsDir, realPath);
+    if (realRelative.startsWith('..') || path.isAbsolute(realRelative)) {
+      logError('Symlink escape attempt detected:', artifacts.mp4Path);
+      return res.status(403).json({ error: 'Invalid file path' });
+    }
+  } catch (error) {
+    logError('Error resolving real path:', error);
+    return res.status(403).json({ error: 'Invalid file path' });
   }
 
   res.download(resolvedPath, 'final.mp4');
@@ -579,16 +598,46 @@ runRoutes.get('/:runId/artifact', async (req, res) => {
     return res.status(403).json({ error: 'Path not allowed for this run' });
   }
 
+  if (!fs.existsSync(resolvedPath) || !fs.statSync(resolvedPath).isFile()) {
+    return res.status(404).json({ error: 'File not found' });
+  }
+
+  // Additional symlink protection: resolve real paths and verify containment
+  try {
+    const realPath = fs.realpathSync(resolvedPath);
+    const realArtifactsDir = fs.realpathSync(resolvedArtifactsDir);
+    const realRunPrefix = fs.realpathSync(runPrefix);
+    
+    const realRelativeToArtifacts = path.relative(realArtifactsDir, realPath);
+    if (realRelativeToArtifacts.startsWith('..') || path.isAbsolute(realRelativeToArtifacts)) {
+      return res.status(403).json({ error: 'Invalid file path' });
+    }
+
+    const realRelativeToRun = path.relative(realRunPrefix, realPath);
+    if (realRelativeToRun.startsWith('..') || path.isAbsolute(realRelativeToRun)) {
+      return res.status(403).json({ error: 'Path not allowed for this run' });
+    }
+  } catch (error) {
+    logError('Error resolving real path:', error);
+    return res.status(403).json({ error: 'Invalid file path' });
+  }
+
   res.sendFile(resolvedPath);
 });
 ```
 
 ### Security Improvements (Feb 2026)
 
-1. **Replaced `startsWith()` with `path.relative()`** - More robust against symlink attacks
-2. **Check for `..` in relative path** - Prevents directory traversal
-3. **Check if relative path is absolute** - Prevents absolute path bypass
+1. **Use `path.relative()` instead of string `startsWith()` checks** - More robust against malformed relative paths and path traversal attempts (purely string-based; does **not** resolve or block symlinks)
+2. **Check for `..` in relative path** - Prevents directory traversal via `../` segments
+3. **Check if relative path is absolute** - Prevents absolute path bypass after resolution
 4. **Dual validation** - Artifact endpoint validates both base dir and run-specific dir
+5. **Symlink protection** - Use `fs.realpathSync()` to resolve symlinks and verify the real path is still within the allowed directory
+
+> ⚠️ **Symlink note:** The `path.relative()` checks operate on normalized path strings only and do **not** resolve symlinks by themselves. To prevent symlink escape from `ARTIFACTS_DIR` (e.g. a symlink inside the directory pointing outside), we additionally:
+>
+> - Use `fs.realpathSync()` on both `ARTIFACTS_DIR` and the candidate file path
+> - Verify that the file's real path still has the artifacts dir as a prefix
 
 ### Test Coverage
 
@@ -596,9 +645,9 @@ Comprehensive test suite added (`tests/pathTraversal.security.test.ts`):
 - Path traversal with `../` sequences
 - Absolute path attempts
 - URL-encoded traversal attempts
-- Symlink attack prevention
 - Cross-run directory access prevention
 - Valid path acceptance (positive tests)
+- (Symlink behavior is protected by `fs.realpathSync()` validation)
 
 ---
 

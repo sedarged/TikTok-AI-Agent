@@ -36,36 +36,40 @@ function isEnabled(): boolean {
   return isRenderDryRun() || isTestMode();
 }
 
-testRoutes.get('/dry-run-config', requireAuth, (req, res) => {
+testRoutes.get('/dry-run-config', (req, res) => {
   if (!isEnabled()) {
     return res.status(404).json({ error: 'Not found' });
   }
 
-  res.json(getDryRunConfig());
+  return requireAuth(req, res, () => {
+    res.json(getDryRunConfig());
+  });
 });
 
-testRoutes.post('/dry-run-config', requireAuth, (req, res) => {
+testRoutes.post('/dry-run-config', (req, res) => {
   if (!isEnabled()) {
     return res.status(404).json({ error: 'Not found' });
   }
 
-  const parsed = dryRunConfigSchema.safeParse(req.body);
-  if (!parsed.success) {
-    return res.status(400).json({
-      error: 'Invalid dry-run config payload',
-      details: parsed.error.flatten(),
-    });
-  }
+  return requireAuth(req, res, () => {
+    const parsed = dryRunConfigSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return res.status(400).json({
+        error: 'Invalid dry-run config payload',
+        details: parsed.error.flatten(),
+      });
+    }
 
-  const updateData: { failStep?: string; stepDelayMs?: number } = {};
-  if (parsed.data.failStep !== undefined && parsed.data.failStep !== null) {
-    updateData.failStep = parsed.data.failStep;
-  }
-  if (parsed.data.stepDelayMs !== undefined && parsed.data.stepDelayMs !== null) {
-    updateData.stepDelayMs = parsed.data.stepDelayMs;
-  }
+    const updateData: { failStep?: string; stepDelayMs?: number } = {};
+    if (parsed.data.failStep !== undefined && parsed.data.failStep !== null) {
+      updateData.failStep = parsed.data.failStep;
+    }
+    if (parsed.data.stepDelayMs !== undefined && parsed.data.stepDelayMs !== null) {
+      updateData.stepDelayMs = parsed.data.stepDelayMs;
+    }
 
-  setDryRunConfig(updateData);
+    setDryRunConfig(updateData);
 
-  return res.json(getDryRunConfig());
+    return res.json(getDryRunConfig());
+  });
 });

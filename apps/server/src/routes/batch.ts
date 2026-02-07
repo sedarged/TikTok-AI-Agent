@@ -6,7 +6,13 @@ import { generatePlanData, savePlanData, type PlanData } from '../services/plan/
 import { validatePlan } from '../services/plan/planValidator.js';
 import { getNichePack } from '../services/nichePacks.js';
 import { startRenderPipeline } from '../services/render/renderPipeline.js';
-import { isOpenAIConfigured, isRenderDryRun, isTestMode, isNodeTest } from '../env.js';
+import {
+  isOpenAIConfigured,
+  isRenderDryRun,
+  isTestMode,
+  isNodeTest,
+  isDevelopment,
+} from '../env.js';
 import { checkFFmpegAvailable } from '../services/ffmpeg/ffmpegUtils.js';
 import { v4 as uuid } from 'uuid';
 import { logError } from '../utils/logger.js';
@@ -26,7 +32,7 @@ export const batchRoutes = Router();
 // 5 requests per hour in production, more permissive in test/dev
 const batchLimiter = rateLimit({
   windowMs: 60 * 60 * 1000, // 1 hour
-  max: isNodeTest() ? 1000 : 5, // 5 requests per hour in production
+  max: isNodeTest() || isDevelopment() ? 1000 : 5, // 5 requests per hour in production
   message: {
     error: 'Too many batch requests',
     message: 'You can only submit 5 batch requests per hour. Please try again later.',
@@ -114,34 +120,62 @@ batchRoutes.post('/', async (req, res) => {
       return res.status(400).json({ error: 'Invalid niche pack' });
     }
 
-    // Check queue size to prevent overwhelming the system
-    const queuedOrRunningCount = await prisma.run.count({
-      where: {
-        status: {
-          in: ['queued', 'running'],
+    // Check queue size to prevent overwhelming the system.
+    // This is done inside a transaction to avoid race conditions where
+    // concurrent requests could both pass the count() check and exceed MAX_QUEUE_SIZE.
+    try {
+      await prisma.$transaction(
+        async (tx) => {
+          const count = await tx.run.count({
+            where: {
+              status: {
+                in: ['queued', 'running'],
+              },
+            },
+          });
+
+          if (count >= MAX_QUEUE_SIZE) {
+            // Sentinel error: queue already full
+            throw new Error(`QUEUE_FULL:${count}`);
+          }
+
+          if (count + topics.length > MAX_QUEUE_SIZE) {
+            // Sentinel error: this batch would exceed capacity
+            throw new Error(`BATCH_EXCEEDS_QUEUE_LIMIT:${count}`);
+          }
+
+          return count;
         },
-      },
-    });
+        // Use strongest isolation where supported to make admission race-free.
+        { isolationLevel: 'Serializable' }
+      );
+    } catch (err) {
+      if (err instanceof Error && err.message.startsWith('QUEUE_FULL:')) {
+        const [, countStr] = err.message.split(':');
+        const count = Number.isNaN(Number(countStr)) ? undefined : Number(countStr);
+        return res.status(503).json({
+          error: 'Queue is full',
+          message: `The render queue has reached its maximum capacity (${MAX_QUEUE_SIZE}). Please try again later.`,
+          code: 'QUEUE_FULL',
+          queueSize: count,
+        });
+      }
 
-    if (queuedOrRunningCount >= MAX_QUEUE_SIZE) {
-      return res.status(503).json({
-        error: 'Queue is full',
-        message: `The render queue has reached its maximum capacity (${MAX_QUEUE_SIZE}). Please try again later.`,
-        code: 'QUEUE_FULL',
-        queueSize: queuedOrRunningCount,
-      });
-    }
+      if (err instanceof Error && err.message.startsWith('BATCH_EXCEEDS_QUEUE_LIMIT:')) {
+        const [, countStr] = err.message.split(':');
+        const count = Number.isNaN(Number(countStr)) ? undefined : Number(countStr);
+        return res.status(503).json({
+          error: 'Batch would exceed queue capacity',
+          message: `Adding ${topics.length} items would exceed the queue limit. Current queue size: ${count}, limit: ${MAX_QUEUE_SIZE}`,
+          code: 'BATCH_EXCEEDS_QUEUE_LIMIT',
+          currentQueueSize: count,
+          requestedBatchSize: topics.length,
+          maxQueueSize: MAX_QUEUE_SIZE,
+        });
+      }
 
-    // Check if adding this batch would exceed queue limit
-    if (queuedOrRunningCount + topics.length > MAX_QUEUE_SIZE) {
-      return res.status(503).json({
-        error: 'Batch would exceed queue capacity',
-        message: `Adding ${topics.length} items would exceed the queue limit. Current queue size: ${queuedOrRunningCount}, limit: ${MAX_QUEUE_SIZE}`,
-        code: 'BATCH_EXCEEDS_QUEUE_LIMIT',
-        currentQueueSize: queuedOrRunningCount,
-        requestedBatchSize: topics.length,
-        maxQueueSize: MAX_QUEUE_SIZE,
-      });
+      // Unexpected error while checking queue capacity
+      throw err;
     }
 
     // P0-1 FIX: Validate all topics are non-empty before processing

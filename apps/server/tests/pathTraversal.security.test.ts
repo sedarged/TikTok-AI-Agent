@@ -41,6 +41,7 @@ describe('Path traversal security tests', () => {
       // Use dry-run mode instead of test mode to enable downloads
       process.env.APP_TEST_MODE = '0';
       process.env.APP_RENDER_DRY_RUN = '1';
+      delete process.env.API_KEY; // Ensure no API_KEY for hermetic tests
       vi.resetModules();
       const module = await import('../src/index.js');
       app = module.createApp();
