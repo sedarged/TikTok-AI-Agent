@@ -734,6 +734,252 @@ npm run db:migrate:dev
 
 ---
 
+## Database Patterns & Best Practices
+
+### Transactions
+
+**When to use transactions:**
+- Multi-step operations that must succeed or fail together
+- Updating related records across multiple tables
+- Operations where partial success would leave data in inconsistent state
+
+**Example: Project duplication**
+
+```typescript
+// ✅ Good - All operations in single transaction
+const newProject = await prisma.$transaction(async (tx) => {
+  const createdProject = await tx.project.create({ data: projectData });
+  await tx.planVersion.create({ data: planData });
+  await tx.scene.createMany({ data: scenesData });
+  return createdProject;
+});
+
+// ❌ Bad - Partial failure leaves orphaned records
+const createdProject = await prisma.project.create({ data: projectData });
+await prisma.planVersion.create({ data: planData }); // Might fail, leaving orphaned project
+await prisma.scene.createMany({ data: scenesData });  // Might fail, leaving orphaned plan
+```
+
+**Example: Plan updates with scenes**
+
+```typescript
+// ✅ Good - Atomic update of plan and multiple scenes
+await prisma.$transaction(async (tx) => {
+  await tx.planVersion.update({ where: { id }, data: planData });
+  
+  for (const scene of scenes) {
+    await tx.scene.update({ where: { id: scene.id }, data: sceneData });
+  }
+});
+
+// ❌ Bad - Plan might update but scenes fail
+await prisma.planVersion.update({ where: { id }, data: planData });
+for (const scene of scenes) {
+  await prisma.scene.update({ where: { id: scene.id }, data: sceneData }); // Each might fail independently
+}
+```
+
+**Transaction isolation levels:**
+
+SQLite runs transactions in a `SERIALIZABLE`-like mode by default. Prisma's `isolationLevel` option is **only** supported for PostgreSQL, MySQL, and SQL Server—not for SQLite.
+
+If you're using a database that supports explicit isolation levels, you can configure them like this:
+
+```typescript
+// Only works with PostgreSQL, MySQL, or SQL Server (NOT SQLite)
+await prisma.$transaction(
+  async (tx) => {
+    // transaction code
+  },
+  { isolationLevel: 'Serializable' } // Strongest, prevents race conditions
+);
+```
+
+### N+1 Query Prevention
+
+**Problem:** Loop with database query in each iteration creates N+1 queries (1 initial + N in loop).
+
+**Note on transactions vs N+1:** Wrapping updates in a transaction ensures **atomicity** (all-or-nothing), but doesn't eliminate the N queries—it just batches them. For true query-count reduction, use `createMany`, `updateMany`, or `deleteMany` when possible.
+
+**Example 1: Use `createMany` for bulk inserts**
+
+```typescript
+// ✅ Good - Single query creates all scenes
+await prisma.scene.createMany({
+  data: scenes.map(scene => ({
+    id: uuid(),
+    planVersionId: planVersion.id,
+    ...scene
+  }))
+});
+
+// ❌ Bad - N queries (one per scene)
+for (const scene of scenes) {
+  await prisma.scene.create({
+    data: { id: uuid(), planVersionId: planVersion.id, ...scene }
+  });
+}
+```
+
+**Example 2: Use `deleteMany` with filter**
+
+```typescript
+// ✅ Good - Single query deletes all matching records
+await prisma.scene.deleteMany({
+  where: { planVersionId: planVersion.id }
+});
+
+// ❌ Bad - N queries
+for (const scene of scenes) {
+  await prisma.scene.delete({ where: { id: scene.id } });
+}
+```
+
+**Example 3: Individual updates with transaction array (atomicity, not query reduction)**
+
+```typescript
+// ✅ Good - Atomic batch of updates using transaction array form
+// Each scene still requires a separate UPDATE (because values differ per scene),
+// but all succeed or all fail together
+const updateOperations = scenes.map(scene =>
+  prisma.scene.update({
+    where: { id: scene.id },
+    data: { durationTargetSec: scene.durationTargetSec }
+  })
+);
+await prisma.$transaction(updateOperations);
+
+// ❌ Bad - N queries without atomicity
+for (const scene of scenes) {
+  await prisma.scene.update({
+    where: { id: scene.id },
+    data: { durationTargetSec: scene.durationTargetSec }
+  });
+}
+
+// Note: updateMany can't be used here because each scene has different values
+// Transaction array ensures atomicity while accepting N queries are necessary
+```
+
+### Database Indexes
+
+**Purpose:** Speed up queries on frequently filtered/sorted columns.
+
+**Current indexes in schema:**
+
+```prisma
+model Project {
+  // ...
+  @@index([status])
+  @@index([createdAt])
+}
+
+model PlanVersion {
+  // ...
+  @@index([projectId])
+  @@index([createdAt])
+}
+
+model Scene {
+  // ...
+  @@index([planVersionId])
+  @@index([projectId])
+  @@index([planVersionId, idx], map: "Scene_planVersionId_sceneIdx_idx")
+}
+
+model Run {
+  // ...
+  @@index([status])
+  @@index([projectId])
+  @@index([scheduledPublishAt])
+  @@index([createdAt])
+  @@index([projectId, createdAt])
+  @@index([status, createdAt])
+}
+
+model Cache {
+  hashKey String @unique  // Unique constraint creates index automatically
+  @@index([kind])
+}
+```
+
+**When to add indexes:**
+- Columns used in `where` clauses frequently
+- Foreign key columns (e.g., `projectId`, `planVersionId`)
+- Columns used in `orderBy`
+- Composite indexes for common query patterns (e.g., status + date filters)
+
+**Cost of indexes:**
+- Faster reads
+- Slower writes (index must be updated)
+- Additional storage
+- Generally worth it for columns queried frequently
+
+### Query Optimization Tips
+
+**1. Use `include` to fetch relations in single query:**
+
+```typescript
+// ✅ Good - Single query with joins
+const project = await prisma.project.findUnique({
+  where: { id },
+  include: {
+    planVersions: { include: { scenes: true } },
+    runs: true
+  }
+});
+
+// ❌ Bad - Multiple round trips
+const project = await prisma.project.findUnique({ where: { id } });
+const planVersions = await prisma.planVersion.findMany({ where: { projectId: id } });
+const scenes = await prisma.scene.findMany({ where: { projectId: id } });
+```
+
+**2. Use `select` to fetch only needed fields:**
+
+```typescript
+// ✅ Good - Only fetch what's needed
+const projects = await prisma.project.findMany({
+  select: { id: true, title: true, status: true }
+});
+
+// ❌ Bad - Fetches all columns (slower for large text fields)
+const projects = await prisma.project.findMany();
+```
+
+**3. Count queries with filters:**
+
+```typescript
+// ✅ Good - Single efficient count
+const count = await prisma.run.count({
+  where: { status: { in: ['queued', 'running'] } }
+});
+
+// ❌ Bad - Fetches all data then counts in memory
+const runs = await prisma.run.findMany({
+  where: { status: { in: ['queued', 'running'] } }
+});
+const count = runs.length;
+```
+
+### Database Testing
+
+**Test file:** `apps/server/tests/database-reliability.integration.test.ts`
+
+Tests verify:
+- Transaction atomicity (all-or-nothing behavior)
+- N+1 query elimination
+- Proper rollback on errors
+- Data consistency across related tables
+
+Run with:
+
+```bash
+npm run test  # Runs all tests including database reliability tests
+```
+
+---
+
 ## Code Style
 
 ### ESLint Configuration
