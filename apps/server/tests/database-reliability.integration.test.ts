@@ -234,12 +234,13 @@ describe('Database reliability - transactions and N+1 elimination (Issue 5 & 6)'
     });
   });
 
-  describe('Query count verification (N+1 elimination)', () => {
-    it('should verify autofit uses single transaction instead of N queries', async () => {
-      // This test verifies that autofit operation doesn't create N+1 queries
-      // by wrapping all scene updates in a single transaction
+  describe('Query count verification (atomicity, not query-count)', () => {
+    it('should verify autofit uses transaction array for atomicity', async () => {
+      // This test verifies that autofit operation wraps all updates atomically.
+      // Note: Transaction array form still executes N+1 UPDATE queries,
+      // but ensures all succeed or all fail together.
       const createRes = await request(app).post('/api/project').send({
-        topic: 'N+1 query test',
+        topic: 'Transaction atomicity test',
         nichePackId: 'facts',
         targetLengthSec: 60,
       });
@@ -251,8 +252,7 @@ describe('Database reliability - transactions and N+1 elimination (Issue 5 & 6)'
       const plan = planRes.body;
       const sceneCount = plan.scenes.length;
 
-      // Before fix: would execute ~sceneCount UPDATE queries
-      // After fix: executes all updates within a single transaction
+      // Call autofit - all scene updates + plan estimates should succeed atomically
       const autofitRes = await request(app).post(`/api/plan/${plan.id}/autofit`);
       expect(autofitRes.status).toBe(200);
 
@@ -260,14 +260,26 @@ describe('Database reliability - transactions and N+1 elimination (Issue 5 & 6)'
       const updatedPlan = autofitRes.body;
       expect(updatedPlan.scenes.length).toBe(sceneCount);
 
-      // If this completes without error, the transaction succeeded
-      // In a production environment, you could enable Prisma query logging
-      // to verify the exact number of queries
+      // Verify consistency: all scenes + plan estimates updated together
+      const dbScenes = await prisma.scene.findMany({
+        where: { planVersionId: plan.id },
+        orderBy: { idx: 'asc' },
+      });
+      expect(dbScenes.length).toBe(sceneCount);
+
+      const dbPlan = await prisma.planVersion.findUnique({
+        where: { id: plan.id },
+      });
+      const estimates = JSON.parse(dbPlan!.estimatesJson);
+      expect(estimates.estimatedLengthSec).toBeGreaterThan(0);
     });
 
-    it('should verify regenerate-script uses single transaction', async () => {
+    it('should verify regenerate-script uses transaction array for atomicity', async () => {
+      // This test verifies that regenerate-script wraps plan + scene updates atomically.
+      // Note: Transaction array form still executes 1 plan UPDATE + N scene UPDATEs,
+      // but ensures all succeed or all fail together.
       const createRes = await request(app).post('/api/project').send({
-        topic: 'Script regeneration N+1 test',
+        topic: 'Script regeneration atomicity test',
         nichePackId: 'horror',
         targetLengthSec: 60,
       });
@@ -279,18 +291,25 @@ describe('Database reliability - transactions and N+1 elimination (Issue 5 & 6)'
       const plan = planRes.body;
       const sceneCount = plan.scenes.length;
 
-      // Before fix: would execute 1 UPDATE for plan + sceneCount UPDATEs for scenes
-      // After fix: executes all updates within a single transaction
+      // Call regenerate-script - plan scriptFull + all scene narrations should succeed atomically
       const regenRes = await request(app).post(`/api/plan/${plan.id}/regenerate-script`);
       expect(regenRes.status).toBe(200);
 
-      // Verify all changes were persisted
+      // Verify all changes were persisted together
       const updatedPlan = regenRes.body;
       expect(updatedPlan.scriptFull).toBeTruthy();
       expect(updatedPlan.scenes.length).toBe(sceneCount);
       for (const scene of updatedPlan.scenes) {
         expect(scene.narrationText).toBeTruthy();
       }
+
+      // Verify database consistency
+      const dbPlan = await prisma.planVersion.findUnique({
+        where: { id: plan.id },
+        include: { scenes: true },
+      });
+      expect(dbPlan!.scriptFull).toBe(updatedPlan.scriptFull);
+      expect(dbPlan!.scenes.every((s) => s.narrationText.length > 0)).toBe(true);
     });
   });
 });

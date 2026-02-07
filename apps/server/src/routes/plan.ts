@@ -282,21 +282,6 @@ planRoutes.post('/:planVersionId/autofit', async (req, res) => {
 
     const fittedScenes = autofitDurations(planVersion.scenes, planVersion.project);
 
-    // P1-6 FIX: Update scenes in DB using transaction to ensure atomicity
-    // and avoid N+1 query pattern
-    await prisma.$transaction(async (tx) => {
-      for (const scene of fittedScenes) {
-        await tx.scene.update({
-          where: { id: scene.id },
-          data: {
-            durationTargetSec: scene.durationTargetSec,
-            startTimeSec: scene.startTimeSec,
-            endTimeSec: scene.endTimeSec,
-          },
-        });
-      }
-    });
-
     // Recalculate estimates
     const totalDuration = fittedScenes.reduce((sum, s) => sum + s.durationTargetSec, 0);
     const totalWords = fittedScenes.reduce(
@@ -305,16 +290,31 @@ planRoutes.post('/:planVersionId/autofit', async (req, res) => {
     );
     const wpm = totalDuration > 0 ? (totalWords / totalDuration) * 60 : 0;
 
-    await prisma.planVersion.update({
-      where: { id: planVersion.id },
-      data: {
-        estimatesJson: JSON.stringify({
-          wpm: Math.round(wpm),
-          estimatedLengthSec: Math.round(totalDuration),
-          targetLengthSec: planVersion.project.targetLengthSec,
-        }),
-      },
-    });
+    // P1-6 FIX: Update all scenes and plan estimates atomically using transaction array form.
+    // This batches N scene updates + 1 plan update into a single transaction for atomicity.
+    const updateOperations = [
+      ...fittedScenes.map((scene) =>
+        prisma.scene.update({
+          where: { id: scene.id },
+          data: {
+            durationTargetSec: scene.durationTargetSec,
+            startTimeSec: scene.startTimeSec,
+            endTimeSec: scene.endTimeSec,
+          },
+        })
+      ),
+      prisma.planVersion.update({
+        where: { id: planVersion.id },
+        data: {
+          estimatesJson: JSON.stringify({
+            wpm: Math.round(wpm),
+            estimatedLengthSec: Math.round(totalDuration),
+            targetLengthSec: planVersion.project.targetLengthSec,
+          }),
+        },
+      }),
+    ];
+    await prisma.$transaction(updateOperations);
 
     // Fetch updated plan
     const updatedPlan = await prisma.planVersion.findUnique({
@@ -433,22 +433,21 @@ planRoutes.post('/:planVersionId/regenerate-script', async (req, res) => {
       planVersion.scenes
     );
 
-    // P1-6 FIX: Update plan version and scenes in a single transaction
-    // to ensure atomicity and avoid N+1 query pattern
-    await prisma.$transaction(async (tx) => {
-      await tx.planVersion.update({
+    // P1-6 FIX: Update plan version and all scenes atomically using transaction array form.
+    // This batches 1 plan update + N scene updates into a single transaction for atomicity.
+    const updateOperations = [
+      prisma.planVersion.update({
         where: { id: planVersion.id },
         data: { scriptFull },
-      });
-
-      // Update scene narrations
-      for (const scene of scenes) {
-        await tx.scene.update({
+      }),
+      ...scenes.map((scene) =>
+        prisma.scene.update({
           where: { id: scene.id },
           data: { narrationText: scene.narrationText },
-        });
-      }
-    });
+        })
+      ),
+    ];
+    await prisma.$transaction(updateOperations);
 
     const updatedPlan = await prisma.planVersion.findUnique({
       where: { id: planVersion.id },

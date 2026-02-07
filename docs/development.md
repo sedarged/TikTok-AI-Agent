@@ -781,9 +781,12 @@ for (const scene of scenes) {
 
 **Transaction isolation levels:**
 
-SQLite default is `SERIALIZABLE` (strongest). Prisma supports explicit levels:
+SQLite runs transactions in a `SERIALIZABLE`-like mode by default. Prisma's `isolationLevel` option is **only** supported for PostgreSQL, MySQL, and SQL Server—not for SQLite.
+
+If you're using a database that supports explicit isolation levels, you can configure them like this:
 
 ```typescript
+// Only works with PostgreSQL, MySQL, or SQL Server (NOT SQLite)
 await prisma.$transaction(
   async (tx) => {
     // transaction code
@@ -795,6 +798,8 @@ await prisma.$transaction(
 ### N+1 Query Prevention
 
 **Problem:** Loop with database query in each iteration creates N+1 queries (1 initial + N in loop).
+
+**Note on transactions vs N+1:** Wrapping updates in a transaction ensures **atomicity** (all-or-nothing), but doesn't eliminate the N queries—it just batches them. For true query-count reduction, use `createMany`, `updateMany`, or `deleteMany` when possible.
 
 **Example 1: Use `createMany` for bulk inserts**
 
@@ -830,21 +835,30 @@ for (const scene of scenes) {
 }
 ```
 
-**Example 3: Batch updates in transaction**
+**Example 3: Individual updates with transaction array (atomicity, not query reduction)**
 
 ```typescript
-// ✅ Good - Updates in transaction (necessary for scene updates which need individual logic)
-await prisma.$transaction(async (tx) => {
-  for (const scene of scenes) {
-    await tx.scene.update({
-      where: { id: scene.id },
-      data: { durationTargetSec: scene.durationTargetSec }
-    });
-  }
-});
+// ✅ Good - Atomic batch of updates using transaction array form
+// Each scene still requires a separate UPDATE (because values differ per scene),
+// but all succeed or all fail together
+const updateOperations = scenes.map(scene =>
+  prisma.scene.update({
+    where: { id: scene.id },
+    data: { durationTargetSec: scene.durationTargetSec }
+  })
+);
+await prisma.$transaction(updateOperations);
 
-// Note: updateMany doesn't work here because each scene has different values
-// Transaction ensures atomicity while minimizing impact of multiple queries
+// ❌ Bad - N queries without atomicity
+for (const scene of scenes) {
+  await prisma.scene.update({
+    where: { id: scene.id },
+    data: { durationTargetSec: scene.durationTargetSec }
+  });
+}
+
+// Note: updateMany can't be used here because each scene has different values
+// Transaction array ensures atomicity while accepting N queries are necessary
 ```
 
 ### Database Indexes
