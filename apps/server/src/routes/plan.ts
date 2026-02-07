@@ -282,17 +282,20 @@ planRoutes.post('/:planVersionId/autofit', async (req, res) => {
 
     const fittedScenes = autofitDurations(planVersion.scenes, planVersion.project);
 
-    // Update scenes in DB
-    for (const scene of fittedScenes) {
-      await prisma.scene.update({
-        where: { id: scene.id },
-        data: {
-          durationTargetSec: scene.durationTargetSec,
-          startTimeSec: scene.startTimeSec,
-          endTimeSec: scene.endTimeSec,
-        },
-      });
-    }
+    // P1-6 FIX: Update scenes in DB using transaction to ensure atomicity
+    // and avoid N+1 query pattern
+    await prisma.$transaction(async (tx) => {
+      for (const scene of fittedScenes) {
+        await tx.scene.update({
+          where: { id: scene.id },
+          data: {
+            durationTargetSec: scene.durationTargetSec,
+            startTimeSec: scene.startTimeSec,
+            endTimeSec: scene.endTimeSec,
+          },
+        });
+      }
+    });
 
     // Recalculate estimates
     const totalDuration = fittedScenes.reduce((sum, s) => sum + s.durationTargetSec, 0);
@@ -430,18 +433,22 @@ planRoutes.post('/:planVersionId/regenerate-script', async (req, res) => {
       planVersion.scenes
     );
 
-    await prisma.planVersion.update({
-      where: { id: planVersion.id },
-      data: { scriptFull },
-    });
-
-    // Update scene narrations
-    for (const scene of scenes) {
-      await prisma.scene.update({
-        where: { id: scene.id },
-        data: { narrationText: scene.narrationText },
+    // P1-6 FIX: Update plan version and scenes in a single transaction
+    // to ensure atomicity and avoid N+1 query pattern
+    await prisma.$transaction(async (tx) => {
+      await tx.planVersion.update({
+        where: { id: planVersion.id },
+        data: { scriptFull },
       });
-    }
+
+      // Update scene narrations
+      for (const scene of scenes) {
+        await tx.scene.update({
+          where: { id: scene.id },
+          data: { narrationText: scene.narrationText },
+        });
+      }
+    });
 
     const updatedPlan = await prisma.planVersion.findUnique({
       where: { id: planVersion.id },
