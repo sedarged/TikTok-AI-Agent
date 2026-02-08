@@ -17,6 +17,7 @@ const querySchema = z
 /**
  * GET /api/topic-suggestions?nichePackId=facts&limit=10
  * Returns AI-suggested viral topics for the niche (array of strings).
+ * Includes X-Cache-Status header (HIT/MISS) to indicate cache status.
  */
 topicSuggestionsRoutes.get('/', async (req, res) => {
   try {
@@ -47,8 +48,9 @@ topicSuggestionsRoutes.get('/', async (req, res) => {
       return res.status(400).json({ error: 'Invalid niche pack' });
     }
 
-    const topics = await getTopicSuggestions(nichePackId, limit);
-    res.json(topics);
+    const result = await getTopicSuggestions(nichePackId, limit);
+    res.setHeader('X-Cache-Status', result.cacheHit ? 'HIT' : 'MISS');
+    res.json(result.topics);
   } catch (error) {
     logError('Error getting topic suggestions', error);
     res.status(500).json({

@@ -102,12 +102,14 @@ model Run {
 }
 
 model Cache {
-  id          String   @id @default(uuid())
-  kind        String   // llm | images | tts | asr | topic_suggestions
-  hashKey     String   @unique
-  resultJson  String   @default("{}")
+  id          String    @id @default(uuid())
+  kind        String    // llm | images | tts | asr | topic_suggestions
+  hashKey     String    @unique
+  resultJson  String    @default("{}")
   payloadPath String?
-  createdAt   DateTime @default(now())
+  createdAt   DateTime  @default(now())
+  expiresAt   DateTime? // Optional expiration timestamp for TTL cache entries
 
   @@index([kind])
+  @@index([expiresAt])
 }

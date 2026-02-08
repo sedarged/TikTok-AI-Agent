@@ -23,10 +23,15 @@ function unwrapArrayField<T>(parsed: unknown, fieldName: string): T[] | null {
   return null;
 }
 
+export interface TopicSuggestionsResult {
+  topics: string[];
+  cacheHit: boolean;
+}
+
 export async function getTopicSuggestions(
   nichePackId: string,
   limit: number = 10
-): Promise<string[]> {
+): Promise<TopicSuggestionsResult> {
   // Check cache first
   const cacheKey = createHash('topic_suggestions', nichePackId, String(limit));
   const cached = await getCachedResult(cacheKey);
@@ -37,7 +42,7 @@ export async function getTopicSuggestions(
     });
     if (result.topics && Array.isArray(result.topics)) {
       logDebug(`Cache hit for topic suggestions: ${cacheKey}`);
-      return result.topics;
+      return { topics: result.topics, cacheHit: true };
     }
   }
 
@@ -67,8 +72,8 @@ export async function getTopicSuggestions(
     .filter(Boolean)
     .slice(0, limit);
 
-  // Cache the result
-  await cacheResult(cacheKey, 'topic_suggestions', { topics });
+  // Cache the result with 20 minute TTL (1200 seconds)
+  await cacheResult(cacheKey, 'topic_suggestions', { topics }, undefined, 1200);
 
-  return topics;
+  return { topics, cacheHit: false };
 }
