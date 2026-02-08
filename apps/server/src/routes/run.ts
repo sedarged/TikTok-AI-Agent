@@ -188,7 +188,7 @@ runRoutes.patch('/:runId', async (req, res) => {
     const bodyParsed = patchRunBodySchema.safeParse(req.body ?? {});
     if (!bodyParsed.success) {
       return res.status(400).json({
-        error: 'Invalid body',
+        error: 'Invalid request',
         details: bodyParsed.error.flatten(),
       });
     }

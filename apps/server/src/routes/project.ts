@@ -263,7 +263,7 @@ projectRoutes.post('/:id/duplicate', async (req, res) => {
     const newPlanVersionId = uuid();
 
     const newProject = await prisma.$transaction(async (tx) => {
-      const createdProject = await tx.project.create({
+      await tx.project.create({
         data: {
           id: newProjectId,
           title: `${original.title} (Copy)`,
@@ -324,7 +324,8 @@ projectRoutes.post('/:id/duplicate', async (req, res) => {
         });
       }
 
-      return createdProject;
+      // Return the updated project with final status
+      return tx.project.findUnique({ where: { id: newProjectId } });
     });
 
     res.json(newProject);

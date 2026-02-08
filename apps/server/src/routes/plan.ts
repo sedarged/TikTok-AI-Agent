@@ -140,18 +140,21 @@ planRoutes.put('/:planVersionId', async (req, res) => {
           const existingScene = existingScenesMap.get(scene.id);
           if (!existingScene) continue;
 
-          // If scene is locked, only allow unlocking (isLocked: false)
+          // If scene is locked, check if any updatable fields are being modified
           if (existingScene.isLocked) {
-            const isOnlyUnlocking =
-              scene.isLocked === false &&
-              scene.narrationText === undefined &&
-              scene.onScreenText === undefined &&
-              scene.visualPrompt === undefined &&
-              scene.negativePrompt === undefined &&
-              scene.effectPreset === undefined &&
-              scene.durationTargetSec === undefined;
+            // Allow no-op updates (only id field) or explicit unlocking
+            const hasUpdateFields =
+              scene.narrationText !== undefined ||
+              scene.onScreenText !== undefined ||
+              scene.visualPrompt !== undefined ||
+              scene.negativePrompt !== undefined ||
+              scene.effectPreset !== undefined ||
+              scene.durationTargetSec !== undefined;
 
-            if (!isOnlyUnlocking) {
+            const isUnlocking = scene.isLocked === false;
+
+            // Reject if trying to modify fields (other than unlocking)
+            if (hasUpdateFields && !isUnlocking) {
               lockedSceneIds.push(scene.id);
             }
           }

@@ -1,4 +1,4 @@
-import { beforeAll, beforeEach, afterAll, describe, expect, it } from 'vitest';
+import { beforeAll, beforeEach, afterAll, describe, expect, it, vi } from 'vitest';
 import request from 'supertest';
 import type { Express } from 'express';
 import { v4 as uuid } from 'uuid';
@@ -17,6 +17,9 @@ async function resetDb() {
 
 describe('Data Integrity & API Validation', () => {
   beforeAll(async () => {
+    // Ensure hermetic test environment: no API_KEY required
+    delete process.env.API_KEY;
+    vi.resetModules();
     const module = await import('../src/index.js');
     app = module.createApp();
   });
@@ -133,6 +136,42 @@ describe('Data Integrity & API Validation', () => {
           scenes: [{ id: firstScene.id, narrationText: 'Updated unlocked scene' }],
         });
       expect(updateRes.status).toBe(200);
+    });
+
+    it('should allow no-op updates for locked scenes', async () => {
+      // Create a project and plan
+      const projectRes = await request(app).post('/api/project').send({
+        topic: 'Test no-op locked scenes',
+        nichePackId: 'facts',
+        language: 'en',
+        targetLengthSec: 60,
+        tempo: 'normal',
+        voicePreset: 'alloy',
+      });
+      expect(projectRes.status).toBe(200);
+      const project = ProjectSchema.parse(projectRes.body);
+
+      const planRes = await request(app).post(`/api/project/${project.id}/plan`);
+      expect(planRes.status).toBe(200);
+      const plan = PlanVersionSchema.parse(planRes.body);
+
+      const firstScene = plan.scenes![0];
+
+      // Lock the scene
+      const lockRes = await request(app)
+        .put(`/api/plan/${plan.id}`)
+        .send({
+          scenes: [{ id: firstScene.id, isLocked: true }],
+        });
+      expect(lockRes.status).toBe(200);
+
+      // No-op update (only id field) should succeed
+      const noopRes = await request(app)
+        .put(`/api/plan/${plan.id}`)
+        .send({
+          scenes: [{ id: firstScene.id }],
+        });
+      expect(noopRes.status).toBe(200);
     });
   });
 
