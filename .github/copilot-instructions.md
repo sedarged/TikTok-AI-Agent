@@ -65,6 +65,8 @@ Before committing: run `npm run check`. Pre-commit runs lint-staged on staged fi
 - `APP_RENDER_DRY_RUN=1` - Full render pipeline without paid APIs
 - `APP_DRY_RUN_FAIL_STEP=<step>` - Simulate failure at specific step
 
+**See [.cursor/docs/test-modes.md](../.cursor/docs/test-modes.md) for comprehensive test mode guide.**
+
 ---
 
 ## Code Patterns & Conventions

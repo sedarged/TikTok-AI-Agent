@@ -99,6 +99,11 @@ User-facing docs. See [docs/README.md](../../docs/README.md) for full index.
 ### AI Configuration (`.cursor/`)
 
 - **`docs/`** - This directory. AI-focused guides.
+  - `project-layout.md` - Repository structure and file organization
+  - `common-pitfalls.md` - Frequent mistakes and how to avoid them
+  - `decision-trees.md` - Quick decision trees for common tasks
+  - `test-modes.md` - Comprehensive test environment and mocking guide
+  - `session-state.md` - Template for tracking multi-turn session context
 - **`rules/`** - Cursor rules (MDC format). `alwaysApply: true` rules run on all files.
 - **`commands/`** - Custom commands (e.g., `/validate`, `/add-api-endpoint`).
 - **`skills/`** - Agent Skills (e.g., `add-api-endpoint`, `debug-render-failure`, `repo-audit`).
