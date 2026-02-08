@@ -133,6 +133,41 @@ planRoutes.put('/:planVersionId', async (req, res) => {
           });
         }
 
+        // Issue 8: Check for attempts to modify locked scenes
+        const lockedSceneIds: string[] = [];
+        for (const scene of scenes) {
+          if (!scene.id) continue;
+          const existingScene = existingScenesMap.get(scene.id);
+          if (!existingScene) continue;
+
+          // If scene is locked, check if any updatable fields are being modified
+          if (existingScene.isLocked) {
+            // Allow no-op updates (only id field) or explicit unlocking
+            const hasUpdateFields =
+              scene.narrationText !== undefined ||
+              scene.onScreenText !== undefined ||
+              scene.visualPrompt !== undefined ||
+              scene.negativePrompt !== undefined ||
+              scene.effectPreset !== undefined ||
+              scene.durationTargetSec !== undefined;
+
+            const isUnlocking = scene.isLocked === false;
+
+            // Reject if trying to modify fields (other than unlocking)
+            if (hasUpdateFields && !isUnlocking) {
+              lockedSceneIds.push(scene.id);
+            }
+          }
+        }
+
+        // Return error if any locked scenes would be modified
+        if (lockedSceneIds.length > 0) {
+          return res.status(400).json({
+            error: 'Cannot modify locked scenes. Unlock them first.',
+            lockedSceneIds,
+          });
+        }
+
         // Store validated scenes for updates
         scenesToUpdate = existingScenesMap;
       }
@@ -163,7 +198,7 @@ planRoutes.put('/:planVersionId', async (req, res) => {
           });
         }
 
-        // Update scenes if provided (now we know all scenes are valid)
+        // Update scenes if provided (now we know all scenes are valid and not locked)
         if (scenes && Array.isArray(scenes) && scenesToUpdate.size > 0) {
           for (const scene of scenes) {
             if (!scene.id) continue;
@@ -171,26 +206,19 @@ planRoutes.put('/:planVersionId', async (req, res) => {
             const existingScene = scenesToUpdate.get(scene.id);
             if (!existingScene) continue; // Scene was filtered out in validation
 
-            if (!existingScene.isLocked) {
-              await tx.scene.update({
-                where: { id: scene.id },
-                data: {
-                  narrationText: scene.narrationText ?? existingScene.narrationText,
-                  onScreenText: scene.onScreenText ?? existingScene.onScreenText,
-                  visualPrompt: scene.visualPrompt ?? existingScene.visualPrompt,
-                  negativePrompt: scene.negativePrompt ?? existingScene.negativePrompt,
-                  effectPreset: scene.effectPreset ?? existingScene.effectPreset,
-                  durationTargetSec: scene.durationTargetSec ?? existingScene.durationTargetSec,
-                  isLocked: scene.isLocked ?? existingScene.isLocked,
-                },
-              });
-            } else if (existingScene.isLocked && scene.isLocked === false) {
-              // Allow unlocking
-              await tx.scene.update({
-                where: { id: scene.id },
-                data: { isLocked: false },
-              });
-            }
+            // Validation already rejected locked scene modifications, so we can safely update
+            await tx.scene.update({
+              where: { id: scene.id },
+              data: {
+                narrationText: scene.narrationText ?? existingScene.narrationText,
+                onScreenText: scene.onScreenText ?? existingScene.onScreenText,
+                visualPrompt: scene.visualPrompt ?? existingScene.visualPrompt,
+                negativePrompt: scene.negativePrompt ?? existingScene.negativePrompt,
+                effectPreset: scene.effectPreset ?? existingScene.effectPreset,
+                durationTargetSec: scene.durationTargetSec ?? existingScene.durationTargetSec,
+                isLocked: scene.isLocked ?? existingScene.isLocked,
+              },
+            });
           }
         }
       });
@@ -278,6 +306,21 @@ planRoutes.post('/:planVersionId/autofit', async (req, res) => {
 
     if (!planVersion) {
       return res.status(404).json({ error: 'Plan version not found' });
+    }
+
+    // Issue 11: Validate scenes have non-empty narration
+    const emptyScenes: number[] = [];
+    for (const scene of planVersion.scenes) {
+      if (!scene.narrationText || scene.narrationText.trim().length === 0) {
+        emptyScenes.push(scene.idx);
+      }
+    }
+
+    if (emptyScenes.length > 0) {
+      return res.status(400).json({
+        error: 'Cannot autofit durations: some scenes have empty narration',
+        emptyScenes: emptyScenes.map((idx) => idx + 1), // Display as 1-indexed
+      });
     }
 
     const fittedScenes = autofitDurations(planVersion.scenes, planVersion.project);

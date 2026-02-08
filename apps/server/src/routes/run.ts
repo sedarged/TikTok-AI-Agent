@@ -22,11 +22,23 @@ const retryBodySchema = z
 
 const patchRunBodySchema = z
   .object({
-    views: z.number().int().min(0).optional(),
-    likes: z.number().int().min(0).optional(),
+    // Issue 10: Add bounds validation for analytics metrics
+    views: z.number().int().min(0).max(1_000_000_000).optional(), // Max 1 billion views
+    likes: z.number().int().min(0).max(1_000_000_000).optional(), // Max 1 billion likes
     retention: z.number().min(0).max(1).optional(),
     postedAt: z.union([z.string().datetime(), z.null()]).optional(),
-    scheduledPublishAt: z.union([z.string().datetime(), z.null()]).optional(),
+    // Issue 14: Validate scheduledPublishAt is a future date
+    scheduledPublishAt: z
+      .union([
+        z
+          .string()
+          .datetime()
+          .refine((val) => new Date(val) > new Date(), {
+            message: 'scheduledPublishAt must be a future date',
+          }),
+        z.null(),
+      ])
+      .optional(),
     publishedAt: z.union([z.string().datetime(), z.null()]).optional(),
   })
   .strict();
@@ -176,7 +188,7 @@ runRoutes.patch('/:runId', async (req, res) => {
     const bodyParsed = patchRunBodySchema.safeParse(req.body ?? {});
     if (!bodyParsed.success) {
       return res.status(400).json({
-        error: 'Invalid body',
+        error: 'Invalid request',
         details: bodyParsed.error.flatten(),
       });
     }
