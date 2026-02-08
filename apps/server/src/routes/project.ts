@@ -245,6 +245,20 @@ projectRoutes.post('/:id/duplicate', async (req, res) => {
       return res.status(404).json({ error: 'Project not found' });
     }
 
+    // Issue 9: Validate project has a plan with scenes
+    if (original.planVersions.length === 0) {
+      return res.status(400).json({
+        error: 'Cannot duplicate project without a plan. Generate a plan first.',
+      });
+    }
+
+    const originalPlan = original.planVersions[0];
+    if (!originalPlan.scenes || originalPlan.scenes.length === 0) {
+      return res.status(400).json({
+        error: 'Cannot duplicate project with empty plan. Plan must have at least one scene.',
+      });
+    }
+
     const newProjectId = uuid();
     const newPlanVersionId = uuid();
 

@@ -268,6 +268,42 @@ Generate AI plan for project.
 }
 ```
 
+### POST /api/projects/:id/duplicate
+
+Duplicate a project with its plan and scenes.
+
+**Validation:**
+- Source project must exist
+- Source project must have a plan
+- Plan must have at least one scene
+
+**Response 200:**
+
+```json
+{
+  "id": "new-project-uuid",
+  "title": "Original Title (Copy)",
+  "topic": "...",
+  "status": "PLAN_READY"
+}
+```
+
+**Response 400 (validation errors):**
+
+```json
+{
+  "error": "Cannot duplicate project without a plan. Generate a plan first."
+}
+```
+
+or
+
+```json
+{
+  "error": "Cannot duplicate project with empty plan. Plan must have at least one scene."
+}
+```
+
 ### DELETE /api/projects/:id
 
 Delete project (cascades to plans, scenes, runs).
@@ -284,7 +320,7 @@ Delete project (cascades to plans, scenes, runs).
 
 ### PUT /api/plan/:planVersionId
 
-Update plan (hook selection, outline, script).
+Update plan (hook selection, outline, script, scenes).
 
 **Request Body:**
 
@@ -292,9 +328,21 @@ Update plan (hook selection, outline, script).
 {
   "hookSelected": "Did you know these 5 haunted houses...",
   "outline": "Updated outline...",
-  "scriptFull": "Updated script..."
+  "scriptFull": "Updated script...",
+  "scenes": [
+    {
+      "id": "scene-uuid",
+      "narrationText": "Updated narration",
+      "isLocked": true
+    }
+  ]
 }
 ```
+
+**Validation:**
+- Locked scenes cannot be modified (except to unlock with `isLocked: false`)
+- All scene IDs must belong to the plan
+- Scene updates are atomic (all or nothing)
 
 **Response 200:**
 
@@ -303,7 +351,50 @@ Update plan (hook selection, outline, script).
   "id": "uuid",
   "hookSelected": "...",
   "outline": "...",
-  "scriptFull": "..."
+  "scriptFull": "...",
+  "scenes": [...]
+}
+```
+
+**Response 400 (locked scene error):**
+
+```json
+{
+  "error": "Cannot modify locked scenes. Unlock them first.",
+  "lockedSceneIds": ["scene-uuid-1", "scene-uuid-2"]
+}
+```
+
+### POST /api/plan/:planVersionId/autofit
+
+Automatically adjust scene durations to fit target video length.
+
+**Validation:**
+- All scenes must have non-empty narration text
+- Respects locked scenes (won't adjust their durations)
+
+**Response 200:**
+
+```json
+{
+  "id": "plan-uuid",
+  "scenes": [
+    {
+      "id": "scene-uuid",
+      "durationTargetSec": 8.5,
+      "startTimeSec": 0,
+      "endTimeSec": 8.5
+    }
+  ]
+}
+```
+
+**Response 400 (validation error):**
+
+```json
+{
+  "error": "Cannot autofit durations: some scenes have empty narration",
+  "emptyScenes": [1, 3, 5]
 }
 ```
 
@@ -459,9 +550,17 @@ Update run analytics.
   "views": 15000,
   "likes": 500,
   "retention": 0.75,
-  "postedAt": "2026-01-29T12:00:00.000Z"
+  "postedAt": "2026-01-29T12:00:00.000Z",
+  "scheduledPublishAt": "2026-02-15T10:00:00.000Z"
 }
 ```
+
+**Validation:**
+- `views`: Integer, 0 to 1,000,000,000
+- `likes`: Integer, 0 to 1,000,000,000
+- `retention`: Float, 0 to 1
+- `scheduledPublishAt`: ISO 8601 datetime, must be future date or null
+- `postedAt`, `publishedAt`: ISO 8601 datetime or null
 
 **Response 200:**
 
@@ -470,6 +569,20 @@ Update run analytics.
   "id": "uuid",
   "views": 15000,
   "likes": 500
+}
+```
+
+**Response 400 (validation errors):**
+
+```json
+{
+  "error": "Invalid request",
+  "details": {
+    "fieldErrors": {
+      "views": ["Number must be less than or equal to 1000000000"],
+      "scheduledPublishAt": ["scheduledPublishAt must be a future date"]
+    }
+  }
 }
 ```
 
