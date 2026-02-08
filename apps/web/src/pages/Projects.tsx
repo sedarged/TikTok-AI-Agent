@@ -11,14 +11,23 @@ export default function Projects() {
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
   const menuRefs = useRef<Record<string, HTMLDivElement | null>>({});
 
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [total, setTotal] = useState(0);
+  const perPage = 20;
+
   useEffect(() => {
     const controller = new AbortController();
     const { signal } = controller;
 
-    getProjects({ signal })
+    setLoading(true);
+    getProjects({ page: currentPage, perPage }, { signal })
       .then((data) => {
         if (signal.aborted) return;
-        setProjects(data);
+        setProjects(data.projects);
+        setTotalPages(data.pagination.totalPages);
+        setTotal(data.pagination.total);
       })
       .catch((err) => {
         if (signal.aborted) return;
@@ -29,7 +38,7 @@ export default function Projects() {
       });
 
     return () => controller.abort();
-  }, []);
+  }, [currentPage]);
 
   // Close menu when clicking outside or pressing Escape
   useEffect(() => {
@@ -296,6 +305,64 @@ export default function Projects() {
               </div>
             </div>
           ))}
+        </div>
+      )}
+
+      {/* Pagination controls */}
+      {!loading && totalPages > 1 && (
+        <div className="flex items-center justify-between mt-6">
+          <div className="text-sm" style={{ color: 'var(--color-text-muted)' }}>
+            Showing {projects.length} of {total} projects
+          </div>
+          <div className="flex gap-2">
+            <button
+              onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+              disabled={currentPage === 1}
+              className="btn btn-secondary text-sm"
+              style={{
+                opacity: currentPage === 1 ? 0.5 : 1,
+                cursor: currentPage === 1 ? 'not-allowed' : 'pointer',
+              }}
+            >
+              Previous
+            </button>
+            <div className="flex items-center gap-1">
+              {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                let page: number;
+                if (totalPages <= 5) {
+                  page = i + 1;
+                } else if (currentPage <= 3) {
+                  page = i + 1;
+                } else if (currentPage >= totalPages - 2) {
+                  page = totalPages - 4 + i;
+                } else {
+                  page = currentPage - 2 + i;
+                }
+                return (
+                  <button
+                    key={page}
+                    onClick={() => setCurrentPage(page)}
+                    className={`px-3 py-1 rounded text-sm ${
+                      currentPage === page ? 'btn btn-primary' : 'btn btn-secondary'
+                    }`}
+                  >
+                    {page}
+                  </button>
+                );
+              })}
+            </div>
+            <button
+              onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+              disabled={currentPage === totalPages}
+              className="btn btn-secondary text-sm"
+              style={{
+                opacity: currentPage === totalPages ? 0.5 : 1,
+                cursor: currentPage === totalPages ? 'not-allowed' : 'pointer',
+              }}
+            >
+              Next
+            </button>
+          </div>
         </div>
       )}
     </div>

@@ -29,11 +29,37 @@ const generatePlanBodySchema = z
   })
   .strict();
 
-// List all projects
+const listProjectsQuerySchema = z
+  .object({
+    page: z.coerce.number().int().min(1).optional().default(1),
+    perPage: z.coerce.number().int().min(1).max(100).optional().default(20),
+    sortBy: z.enum(['createdAt', 'updatedAt', 'title', 'status']).optional().default('createdAt'),
+    sortOrder: z.enum(['asc', 'desc']).optional().default('desc'),
+  })
+  .strict();
+
+// List all projects with pagination
 projectRoutes.get('/', async (req, res) => {
   try {
+    const parsed = listProjectsQuerySchema.safeParse(req.query);
+    if (!parsed.success) {
+      return res.status(400).json({
+        error: 'Invalid query parameters',
+        details: parsed.error.flatten(),
+      });
+    }
+
+    const { page, perPage, sortBy, sortOrder } = parsed.data;
+    const skip = (page - 1) * perPage;
+
+    // Get total count
+    const total = await prisma.project.count();
+
+    // Get paginated projects
     const projects = await prisma.project.findMany({
-      orderBy: { createdAt: 'desc' },
+      skip,
+      take: perPage,
+      orderBy: { [sortBy]: sortOrder },
       include: {
         planVersions: {
           orderBy: { createdAt: 'desc' },
@@ -45,7 +71,18 @@ projectRoutes.get('/', async (req, res) => {
         },
       },
     });
-    res.json(projects);
+
+    const totalPages = Math.ceil(total / perPage);
+
+    res.json({
+      projects,
+      pagination: {
+        total,
+        page,
+        perPage,
+        totalPages,
+      },
+    });
   } catch (error) {
     logError('Error listing projects', error);
     res.status(500).json({ error: 'Failed to list projects' });

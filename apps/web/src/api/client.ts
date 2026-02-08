@@ -8,6 +8,8 @@ import type {
   VerificationResult,
   ProviderStatus,
   SSEEvent,
+  PaginatedProjectsResponse,
+  ProjectListOptions,
 } from './types';
 import { safeJsonParse } from '../utils/safeJsonParse';
 
@@ -86,8 +88,18 @@ export async function getScriptTemplates(): Promise<ScriptTemplate[]> {
 }
 
 // Projects
-export async function getProjects(options?: FetchApiOptions): Promise<Project[]> {
-  return fetchApi<Project[]>('/projects', options);
+export async function getProjects(
+  queryOptions?: ProjectListOptions,
+  fetchOptions?: FetchApiOptions
+): Promise<PaginatedProjectsResponse> {
+  const params = new URLSearchParams();
+  if (queryOptions?.page) params.set('page', String(queryOptions.page));
+  if (queryOptions?.perPage) params.set('perPage', String(queryOptions.perPage));
+  if (queryOptions?.sortBy) params.set('sortBy', queryOptions.sortBy);
+  if (queryOptions?.sortOrder) params.set('sortOrder', queryOptions.sortOrder);
+
+  const endpoint = params.toString() ? `/projects?${params}` : '/projects';
+  return fetchApi<PaginatedProjectsResponse>(endpoint, fetchOptions);
 }
 
 export async function getProject(id: string, options?: FetchApiOptions): Promise<Project> {
