@@ -5,15 +5,42 @@
 ## 🚀 Commands
 
 ```bash
+# Development
 npm install          # Install deps (both apps)
 npm run dev          # Start server (3001) + web (5173)
+npm run dev:server   # Start server only
+npm run dev:web      # Start web only
+
+# Building & Production
 npm run build        # Build both apps
-npm run test         # Backend tests
-npm run test:render  # Render tests (dry-run)
-npm run test:e2e     # Playwright E2E
-npm run lint         # ESLint
+npm start            # Start production server
+
+# Testing
+npm run test         # Backend tests + SSE tests
+npm run test:only    # Same but skip prisma generate
+npm run test:runSse  # SSE tests only
+npm run test:render  # Render pipeline dry-run tests
+npm run test:render:only  # Same but skip prisma generate
+npm run test:e2e     # Playwright E2E tests
+npm run render:smoke # Render smoke test
+
+# Quality Checks
+npm run lint         # ESLint check
+npm run lint:fix     # ESLint fix
 npm run typecheck    # TypeScript check
-npm run check        # lint + typecheck
+npm run check        # lint + typecheck (run before commit)
+npm run format       # Prettier format
+npm run format:check # Prettier check
+
+# Database
+npm run db:generate  # Prisma generate
+npm run db:migrate   # Apply migrations (production)
+npm run db:migrate:dev  # Create & apply migrations (dev)
+npm run db:seed      # Seed database
+npm run db:studio    # Open Prisma Studio
+
+# Maintenance
+npm run audit        # Security audit
 ```
 
 ## 📂 Key Files
@@ -21,8 +48,15 @@ npm run check        # lint + typecheck
 - **`STATUS.md`** - Current priorities (read first!)
 - **`AGENTS.md`** - AI agent instructions
 - **`apps/server/src/routes/`** - API endpoints
+  - `automate.ts` - One-click workflow
+  - `batch.ts` - Batch video creation
+  - `project.ts`, `plan.ts`, `run.ts`, `scene.ts` - Core CRUD
 - **`apps/server/src/services/`** - Business logic
 - **`apps/web/src/pages/`** - React pages
+  - `QuickCreate.tsx` - Single video creation (default)
+  - `BatchCreate.tsx` - Batch creation
+  - `Analytics.tsx` - Performance dashboard
+  - `Calendar.tsx` - Content scheduling
 - **`apps/web/src/api/client.ts`** - API client
 
 ## ✅ Validation Checklist
