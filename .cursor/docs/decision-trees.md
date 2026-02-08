@@ -267,4 +267,4 @@
 
 **Important:** Do not create new markdown files unless explicitly requested. Update existing docs instead.
 
-**Command Reference:** Always link to [.cursor/QUICKREF.md](.cursor/QUICKREF.md#-commands) for commands instead of duplicating.
+**Command Reference:** Always link to [../QUICKREF.md](../QUICKREF.md#-commands) for commands instead of duplicating.

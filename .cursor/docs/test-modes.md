@@ -45,21 +45,21 @@ APP_TEST_MODE=1 npm run test
 
 ### `APP_RENDER_DRY_RUN=1`
 
-**Purpose:** Run render pipeline without paid APIs but with full FFmpeg operations
+**Purpose:** Run the render pipeline end-to-end without paid APIs and without executing FFmpeg (no real MP4 render)
 
 **What it does:**
 - **Mocks paid OpenAI calls** (TTS, DALL-E, Whisper)
-- **Runs actual FFmpeg** operations (requires FFmpeg installed)
-- Tests full render pipeline orchestration
-- Validates file I/O, directory structure, artifact generation
-- Tests caption generation, video composition, thumbnail creation
-- Useful for testing render logic without API costs
+- **Skips FFmpeg rendering entirely** (no MP4 is generated, FFmpeg is _not_ required)
+- Exercises all render pipeline steps and progress reporting using placeholder artifacts
+- Validates file I/O, directory structure, and expected artifact paths/filenames
+- Writes lightweight placeholder files for TTS audio, images, captions, and music where applicable (no real media processing or composition)
+- Useful for testing render orchestration and artifact bookkeeping without API costs or FFmpeg installed
 
 **When to use:**
-- Testing render pipeline (`npm run test:render`)
-- Validating FFmpeg integration
-- Testing artifact generation and verification
-- Debugging render failures without spending money
+- Testing render pipeline control flow (`npm run test:render`)
+- Verifying artifact paths, directory layout, and placeholder generation
+- Debugging render step transitions and error handling without spending money
+- CI environments where FFmpeg is not available or media processing would be too slow
 
 **Example:**
 ```bash
@@ -366,12 +366,13 @@ npm test -- --watch
 
 ### Issue: FFmpeg not found in tests
 
-**Symptom:** `render:smoke` or `test:render` fails with FFmpeg error
+**Symptom:** Tests fail with FFmpeg-related errors in production (non-dry-run) mode
 
 **Solution:**
-1. Install FFmpeg: `apt-get install ffmpeg` (Linux) or `brew install ffmpeg` (macOS)
-2. Verify: `ffmpeg -version`
-3. Or use `APP_TEST_MODE=1` to mock FFmpeg calls
+1. For **dry-run tests** (`APP_RENDER_DRY_RUN=1`): FFmpeg is not required—the pipeline skips FFmpeg execution entirely
+2. For **production renders** (real video generation): Install FFmpeg: `apt-get install ffmpeg` (Linux) or `brew install ffmpeg` (macOS)
+3. Verify installation: `ffmpeg -version`
+4. For **unit tests** without rendering: Use `APP_TEST_MODE=1` (disables all rendering)
 
 ### Issue: Prisma EPERM on Windows
 
@@ -433,8 +434,8 @@ Target coverage (recommended):
 | Mode | Purpose | APIs | FFmpeg | Cost |
 |------|---------|------|--------|------|
 | `APP_TEST_MODE=1` | Fast unit tests | Mocked | Mocked | Free |
-| `APP_RENDER_DRY_RUN=1` | Render tests | Mocked | Real | Free |
-| `APP_DRY_RUN_FAIL_STEP` | Failure testing | Mocked | Real | Free |
+| `APP_RENDER_DRY_RUN=1` | Render tests | Mocked | Skipped (placeholders, no real MP4) | Free |
+| `APP_DRY_RUN_FAIL_STEP` | Failure testing | Mocked | Skipped (placeholders, no real MP4) | Free |
 | Production | Real usage | Real | Real | Paid |
 
 **Best practice:** Always use test modes during development and CI/CD. Only use production mode for actual video generation.

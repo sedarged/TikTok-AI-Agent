@@ -142,7 +142,7 @@ npm run db:migrate:dev
 - `APP_RENDER_DRY_RUN=1` - Render pipeline without paid APIs
 - `APP_DRY_RUN_FAIL_STEP=<step>` - Simulate failures
 
-**Full guide:** [.cursor/docs/test-modes.md](.cursor/docs/test-modes.md)
+**Full guide:** [docs/test-modes.md](docs/test-modes.md)
 
 ### Render Failures
 1. Check `Run.status` and `Run.logsJson`
@@ -158,8 +158,8 @@ APP_TEST_MODE=1 npm run test  # Mocked mode
 
 ## 📚 More Info
 
-- **Test modes:** [.cursor/docs/test-modes.md](.cursor/docs/test-modes.md) - Comprehensive test environment guide
-- **Project layout:** [.cursor/docs/project-layout.md](.cursor/docs/project-layout.md)
-- **Common pitfalls:** [.cursor/docs/common-pitfalls.md](.cursor/docs/common-pitfalls.md)
-- **Decision trees:** [.cursor/docs/decision-trees.md](.cursor/docs/decision-trees.md)
-- **Full instructions:** [.github/copilot-instructions.md](../.github/copilot-instructions.md)
+- **Test modes:** [docs/test-modes.md](docs/test-modes.md) - Comprehensive test environment guide
+- **Project layout:** [docs/project-layout.md](docs/project-layout.md)
+- **Common pitfalls:** [docs/common-pitfalls.md](docs/common-pitfalls.md)
+- **Decision trees:** [docs/decision-trees.md](docs/decision-trees.md)
+- **Full instructions:** [../.github/copilot-instructions.md](../.github/copilot-instructions.md)
