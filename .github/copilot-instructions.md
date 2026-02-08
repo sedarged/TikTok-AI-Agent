@@ -21,10 +21,12 @@
 
 ### Core Models (Prisma)
 
-- **Project** - Container with niche pack (horror, facts, gaming, etc.), tempo, voice preset
-- **PlanVersion** - Immutable plan snapshot with hook options, outline, script, scenes
-- **Scene** - Individual video segment with narration, visual prompt, timing, effect preset
+- **Project** - Container with niche pack (horror, facts, gaming, etc.), tempo, voice preset, SEO keywords
+- **PlanVersion** - Immutable plan snapshot with hook options, outline, script, scenes, script template ID
+- **Scene** - Individual video segment with narration, visual prompt, timing, effect preset, lock state
 - **Run** - Render execution with step tracking (7 steps: tts_generate → asr_align → images_generate → captions_build → music_build → ffmpeg_render → finalize_artifacts)
+  - **Analytics fields**: `views`, `likes`, `retention` - Post-publish performance metrics
+  - **Scheduling fields**: `scheduledPublishAt`, `publishedAt` - Content calendar integration
 
 See [apps/server/prisma/schema.prisma](../apps/server/prisma/schema.prisma) for full schema.
 
@@ -62,6 +64,8 @@ Before committing: run `npm run check`. Pre-commit runs lint-staged on staged fi
 - `APP_TEST_MODE=1` - Mock OpenAI responses, no API calls (fast)
 - `APP_RENDER_DRY_RUN=1` - Full render pipeline without paid APIs
 - `APP_DRY_RUN_FAIL_STEP=<step>` - Simulate failure at specific step
+
+**See [.cursor/docs/test-modes.md](../.cursor/docs/test-modes.md) for comprehensive test mode guide.**
 
 ---
 
@@ -203,10 +207,16 @@ See [apps/server/src/services/render/renderPipeline.ts](../apps/server/src/servi
 | Purpose | Files |
 | --- | --- |
 | REST API routes | [apps/server/src/routes/](../apps/server/src/routes/) |
+| One-click automation | [apps/server/src/routes/automate.ts](../apps/server/src/routes/automate.ts) |
+| Batch video creation | [apps/server/src/routes/batch.ts](../apps/server/src/routes/batch.ts) |
 | Plan generation | [apps/server/src/services/plan/planGenerator.ts](../apps/server/src/services/plan/planGenerator.ts) |
 | Render pipeline | [apps/server/src/services/render/renderPipeline.ts](../apps/server/src/services/render/renderPipeline.ts) |
 | FFmpeg utils | [apps/server/src/services/ffmpeg/ffmpegUtils.ts](../apps/server/src/services/ffmpeg/ffmpegUtils.ts) |
 | React pages | [apps/web/src/pages/](../apps/web/src/pages/) |
+| Quick create UI | [apps/web/src/pages/QuickCreate.tsx](../apps/web/src/pages/QuickCreate.tsx) |
+| Batch create UI | [apps/web/src/pages/BatchCreate.tsx](../apps/web/src/pages/BatchCreate.tsx) |
+| Analytics dashboard | [apps/web/src/pages/Analytics.tsx](../apps/web/src/pages/Analytics.tsx) |
+| Content calendar | [apps/web/src/pages/Calendar.tsx](../apps/web/src/pages/Calendar.tsx) |
 | API client | [apps/web/src/api/client.ts](../apps/web/src/api/client.ts) |
 | Database schema | [apps/server/prisma/schema.prisma](../apps/server/prisma/schema.prisma) |
 | Test setup | [apps/server/tests/setup.ts](../apps/server/tests/setup.ts) |

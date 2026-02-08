@@ -31,6 +31,30 @@
 
 ---
 
+## "I want to add a batch workflow or automation feature"
+
+```
+1. Review existing implementations
+   ├─ Automate route: apps/server/src/routes/automate.ts (one-click workflow)
+   └─ Batch route: apps/server/src/routes/batch.ts (multi-video creation)
+
+2. Key patterns to follow
+   ├─ Rate limiting: Use express-rate-limit (see batch.ts)
+   ├─ Queue protection: Check queue size before accepting
+   ├─ Retry logic: Implement plan lookup retries
+   └─ Error handling: Comprehensive try/catch with detailed errors
+
+3. Frontend integration
+   ├─ QuickCreate.tsx: Single video workflow
+   ├─ BatchCreate.tsx: Multi-video workflow
+   └─ Use automateProject() or postBatch() from api/client.ts
+
+4. Test in dry-run mode
+   └─ APP_RENDER_DRY_RUN=1 to avoid API costs
+```
+
+---
+
 ## "I need to modify the database schema"
 
 ```
@@ -195,6 +219,29 @@
 
 ---
 
+## "I need to add analytics or calendar features"
+
+```
+1. Review data model (Run model in schema.prisma)
+   ├─ Analytics: views, likes, retention fields
+   └─ Calendar: scheduledPublishAt, publishedAt fields
+
+2. Backend changes
+   ├─ Update run routes if needed (apps/server/src/routes/run.ts)
+   ├─ Add validation for new fields
+   └─ Consider indexing for performance (scheduledPublishAt index exists)
+
+3. Frontend integration
+   ├─ Analytics page: apps/web/src/pages/Analytics.tsx
+   ├─ Calendar page: apps/web/src/pages/Calendar.tsx
+   └─ Add API client functions in api/client.ts
+
+4. Test with sample data
+   └─ Use db:seed to populate test data
+```
+
+---
+
 ## "I need to update documentation"
 
 ```
@@ -209,11 +256,15 @@
    ├─ Pitfalls → .cursor/docs/common-pitfalls.md
    └─ This file → .cursor/docs/decision-trees.md
 
-3. Quick reference → .cursor/QUICKREF.md
+3. Quick reference → .cursor/QUICKREF.md (canonical command reference)
 
 4. Agent instructions → AGENTS.md
 
 5. Status/priorities → STATUS.md (automated, edit manual section only)
+
+6. Copilot instructions → .github/copilot-instructions.md
 ```
 
 **Important:** Do not create new markdown files unless explicitly requested. Update existing docs instead.
+
+**Command Reference:** Always link to [../QUICKREF.md](../QUICKREF.md#-commands) for commands instead of duplicating.

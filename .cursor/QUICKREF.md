@@ -5,15 +5,42 @@
 ## 🚀 Commands
 
 ```bash
+# Development
 npm install          # Install deps (both apps)
 npm run dev          # Start server (3001) + web (5173)
+npm run dev:server   # Start server only
+npm run dev:web      # Start web only
+
+# Building & Production
 npm run build        # Build both apps
-npm run test         # Backend tests
-npm run test:render  # Render tests (dry-run)
-npm run test:e2e     # Playwright E2E
-npm run lint         # ESLint
+npm start            # Start production server
+
+# Testing
+npm run test         # Backend tests + SSE tests
+npm run test:only    # Same but skip prisma generate
+npm run test:runSse  # SSE tests only
+npm run test:render  # Render pipeline dry-run tests
+npm run test:render:only  # Same but skip prisma generate
+npm run test:e2e     # Playwright E2E tests
+npm run render:smoke # Render smoke test
+
+# Quality Checks
+npm run lint         # ESLint check
+npm run lint:fix     # ESLint fix
 npm run typecheck    # TypeScript check
-npm run check        # lint + typecheck
+npm run check        # lint + typecheck (run before commit)
+npm run format       # Prettier format
+npm run format:check # Prettier check
+
+# Database
+npm run db:generate  # Prisma generate
+npm run db:migrate   # Apply migrations (production)
+npm run db:migrate:dev  # Create & apply migrations (dev)
+npm run db:seed      # Seed database
+npm run db:studio    # Open Prisma Studio
+
+# Maintenance
+npm run audit        # Security audit
 ```
 
 ## 📂 Key Files
@@ -21,8 +48,15 @@ npm run check        # lint + typecheck
 - **`STATUS.md`** - Current priorities (read first!)
 - **`AGENTS.md`** - AI agent instructions
 - **`apps/server/src/routes/`** - API endpoints
+  - `automate.ts` - One-click workflow
+  - `batch.ts` - Batch video creation
+  - `project.ts`, `plan.ts`, `run.ts`, `scene.ts` - Core CRUD
 - **`apps/server/src/services/`** - Business logic
 - **`apps/web/src/pages/`** - React pages
+  - `QuickCreate.tsx` - Single video creation (default)
+  - `BatchCreate.tsx` - Batch creation
+  - `Analytics.tsx` - Performance dashboard
+  - `Calendar.tsx` - Content scheduling
 - **`apps/web/src/api/client.ts`** - API client
 
 ## ✅ Validation Checklist
@@ -102,6 +136,14 @@ npm run db:migrate:dev
 
 ## 🐛 Debugging
 
+### Test Modes
+
+- `APP_TEST_MODE=1` - Mock APIs, fast tests
+- `APP_RENDER_DRY_RUN=1` - Render pipeline without paid APIs
+- `APP_DRY_RUN_FAIL_STEP=<step>` - Simulate failures
+
+**Full guide:** [docs/test-modes.md](docs/test-modes.md)
+
 ### Render Failures
 1. Check `Run.status` and `Run.logsJson`
 2. Use dry-run: `APP_RENDER_DRY_RUN=1 npm run test:render`
@@ -116,7 +158,8 @@ APP_TEST_MODE=1 npm run test  # Mocked mode
 
 ## 📚 More Info
 
-- **Project layout:** [.cursor/docs/project-layout.md](.cursor/docs/project-layout.md)
-- **Common pitfalls:** [.cursor/docs/common-pitfalls.md](.cursor/docs/common-pitfalls.md)
-- **Decision trees:** [.cursor/docs/decision-trees.md](.cursor/docs/decision-trees.md)
-- **Full instructions:** [.github/copilot-instructions.md](../.github/copilot-instructions.md)
+- **Test modes:** [docs/test-modes.md](docs/test-modes.md) - Comprehensive test environment guide
+- **Project layout:** [docs/project-layout.md](docs/project-layout.md)
+- **Common pitfalls:** [docs/common-pitfalls.md](docs/common-pitfalls.md)
+- **Decision trees:** [docs/decision-trees.md](docs/decision-trees.md)
+- **Full instructions:** [../.github/copilot-instructions.md](../.github/copilot-instructions.md)
