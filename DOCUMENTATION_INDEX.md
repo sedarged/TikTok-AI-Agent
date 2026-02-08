@@ -28,12 +28,13 @@
 | --- | --- |
 | [STATUS.md](STATUS.md) | **Read this first** – current priorities and active work |
 | [AGENTS.md](AGENTS.md) | Agent instructions, commands, rules |
-| [.cursor/QUICKREF.md](.cursor/QUICKREF.md) | 30-second quick reference |
+| [.cursor/QUICKREF.md](.cursor/QUICKREF.md) | **Canonical command reference** – 30-second quick guide |
 | [.cursor/docs/](.cursor/docs/) | AI-focused guides (layout, pitfalls, decision trees) |
 | [.cursor/rules/](.cursor/rules/) | Cursor rules (always-applied + file-scoped) |
 | [.cursor/commands/](.cursor/commands/) | Custom commands |
 | [.cursor/skills/](.cursor/skills/) | Agent Skills |
 | [.github/copilot-instructions.md](.github/copilot-instructions.md) | GitHub Copilot instructions |
+| [AI_AGENT_AUDIT_REPORT.md](AI_AGENT_AUDIT_REPORT.md) | Latest AI agent documentation audit (2026-02-08) |
 
 ---
 

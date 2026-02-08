@@ -60,6 +60,17 @@ TikTok-AI-Agent/
 ### Backend (`apps/server/`)
 
 - **`routes/`** - API endpoints. Each file exports an Express router. Mounted in `index.ts`.
+  - `project.ts` - Project CRUD operations
+  - `plan.ts` - Plan generation and management
+  - `run.ts` - Render execution and SSE streaming
+  - `scene.ts` - Scene updates and regeneration
+  - `automate.ts` - One-click workflow (project → plan → render)
+  - `batch.ts` - Batch video creation (rate-limited)
+  - `nichePack.ts` - Niche pack listing
+  - `scriptTemplates.ts` - Script template listing
+  - `topicSuggestions.ts` - AI-powered topic suggestions
+  - `status.ts` - Provider status check
+  - `test.ts` - Test routes (only in test/dry-run mode)
 - **`services/`** - Business logic. Organized by domain (plan, render, ffmpeg, captions, providers).
 - **`utils/apiSchemas.ts`** - Zod validation schemas for all API routes.
 - **`utils/types.ts`** - Shared TypeScript types.
@@ -69,6 +80,14 @@ TikTok-AI-Agent/
 ### Frontend (`apps/web/`)
 
 - **`pages/`** - React page components. Routes defined in `App.tsx`.
+  - `QuickCreate.tsx` - Single video creation (default route `/create`)
+  - `BatchCreate.tsx` - Batch video creation (`/batch-create`)
+  - `Projects.tsx` - Project list and management (`/projects`)
+  - `PlanStudio.tsx` - Plan editing interface (`/project/:projectId/plan`)
+  - `RenderQueue.tsx` - Render status and queue (`/project/:projectId/runs`)
+  - `Output.tsx` - Video output and preview (`/run/:runId`)
+  - `Analytics.tsx` - Performance dashboard (`/analytics`)
+  - `Calendar.tsx` - Content scheduling (`/calendar`)
 - **`api/client.ts`** - API client functions. All backend calls go through here.
 - **`api/types.ts`** - Frontend TypeScript types for API responses.
 - **`utils/errors.ts`** - `getErrorMessage()` helper for user-facing error messages.
@@ -80,9 +99,26 @@ User-facing docs. See [docs/README.md](../../docs/README.md) for full index.
 ### AI Configuration (`.cursor/`)
 
 - **`docs/`** - This directory. AI-focused guides.
+  - `project-layout.md` - Repository structure and file organization
+  - `common-pitfalls.md` - Frequent mistakes and how to avoid them
+  - `decision-trees.md` - Quick decision trees for common tasks
+  - `test-modes.md` - Comprehensive test environment and mocking guide
+  - `session-state.md` - Template for tracking multi-turn session context
 - **`rules/`** - Cursor rules (MDC format). `alwaysApply: true` rules run on all files.
-- **`commands/`** - Custom commands (e.g., `/validate`).
-- **`skills/`** - Agent Skills (e.g., `add-api-endpoint`, `debug-render-failure`).
+- **`commands/`** - Custom commands (e.g., `/validate`, `/add-api-endpoint`).
+- **`skills/`** - Agent Skills (e.g., `add-api-endpoint`, `debug-render-failure`, `repo-audit`).
+
+### GitHub Configuration (`.github/`)
+
+- **`workflows/`** - CI/CD automation
+  - `ci.yml` - Lint, typecheck, test, build on PR/push
+  - `status-sync.yml` - Sync GitHub issues to STATUS.md (automated project status)
+  - `priority-label.yml` - Auto-assign priority labels to issues
+  - `pr-automation.yml` - PR checks and automation
+  - `codecov.yml` - Code coverage reports
+  - `release-please.yml` - Automated releases and changelog
+- **`ISSUE_TEMPLATE/`** - Issue and PR templates
+- **`copilot-instructions.md`** - GitHub Copilot instructions
 
 ## File Naming Conventions
 

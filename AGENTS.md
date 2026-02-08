@@ -7,18 +7,18 @@
 
 ## Commands
 
+**See [.cursor/QUICKREF.md](.cursor/QUICKREF.md#-commands) for complete command reference.**
+
+Common commands:
 ```bash
 npm install          # install deps (both apps)
 npm run dev          # server (3001) + web (5173)
 npm run build        # build both apps
 npm run test         # backend unit + integration tests
-npm run test:only    # same as test but skip prisma generate (use after EPERM on Windows)
 npm run test:render  # render pipeline dry-run tests
-npm run test:render:only  # same but skip prisma generate
 npm run test:e2e     # Playwright E2E (reuses dev server when not in CI)
-npm run db:generate  # Prisma generate
+npm run check        # lint + typecheck (run before commit)
 npm run db:migrate:dev  # migrations (dev)
-npm run db:seed      # seed DB
 ```
 
 When `lint` / `typecheck` exist: run them before committing. Run `npm run test` before pushing.
