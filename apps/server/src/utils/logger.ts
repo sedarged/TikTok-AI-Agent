@@ -49,3 +49,60 @@ export function logWarn(message: string, meta?: Record<string, unknown>): void {
 export function logDebug(message: string, meta?: Record<string, unknown>): void {
   logger.debug(message, meta);
 }
+
+// Interface for operation logging
+export interface OperationLogContext {
+  requestId?: string;
+  operation: string;
+  planVersionId?: string;
+  projectId?: string;
+  duration?: number;
+  openai?: {
+    model?: string;
+    promptTokens?: number;
+    completionTokens?: number;
+    totalTokens?: number;
+    latencyMs?: number;
+  };
+  error?: unknown;
+  [key: string]: unknown;
+}
+
+/**
+ * Log the start of an operation
+ * Returns a timer function that can be called to log completion with duration
+ */
+export function logOperationStart(context: OperationLogContext): () => void {
+  const startTime = Date.now();
+  logInfo(`Operation started: ${context.operation}`, {
+    ...context,
+    timestamp: new Date().toISOString(),
+  });
+
+  // Return a function to log completion
+  return () => {
+    const duration = Date.now() - startTime;
+    logInfo(`Operation completed: ${context.operation}`, {
+      ...context,
+      duration,
+      timestamp: new Date().toISOString(),
+    });
+  };
+}
+
+/**
+ * Log an operation failure with duration
+ */
+export function logOperationError(
+  context: OperationLogContext,
+  error: unknown,
+  startTime?: number
+): void {
+  const errorContext = {
+    ...context,
+    duration: startTime ? Date.now() - startTime : undefined,
+    timestamp: new Date().toISOString(),
+  };
+
+  logError(`Operation failed: ${context.operation}`, error, errorContext);
+}

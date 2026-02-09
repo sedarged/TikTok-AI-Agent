@@ -17,6 +17,7 @@ import { topicSuggestionsRoutes } from './routes/topicSuggestions.js';
 import { scriptTemplatesRoutes } from './routes/scriptTemplates.js';
 import { testRoutes } from './routes/test.js';
 import { requireAuthForWrites } from './middleware/auth.js';
+import { requestIdMiddleware } from './middleware/requestId.js';
 import { ensureConnection } from './db/client.js';
 import { resetStuckRuns } from './services/render/renderPipeline.js';
 import { logError, logWarn, logInfo, logDebug } from './utils/logger.js';
@@ -129,6 +130,7 @@ export function createApp() {
     })
   );
   app.use(express.json({ limit: '10mb' }));
+  app.use(requestIdMiddleware);
 
   // Static files for artifacts: only in dev/test so production does not expose full directory
   const isProduction = env.NODE_ENV === 'production';

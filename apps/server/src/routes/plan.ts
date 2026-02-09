@@ -10,7 +10,7 @@ import {
 import { startRenderPipeline } from '../services/render/renderPipeline.js';
 import { isOpenAIConfigured, isRenderDryRun, isTestMode } from '../env.js';
 import { checkFFmpegAvailable } from '../services/ffmpeg/ffmpegUtils.js';
-import { logError } from '../utils/logger.js';
+import { logError, logOperationStart, logOperationError } from '../utils/logger.js';
 import type { Scene } from '@prisma/client';
 
 export const planRoutes = Router();
@@ -378,6 +378,9 @@ planRoutes.post('/:planVersionId/autofit', async (req, res) => {
 
 // Regenerate hooks
 planRoutes.post('/:planVersionId/regenerate-hooks', async (req, res) => {
+  const startTime = Date.now();
+  const requestId = req.requestId;
+
   try {
     const parsed = planVersionIdParamsSchema.safeParse(req.params);
     if (!parsed.success) {
@@ -395,6 +398,13 @@ planRoutes.post('/:planVersionId/regenerate-hooks', async (req, res) => {
     if (!planVersion) {
       return res.status(404).json({ error: 'Plan version not found' });
     }
+
+    const logComplete = logOperationStart({
+      requestId,
+      operation: 'regenerate-hooks',
+      planVersionId,
+      projectId: planVersion.projectId,
+    });
 
     const hookOptions = await regenerateHooks(planVersion.project);
 
@@ -405,8 +415,19 @@ planRoutes.post('/:planVersionId/regenerate-hooks', async (req, res) => {
       },
     });
 
+    logComplete();
+
     res.json({ hookOptions });
   } catch (error) {
+    logOperationError(
+      {
+        requestId,
+        operation: 'regenerate-hooks',
+        planVersionId: req.params.planVersionId,
+      },
+      error,
+      startTime
+    );
     logError('Error regenerating hooks', error);
     res.status(500).json({ error: 'Failed to regenerate hooks' });
   }
@@ -414,6 +435,9 @@ planRoutes.post('/:planVersionId/regenerate-hooks', async (req, res) => {
 
 // Regenerate outline
 planRoutes.post('/:planVersionId/regenerate-outline', async (req, res) => {
+  const startTime = Date.now();
+  const requestId = req.requestId;
+
   try {
     const parsed = planVersionIdParamsSchema.safeParse(req.params);
     if (!parsed.success) {
@@ -432,6 +456,13 @@ planRoutes.post('/:planVersionId/regenerate-outline', async (req, res) => {
       return res.status(404).json({ error: 'Plan version not found' });
     }
 
+    const logComplete = logOperationStart({
+      requestId,
+      operation: 'regenerate-outline',
+      planVersionId,
+      projectId: planVersion.projectId,
+    });
+
     const outline = await regenerateOutline(planVersion.project, planVersion.hookSelected);
 
     await prisma.planVersion.update({
@@ -439,8 +470,19 @@ planRoutes.post('/:planVersionId/regenerate-outline', async (req, res) => {
       data: { outline },
     });
 
+    logComplete();
+
     res.json({ outline });
   } catch (error) {
+    logOperationError(
+      {
+        requestId,
+        operation: 'regenerate-outline',
+        planVersionId: req.params.planVersionId,
+      },
+      error,
+      startTime
+    );
     logError('Error regenerating outline', error);
     res.status(500).json({ error: 'Failed to regenerate outline' });
   }
@@ -448,6 +490,9 @@ planRoutes.post('/:planVersionId/regenerate-outline', async (req, res) => {
 
 // Regenerate script
 planRoutes.post('/:planVersionId/regenerate-script', async (req, res) => {
+  const startTime = Date.now();
+  const requestId = req.requestId;
+
   try {
     const parsed = planVersionIdParamsSchema.safeParse(req.params);
     if (!parsed.success) {
@@ -468,6 +513,13 @@ planRoutes.post('/:planVersionId/regenerate-script', async (req, res) => {
     if (!planVersion) {
       return res.status(404).json({ error: 'Plan version not found' });
     }
+
+    const logComplete = logOperationStart({
+      requestId,
+      operation: 'regenerate-script',
+      planVersionId,
+      projectId: planVersion.projectId,
+    });
 
     const { scriptFull, scenes } = await regenerateScript(
       planVersion.project,
@@ -497,8 +549,19 @@ planRoutes.post('/:planVersionId/regenerate-script', async (req, res) => {
       include: { scenes: { orderBy: { idx: 'asc' } } },
     });
 
+    logComplete();
+
     res.json(updatedPlan);
   } catch (error) {
+    logOperationError(
+      {
+        requestId,
+        operation: 'regenerate-script',
+        planVersionId: req.params.planVersionId,
+      },
+      error,
+      startTime
+    );
     logError('Error regenerating script', error);
     res.status(500).json({ error: 'Failed to regenerate script' });
   }

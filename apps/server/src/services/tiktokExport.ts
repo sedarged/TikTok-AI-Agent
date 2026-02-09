@@ -36,7 +36,7 @@ Context:
 
 Return only a JSON object with keys: "caption", "hashtags", "title".`;
 
-  const raw = await callOpenAI(prompt, 'json');
+  const { content: raw } = await callOpenAI(prompt, 'json');
   const parsed = safeJsonParse<{ caption?: string; hashtags?: string[]; title?: string }>(raw, {
     caption: topic,
     hashtags: [],
