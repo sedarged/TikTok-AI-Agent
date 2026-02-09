@@ -62,12 +62,32 @@ export default function Projects() {
     };
   }, []);
 
+  const refetchProjects = async () => {
+    setLoading(true);
+    try {
+      const data = await getProjects({ page: currentPage, perPage });
+      setProjects(data.projects);
+      setTotalPages(data.pagination.totalPages);
+      setTotal(data.pagination.total);
+      
+      // If current page is now empty and not the first page, go to previous page
+      if (data.projects.length === 0 && currentPage > 1) {
+        setCurrentPage(currentPage - 1);
+      }
+    } catch (err) {
+      setError(getErrorMessage(err));
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleDelete = async (id: string) => {
     if (!confirm('Are you sure you want to delete this project?')) return;
 
     try {
       await deleteProject(id);
-      setProjects(projects.filter((p) => p.id !== id));
+      // Refetch to update counts and handle empty pages
+      await refetchProjects();
     } catch (err) {
       setError(getErrorMessage(err));
     }
@@ -75,8 +95,9 @@ export default function Projects() {
 
   const handleDuplicate = async (id: string) => {
     try {
-      const newProject = await duplicateProject(id);
-      setProjects([newProject, ...projects]);
+      await duplicateProject(id);
+      // Refetch to update counts and show new project
+      await refetchProjects();
     } catch (err) {
       setError(getErrorMessage(err));
     }
@@ -309,7 +330,7 @@ export default function Projects() {
       )}
 
       {/* Pagination controls */}
-      {!loading && totalPages > 1 && (
+      {totalPages > 1 && (
         <div className="flex items-center justify-between mt-6">
           <div className="text-sm" style={{ color: 'var(--color-text-muted)' }}>
             Showing {projects.length} of {total} projects

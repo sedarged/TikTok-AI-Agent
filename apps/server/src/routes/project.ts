@@ -55,11 +55,11 @@ projectRoutes.get('/', async (req, res) => {
     // Get total count
     const total = await prisma.project.count();
 
-    // Get paginated projects
+    // Get paginated projects with deterministic ordering (add id as tie-breaker)
     const projects = await prisma.project.findMany({
       skip,
       take: perPage,
-      orderBy: { [sortBy]: sortOrder },
+      orderBy: [{ [sortBy]: sortOrder }, { id: sortOrder }],
       include: {
         planVersions: {
           orderBy: { createdAt: 'desc' },
