@@ -287,9 +287,20 @@ export function createHash(...args: string[]): string {
 
 export async function getCachedResult(hashKey: string) {
   try {
-    return await prisma.cache.findUnique({
+    const cached = await prisma.cache.findUnique({
       where: { hashKey },
     });
+
+    // Check if cache entry has expired
+    if (cached?.expiresAt && cached.expiresAt < new Date()) {
+      // Cache expired, delete and return null
+      await prisma.cache.delete({ where: { hashKey } }).catch(() => {
+        // Ignore deletion errors
+      });
+      return null;
+    }
+
+    return cached;
   } catch {
     return null;
   }
@@ -299,9 +310,12 @@ export async function cacheResult(
   hashKey: string,
   kind: string,
   result: unknown,
-  payloadPath?: string
+  payloadPath?: string,
+  ttlSeconds?: number
 ) {
   try {
+    const expiresAt = ttlSeconds ? new Date(Date.now() + ttlSeconds * 1000) : null;
+
     await prisma.cache.upsert({
       where: { hashKey },
       create: {
@@ -309,10 +323,12 @@ export async function cacheResult(
         kind,
         resultJson: JSON.stringify(result),
         payloadPath,
+        expiresAt,
       },
       update: {
         resultJson: JSON.stringify(result),
         payloadPath,
+        expiresAt,
       },
     });
   } catch (error) {

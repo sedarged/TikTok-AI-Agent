@@ -13,6 +13,7 @@ Complete REST API documentation for TikTok-AI-Agent.
 - [Scenes](#scenes)
 - [Runs](#runs)
 - [Niche Packs](#niche-packs)
+- [Topic Suggestions](#topic-suggestions)
 - [SSE Streaming](#sse-streaming)
 
 ---
@@ -145,22 +146,70 @@ Provider status check.
 
 ### GET /api/projects
 
-List all projects.
+List all projects with pagination support.
+
+**Query Parameters:**
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `page` | number | 1 | Page number (min: 1) |
+| `perPage` | number | 20 | Items per page (min: 1, max: 100) |
+| `sortBy` | string | 'createdAt' | Sort field: 'createdAt', 'updatedAt', 'title', 'status' |
+| `sortOrder` | string | 'desc' | Sort order: 'asc', 'desc' |
+
+**Example Requests:**
+
+```bash
+# Get first page with default settings (20 items per page)
+GET /api/projects
+
+# Get second page with 10 items per page
+GET /api/projects?page=2&perPage=10
+
+# Sort by title ascending
+GET /api/projects?sortBy=title&sortOrder=asc
+
+# Combine parameters
+GET /api/projects?page=1&perPage=5&sortBy=status&sortOrder=desc
+```
 
 **Response 200:**
 
 ```json
-[
-  {
-    "id": "uuid",
-    "title": "Horror Video 1",
-    "topic": "5 haunted houses",
-    "nichePackId": "horror",
-    "status": "PLAN_READY",
-    "targetLengthSec": 60,
-    "createdAt": "2026-01-29T12:00:00.000Z"
+{
+  "projects": [
+    {
+      "id": "uuid",
+      "title": "Horror Video 1",
+      "topic": "5 haunted houses",
+      "nichePackId": "horror",
+      "status": "PLAN_READY",
+      "targetLengthSec": 60,
+      "createdAt": "2026-01-29T12:00:00.000Z",
+      "planVersions": [...],
+      "runs": [...]
+    }
+  ],
+  "pagination": {
+    "total": 25,
+    "page": 1,
+    "perPage": 20,
+    "totalPages": 2
   }
-]
+}
+```
+
+**Error Response 400:**
+
+```json
+{
+  "error": "Invalid query parameters",
+  "details": {
+    "fieldErrors": {
+      "page": ["Number must be greater than or equal to 1"]
+    }
+  }
+}
 ```
 
 ### POST /api/projects
@@ -678,6 +727,103 @@ Get specific niche pack details.
     "highlightColor": "#FFD700"
   }
 }
+```
+
+---
+
+## Topic Suggestions
+
+### GET /api/topic-suggestions
+
+Get AI-generated topic suggestions for a specific niche pack.
+
+**Status:** ✅ Implemented with caching (as of 2026-02-08)
+
+**Query Parameters:**
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `nichePackId` | string | required | ID of the niche pack (e.g., 'horror', 'facts') |
+| `limit` | number | 10 | Number of topics to generate (min: 1, max: 20) |
+
+**Response Headers:**
+
+- `X-Cache-Status`: Either `HIT` (from cache) or `MISS` (generated fresh)
+
+**Example Requests:**
+
+```bash
+# Get 5 topic suggestions for horror niche
+GET /api/topic-suggestions?nichePackId=horror&limit=5
+
+# Get 10 topic suggestions for facts niche (default limit)
+GET /api/topic-suggestions?nichePackId=facts
+```
+
+**Response 200:**
+
+```json
+[
+  "5 Most Haunted Houses in America",
+  "The Creepiest Urban Legends That Are Actually True",
+  "Why Do We Feel Someone Watching Us?",
+  "Real Horror Stories from Night Shift Workers",
+  "The Scariest Places You Can Visit Right Now"
+]
+```
+
+**Error Response 400 (Invalid Niche Pack):**
+
+```json
+{
+  "error": "Invalid niche pack"
+}
+```
+
+**Error Response 400 (OpenAI Not Configured):**
+
+```json
+{
+  "error": "OpenAI API key not configured",
+  "code": "OPENAI_NOT_CONFIGURED"
+}
+```
+
+**Error Response 403 (Test Mode):**
+
+```json
+{
+  "error": "Topic suggestions disabled in APP_TEST_MODE",
+  "code": "SUGGESTIONS_DISABLED_TEST_MODE"
+}
+```
+
+### Caching Behavior
+
+Topic suggestions are cached in the database with a **20-minute TTL (Time To Live)**:
+
+- **Cache Key:** Based on `nichePackId` and `limit` parameters
+- **TTL:** 1200 seconds (20 minutes)
+- **Cache Status:** Indicated in the `X-Cache-Status` response header
+  - `HIT`: Response served from cache (no OpenAI API call)
+  - `MISS`: Fresh response generated from OpenAI API
+- **Cost Savings:** Cached responses do not incur OpenAI API costs
+- **Expiration:** Cached entries automatically expire after 20 minutes and are deleted on next access
+
+**Example Cache Flow:**
+
+```bash
+# First request - generates fresh from OpenAI
+curl -i /api/topic-suggestions?nichePackId=facts&limit=5
+# Response header: X-Cache-Status: MISS
+
+# Second request within 20 minutes - served from cache
+curl -i /api/topic-suggestions?nichePackId=facts&limit=5
+# Response header: X-Cache-Status: HIT
+
+# After 20 minutes - cache expired, generates fresh again
+curl -i /api/topic-suggestions?nichePackId=facts&limit=5
+# Response header: X-Cache-Status: MISS
 ```
 
 ---

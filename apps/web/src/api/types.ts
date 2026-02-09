@@ -214,3 +214,25 @@ export interface SSEEvent {
   log?: LogEntry;
   error?: string;
 }
+
+// Pagination metadata
+export interface PaginationMetadata {
+  total: number;
+  page: number;
+  perPage: number;
+  totalPages: number;
+}
+
+// Paginated projects response
+export interface PaginatedProjectsResponse {
+  projects: Project[];
+  pagination: PaginationMetadata;
+}
+
+// Project list query options
+export interface ProjectListOptions {
+  page?: number;
+  perPage?: number;
+  sortBy?: 'createdAt' | 'updatedAt' | 'title' | 'status';
+  sortOrder?: 'asc' | 'desc';
+}
