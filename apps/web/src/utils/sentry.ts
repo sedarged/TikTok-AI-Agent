@@ -26,16 +26,23 @@ export function initSentry(): void {
     integrations: [
       Sentry.browserTracingIntegration(),
       Sentry.replayIntegration({
-        maskAllText: false,
-        blockAllMedia: false,
+        // Mask text and block media in production to avoid capturing PII
+        maskAllText: import.meta.env.PROD ? true : false,
+        blockAllMedia: import.meta.env.PROD ? true : false,
       }),
     ],
 
     // Filter out sensitive data
     beforeSend(event) {
-      // Remove auth tokens from requests
+      // Remove auth tokens from requests (case-insensitive)
       if (event.request?.headers) {
-        delete event.request.headers['authorization'];
+        const headers = event.request.headers as Record<string, unknown>;
+        for (const headerName of Object.keys(headers)) {
+          const lowerName = headerName.toLowerCase();
+          if (lowerName === 'authorization' || lowerName === 'x-api-key') {
+            delete headers[headerName];
+          }
+        }
       }
 
       return event;

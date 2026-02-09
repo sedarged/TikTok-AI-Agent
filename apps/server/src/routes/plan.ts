@@ -378,8 +378,8 @@ planRoutes.post('/:planVersionId/autofit', async (req, res) => {
 
 // Regenerate hooks
 planRoutes.post('/:planVersionId/regenerate-hooks', async (req, res) => {
-  const startTime = Date.now();
   const requestId = req.requestId;
+  let startTime: number | undefined;
 
   try {
     const parsed = planVersionIdParamsSchema.safeParse(req.params);
@@ -399,12 +399,13 @@ planRoutes.post('/:planVersionId/regenerate-hooks', async (req, res) => {
       return res.status(404).json({ error: 'Plan version not found' });
     }
 
-    const logComplete = logOperationStart({
+    const logOperation = logOperationStart({
       requestId,
       operation: 'regenerate-hooks',
       planVersionId,
       projectId: planVersion.projectId,
     });
+    startTime = logOperation.startTime;
 
     const hookOptions = await regenerateHooks(planVersion.project);
 
@@ -415,28 +416,31 @@ planRoutes.post('/:planVersionId/regenerate-hooks', async (req, res) => {
       },
     });
 
-    logComplete();
+    logOperation.complete();
 
     res.json({ hookOptions });
   } catch (error) {
-    logOperationError(
-      {
-        requestId,
-        operation: 'regenerate-hooks',
-        planVersionId: req.params.planVersionId,
-      },
-      error,
-      startTime
-    );
-    logError('Error regenerating hooks', error);
+    if (startTime !== undefined) {
+      logOperationError(
+        {
+          requestId,
+          operation: 'regenerate-hooks',
+          planVersionId: req.params.planVersionId,
+        },
+        error,
+        startTime
+      );
+    } else {
+      logError('Error regenerating hooks', error, { requestId });
+    }
     res.status(500).json({ error: 'Failed to regenerate hooks' });
   }
 });
 
 // Regenerate outline
 planRoutes.post('/:planVersionId/regenerate-outline', async (req, res) => {
-  const startTime = Date.now();
   const requestId = req.requestId;
+  let startTime: number | undefined;
 
   try {
     const parsed = planVersionIdParamsSchema.safeParse(req.params);
@@ -456,12 +460,13 @@ planRoutes.post('/:planVersionId/regenerate-outline', async (req, res) => {
       return res.status(404).json({ error: 'Plan version not found' });
     }
 
-    const logComplete = logOperationStart({
+    const logOperation = logOperationStart({
       requestId,
       operation: 'regenerate-outline',
       planVersionId,
       projectId: planVersion.projectId,
     });
+    startTime = logOperation.startTime;
 
     const outline = await regenerateOutline(planVersion.project, planVersion.hookSelected);
 
@@ -470,28 +475,31 @@ planRoutes.post('/:planVersionId/regenerate-outline', async (req, res) => {
       data: { outline },
     });
 
-    logComplete();
+    logOperation.complete();
 
     res.json({ outline });
   } catch (error) {
-    logOperationError(
-      {
-        requestId,
-        operation: 'regenerate-outline',
-        planVersionId: req.params.planVersionId,
-      },
-      error,
-      startTime
-    );
-    logError('Error regenerating outline', error);
+    if (startTime !== undefined) {
+      logOperationError(
+        {
+          requestId,
+          operation: 'regenerate-outline',
+          planVersionId: req.params.planVersionId,
+        },
+        error,
+        startTime
+      );
+    } else {
+      logError('Error regenerating outline', error, { requestId });
+    }
     res.status(500).json({ error: 'Failed to regenerate outline' });
   }
 });
 
 // Regenerate script
 planRoutes.post('/:planVersionId/regenerate-script', async (req, res) => {
-  const startTime = Date.now();
   const requestId = req.requestId;
+  let startTime: number | undefined;
 
   try {
     const parsed = planVersionIdParamsSchema.safeParse(req.params);
@@ -514,12 +522,13 @@ planRoutes.post('/:planVersionId/regenerate-script', async (req, res) => {
       return res.status(404).json({ error: 'Plan version not found' });
     }
 
-    const logComplete = logOperationStart({
+    const logOperation = logOperationStart({
       requestId,
       operation: 'regenerate-script',
       planVersionId,
       projectId: planVersion.projectId,
     });
+    startTime = logOperation.startTime;
 
     const { scriptFull, scenes } = await regenerateScript(
       planVersion.project,
@@ -549,20 +558,23 @@ planRoutes.post('/:planVersionId/regenerate-script', async (req, res) => {
       include: { scenes: { orderBy: { idx: 'asc' } } },
     });
 
-    logComplete();
+    logOperation.complete();
 
     res.json(updatedPlan);
   } catch (error) {
-    logOperationError(
-      {
-        requestId,
-        operation: 'regenerate-script',
-        planVersionId: req.params.planVersionId,
-      },
-      error,
-      startTime
-    );
-    logError('Error regenerating script', error);
+    if (startTime !== undefined) {
+      logOperationError(
+        {
+          requestId,
+          operation: 'regenerate-script',
+          planVersionId: req.params.planVersionId,
+        },
+        error,
+        startTime
+      );
+    } else {
+      logError('Error regenerating script', error, { requestId });
+    }
     res.status(500).json({ error: 'Failed to regenerate script' });
   }
 });

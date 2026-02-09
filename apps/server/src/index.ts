@@ -57,6 +57,9 @@ export function createApp() {
   // Initialize Sentry before any other middleware
   initSentry();
 
+  // Request ID middleware - must be early so all logs/errors get correlation ID
+  app.use(requestIdMiddleware);
+
   // Middleware - CORS configuration
   // In production, configure specific allowed origins via ALLOWED_ORIGINS env var
   const allowedOrigins = env.ALLOWED_ORIGINS;
@@ -134,7 +137,6 @@ export function createApp() {
     })
   );
   app.use(express.json({ limit: '10mb' }));
-  app.use(requestIdMiddleware);
 
   // Static files for artifacts: only in dev/test so production does not expose full directory
   const isProduction = env.NODE_ENV === 'production';

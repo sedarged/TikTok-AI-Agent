@@ -70,23 +70,25 @@ export interface OperationLogContext {
 
 /**
  * Log the start of an operation
- * Returns a timer function that can be called to log completion with duration
+ * Returns an object with completion logger and the start timestamp
  */
-export function logOperationStart(context: OperationLogContext): () => void {
+export function logOperationStart(context: OperationLogContext): {
+  complete: () => void;
+  startTime: number;
+} {
   const startTime = Date.now();
-  logInfo(`Operation started: ${context.operation}`, {
-    ...context,
-    timestamp: new Date().toISOString(),
-  });
+  logInfo(`Operation started: ${context.operation}`, context);
 
-  // Return a function to log completion
-  return () => {
-    const duration = Date.now() - startTime;
-    logInfo(`Operation completed: ${context.operation}`, {
-      ...context,
-      duration,
-      timestamp: new Date().toISOString(),
-    });
+  // Return completion function and start time for consistent duration tracking
+  return {
+    complete: () => {
+      const duration = Date.now() - startTime;
+      logInfo(`Operation completed: ${context.operation}`, {
+        ...context,
+        duration,
+      });
+    },
+    startTime,
   };
 }
 
@@ -96,12 +98,12 @@ export function logOperationStart(context: OperationLogContext): () => void {
 export function logOperationError(
   context: OperationLogContext,
   error: unknown,
-  startTime?: number
+  startTime: number
 ): void {
+  const duration = Date.now() - startTime;
   const errorContext = {
     ...context,
-    duration: startTime ? Date.now() - startTime : undefined,
-    timestamp: new Date().toISOString(),
+    duration,
   };
 
   logError(`Operation failed: ${context.operation}`, error, errorContext);

@@ -41,10 +41,19 @@ export function initSentry(): void {
 
       // Filter out sensitive data
       beforeSend(event, _hint) {
-        // Remove sensitive headers
+        // Remove sensitive headers (case-insensitive)
         if (event.request?.headers) {
-          delete event.request.headers['authorization'];
-          delete event.request.headers['cookie'];
+          const headers = event.request.headers as Record<string, unknown>;
+          for (const headerName of Object.keys(headers)) {
+            const lowerName = headerName.toLowerCase();
+            if (
+              lowerName === 'authorization' ||
+              lowerName === 'cookie' ||
+              lowerName === 'x-api-key'
+            ) {
+              delete headers[headerName];
+            }
+          }
         }
 
         // Remove API keys from environment

@@ -414,7 +414,6 @@ All operations now emit structured JSON logs with correlation IDs:
 - `operation`: Filter by operation type (regenerate-hooks, regenerate-outline, etc.)
 - `planVersionId`, `projectId`: Track specific resources
 - `duration`: Identify slow operations
-- `openai.totalTokens`, `openai.latencyMs`: Track AI API usage
 
 **Viewing Logs:**
 

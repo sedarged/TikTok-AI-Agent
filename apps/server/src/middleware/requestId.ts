@@ -14,10 +14,22 @@ declare module 'express-serve-static-core' {
  */
 export function requestIdMiddleware(req: Request, res: Response, next: NextFunction): void {
   // Use existing request ID from header, or generate a new one
-  req.requestId = (req.headers['x-request-id'] as string) || uuid();
+  const headerValue = req.headers['x-request-id'];
+
+  let requestId: string;
+  if (Array.isArray(headerValue)) {
+    // If multiple values sent, use first non-empty one
+    requestId = headerValue.find((v) => v && v.trim() !== '') || uuid();
+  } else if (typeof headerValue === 'string' && headerValue.trim() !== '') {
+    requestId = headerValue.trim();
+  } else {
+    requestId = uuid();
+  }
+
+  req.requestId = requestId;
 
   // Add request ID to response headers
-  res.setHeader('x-request-id', req.requestId);
+  res.setHeader('x-request-id', requestId);
 
   next();
 }
