@@ -38,12 +38,12 @@ export default function RenderQueue() {
   }, [projectId]);
 
   const handleRetry = async (runId: string) => {
-    if (actionInProgress) return;
+    if (actionInProgress === runId) return;
 
     setActionInProgress(runId);
     try {
       const retriedRun = await retryRun(runId);
-      setRuns(runs.map((r) => (r.id === runId ? retriedRun : r)));
+      setRuns((prev) => prev.map((r) => (r.id === runId ? retriedRun : r)));
     } catch (err) {
       setError(getErrorMessage(err));
     } finally {
@@ -52,12 +52,14 @@ export default function RenderQueue() {
   };
 
   const handleCancel = async (runId: string) => {
-    if (actionInProgress) return;
+    if (actionInProgress === runId) return;
 
     setActionInProgress(runId);
     try {
       await cancelRun(runId);
-      setRuns(runs.map((r) => (r.id === runId ? { ...r, status: 'canceled' as const } : r)));
+      setRuns((prev) =>
+        prev.map((r) => (r.id === runId ? { ...r, status: 'canceled' as const } : r))
+      );
     } catch (err) {
       setError(getErrorMessage(err));
     } finally {

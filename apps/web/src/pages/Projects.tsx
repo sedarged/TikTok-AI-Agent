@@ -84,8 +84,8 @@ export default function Projects() {
   };
 
   const handleDelete = async (id: string) => {
+    if (actionInProgress === id) return;
     if (!confirm('Are you sure you want to delete this project?')) return;
-    if (actionInProgress) return;
 
     setActionInProgress(id);
     try {
@@ -100,7 +100,7 @@ export default function Projects() {
   };
 
   const handleDuplicate = async (id: string) => {
-    if (actionInProgress) return;
+    if (actionInProgress === id) return;
 
     setActionInProgress(id);
     try {
