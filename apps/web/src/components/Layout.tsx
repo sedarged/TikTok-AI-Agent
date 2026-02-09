@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link, useLocation, useParams } from 'react-router-dom';
 import type { ProviderStatus } from '../api/types';
 import { getRun } from '../api/client';
+import { SkipNav } from './SkipNav';
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -145,6 +146,7 @@ export default function Layout({ children, status, statusError }: LayoutProps) {
 
   return (
     <div className="min-h-screen flex flex-col" style={{ background: 'var(--color-bg)' }}>
+      <SkipNav />
       {/* Header */}
       <header
         className="sticky top-0 z-50 backdrop-blur-lg border-b"
@@ -256,7 +258,7 @@ export default function Layout({ children, status, statusError }: LayoutProps) {
       )}
 
       {/* Main content */}
-      <main className="max-w-7xl mx-auto px-4 py-6">
+      <main id="main-content" className="max-w-7xl mx-auto px-4 py-6" tabIndex={-1}>
         <Breadcrumb />
         {children}
       </main>

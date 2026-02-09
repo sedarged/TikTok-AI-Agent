@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { getProjects, deleteProject, duplicateProject } from '../api/client';
 import type { Project } from '../api/types';
 import { getErrorMessage } from '../utils/errors';
+import { ProjectListSkeleton } from '../components/SkeletonLoaders';
 
 export default function Projects() {
   const [projects, setProjects] = useState<Project[]>([]);
@@ -10,6 +11,7 @@ export default function Projects() {
   const [error, setError] = useState('');
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
   const menuRefs = useRef<Record<string, HTMLDivElement | null>>({});
+  const [actionInProgress, setActionInProgress] = useState<string | null>(null);
 
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
@@ -69,7 +71,7 @@ export default function Projects() {
       setProjects(data.projects);
       setTotalPages(data.pagination.totalPages);
       setTotal(data.pagination.total);
-      
+
       // If current page is now empty and not the first page, go to previous page
       if (data.projects.length === 0 && currentPage > 1) {
         setCurrentPage(currentPage - 1);
@@ -83,23 +85,32 @@ export default function Projects() {
 
   const handleDelete = async (id: string) => {
     if (!confirm('Are you sure you want to delete this project?')) return;
+    if (actionInProgress) return;
 
+    setActionInProgress(id);
     try {
       await deleteProject(id);
       // Refetch to update counts and handle empty pages
       await refetchProjects();
     } catch (err) {
       setError(getErrorMessage(err));
+    } finally {
+      setActionInProgress(null);
     }
   };
 
   const handleDuplicate = async (id: string) => {
+    if (actionInProgress) return;
+
+    setActionInProgress(id);
     try {
       await duplicateProject(id);
       // Refetch to update counts and show new project
       await refetchProjects();
     } catch (err) {
       setError(getErrorMessage(err));
+    } finally {
+      setActionInProgress(null);
     }
   };
 
@@ -117,17 +128,18 @@ export default function Projects() {
 
   if (loading) {
     return (
-      <div
-        className="flex items-center justify-center min-h-[400px]"
-        role="status"
-        aria-live="polite"
-        aria-busy="true"
-      >
-        <div
-          className="w-10 h-10 border-4 border-t-transparent rounded-full animate-spin"
-          style={{ borderColor: 'var(--color-primary)', borderTopColor: 'transparent' }}
-        />
-        <span className="sr-only">Loading projects</span>
+      <div className="space-y-6">
+        <div className="flex items-center justify-between">
+          <h1 className="text-2xl font-bold">Projects</h1>
+          <Link
+            to="/create"
+            className="btn btn-primary w-full sm:w-auto"
+            aria-label="Create new project"
+          >
+            + New Project
+          </Link>
+        </div>
+        <ProjectListSkeleton count={5} />
       </div>
     );
   }
@@ -136,7 +148,11 @@ export default function Projects() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold">Projects</h1>
-        <Link to="/create" className="btn btn-primary w-full sm:w-auto">
+        <Link
+          to="/create"
+          className="btn btn-primary w-full sm:w-auto"
+          aria-label="Create new project"
+        >
           + New Project
         </Link>
       </div>
@@ -293,30 +309,32 @@ export default function Projects() {
                               handleDuplicate(project.id);
                               setOpenMenuId(null);
                             }}
+                            disabled={actionInProgress === project.id}
                             role="menuitem"
-                            className="block w-full text-left px-4 py-2 text-sm hover:bg-opacity-50 transition-colors"
+                            className="block w-full text-left px-4 py-2 text-sm hover:bg-opacity-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                             style={{ color: 'var(--color-text)' }}
                             onMouseEnter={(e) =>
                               (e.currentTarget.style.background = 'var(--color-surface-2)')
                             }
                             onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
                           >
-                            Duplicate
+                            {actionInProgress === project.id ? 'Duplicating...' : 'Duplicate'}
                           </button>
                           <button
                             onClick={() => {
                               handleDelete(project.id);
                               setOpenMenuId(null);
                             }}
+                            disabled={actionInProgress === project.id}
                             role="menuitem"
-                            className="block w-full text-left px-4 py-2 text-sm hover:bg-opacity-50 transition-colors"
+                            className="block w-full text-left px-4 py-2 text-sm hover:bg-opacity-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                             style={{ color: 'var(--color-danger)' }}
                             onMouseEnter={(e) =>
                               (e.currentTarget.style.background = 'var(--color-surface-2)')
                             }
                             onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
                           >
-                            Delete
+                            {actionInProgress === project.id ? 'Deleting...' : 'Delete'}
                           </button>
                         </div>
                       </div>

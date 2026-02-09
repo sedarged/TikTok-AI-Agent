@@ -4,6 +4,7 @@ import { getProject, retryRun, cancelRun, subscribeToRun } from '../api/client';
 import type { Project, Run, LogEntry, SSEEvent } from '../api/types';
 import { getErrorMessage } from '../utils/errors';
 import { safeJsonParse } from '../utils/safeJsonParse';
+import { RunListSkeleton } from '../components/SkeletonLoaders';
 
 export default function RenderQueue() {
   const { projectId } = useParams<{ projectId: string }>();
@@ -11,6 +12,7 @@ export default function RenderQueue() {
   const [runs, setRuns] = useState<Run[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [actionInProgress, setActionInProgress] = useState<string | null>(null);
 
   useEffect(() => {
     if (!projectId) return;
@@ -36,20 +38,30 @@ export default function RenderQueue() {
   }, [projectId]);
 
   const handleRetry = async (runId: string) => {
+    if (actionInProgress) return;
+
+    setActionInProgress(runId);
     try {
       const retriedRun = await retryRun(runId);
       setRuns(runs.map((r) => (r.id === runId ? retriedRun : r)));
     } catch (err) {
       setError(getErrorMessage(err));
+    } finally {
+      setActionInProgress(null);
     }
   };
 
   const handleCancel = async (runId: string) => {
+    if (actionInProgress) return;
+
+    setActionInProgress(runId);
     try {
       await cancelRun(runId);
       setRuns(runs.map((r) => (r.id === runId ? { ...r, status: 'canceled' as const } : r)));
     } catch (err) {
       setError(getErrorMessage(err));
+    } finally {
+      setActionInProgress(null);
     }
   };
 
@@ -67,11 +79,15 @@ export default function RenderQueue() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-[400px]">
-        <div
-          className="w-10 h-10 border-4 border-t-transparent rounded-full animate-spin"
-          style={{ borderColor: 'var(--color-primary)', borderTopColor: 'transparent' }}
-        />
+      <div className="space-y-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl font-bold">Render Queue</h1>
+            <div className="h-4 rounded w-48 mt-2" style={{ background: 'var(--color-border)' }} />
+          </div>
+          <div className="h-9 rounded w-32" style={{ background: 'var(--color-border)' }} />
+        </div>
+        <RunListSkeleton count={3} />
       </div>
     );
   }
@@ -118,6 +134,7 @@ export default function RenderQueue() {
               onRetry={() => handleRetry(run.id)}
               onCancel={() => handleCancel(run.id)}
               getStatusBadge={getStatusBadge}
+              isActionInProgress={actionInProgress === run.id}
             />
           ))}
         </div>
@@ -131,11 +148,13 @@ function RunCard({
   onRetry,
   onCancel,
   getStatusBadge,
+  isActionInProgress = false,
 }: {
   run: Run;
   onRetry: () => void;
   onCancel: () => void;
   getStatusBadge: (status: string) => string;
+  isActionInProgress?: boolean;
 }) {
   const [currentRun, setCurrentRun] = useState(run);
   const [logs, setLogs] = useState<LogEntry[]>([]);
@@ -189,14 +208,24 @@ function RunCard({
           )}
 
           {(currentRun.status === 'failed' || currentRun.status === 'canceled') && (
-            <button onClick={onRetry} className="btn btn-secondary text-sm">
-              Retry
+            <button
+              onClick={onRetry}
+              disabled={isActionInProgress}
+              className="btn btn-secondary text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+              aria-label="Retry render"
+            >
+              {isActionInProgress ? 'Retrying...' : 'Retry'}
             </button>
           )}
 
           {(currentRun.status === 'running' || currentRun.status === 'queued') && (
-            <button onClick={onCancel} className="btn btn-danger text-sm">
-              Cancel
+            <button
+              onClick={onCancel}
+              disabled={isActionInProgress}
+              className="btn btn-danger text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+              aria-label="Cancel render"
+            >
+              {isActionInProgress ? 'Canceling...' : 'Cancel'}
             </button>
           )}
         </div>
