@@ -22,6 +22,7 @@ import { ensureConnection } from './db/client.js';
 import { resetStuckRuns } from './services/render/renderPipeline.js';
 import { logError, logWarn, logInfo, logDebug } from './utils/logger.js';
 import { safeJsonParse } from './utils/safeJsonParse.js';
+import { initSentry, setupSentryExpress } from './utils/sentry.js';
 
 function getAppVersion(): string {
   if (env.APP_VERSION) {
@@ -52,6 +53,9 @@ function getAppVersion(): string {
 
 export function createApp() {
   const app = express();
+
+  // Initialize Sentry before any other middleware
+  initSentry();
 
   // Middleware - CORS configuration
   // In production, configure specific allowed origins via ALLOWED_ORIGINS env var
@@ -180,6 +184,9 @@ export function createApp() {
       timestamp: new Date().toISOString(),
     });
   });
+
+  // Setup Sentry error handling (must be before other error handlers)
+  setupSentryExpress(app);
 
   // Error handler
   app.use(

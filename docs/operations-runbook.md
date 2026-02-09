@@ -334,6 +334,107 @@ LOG_LEVEL=info
 
 ## Monitoring
 
+### Error Tracking & APM with Sentry
+
+**Setup:**
+
+1. Create a Sentry project at [sentry.io](https://sentry.io)
+2. Get your DSN from the project settings
+3. Configure environment variables:
+
+```bash
+# Server (apps/server/.env)
+SENTRY_DSN=https://[key]@[org].ingest.sentry.io/[project]
+
+# Client (apps/web/.env.local)
+VITE_SENTRY_DSN=https://[key]@[org].ingest.sentry.io/[project]
+```
+
+4. Restart the server and rebuild the client
+
+**Features Enabled:**
+
+- **Error Tracking**: Automatic capture of unhandled errors and exceptions
+- **Performance Monitoring**: API endpoint latency, database query performance
+- **Request Tracing**: Full request/response cycle tracing with transaction IDs
+- **Session Replay**: Visual playback of user sessions when errors occur (client-side)
+- **Breadcrumbs**: Context about actions leading up to errors
+
+**Accessing Sentry Dashboard:**
+
+1. Navigate to [sentry.io](https://sentry.io)
+2. Select your project
+3. View:
+   - **Issues**: Error grouping and frequency
+   - **Performance**: Transaction traces and slow queries
+   - **Releases**: Error trends across deployments
+   - **Alerts**: Configure notifications for error spikes
+
+**Sentry Metrics:**
+
+| Metric | Description | Where to Find |
+|--------|-------------|---------------|
+| Error Rate | Percentage of requests with errors | Issues > Overview |
+| APDEX Score | Application performance index | Performance > Overview |
+| Transaction Duration | API endpoint response times | Performance > Transactions |
+| User Impact | Number of users affected by errors | Issues > [Issue Details] |
+
+**Sample Rate Configuration:**
+
+The server is configured with 10% sampling for performance traces in production (see `apps/server/src/utils/sentry.ts`). Adjust based on your traffic:
+
+```typescript
+// High traffic (>10k req/day): 0.01-0.05 (1-5%)
+// Medium traffic (1k-10k req/day): 0.1 (10%)
+// Low traffic (<1k req/day): 0.5-1.0 (50-100%)
+```
+
+### Structured Logging
+
+**Log Format:**
+
+All operations now emit structured JSON logs with correlation IDs:
+
+```json
+{
+  "level": "info",
+  "message": "Operation completed: regenerate-hooks",
+  "requestId": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+  "operation": "regenerate-hooks",
+  "planVersionId": "plan-uuid",
+  "projectId": "project-uuid",
+  "duration": 1523,
+  "timestamp": "2026-02-09T10:20:00.000Z"
+}
+```
+
+**Searchable Fields:**
+
+- `requestId`: Correlate all logs for a single request
+- `operation`: Filter by operation type (regenerate-hooks, regenerate-outline, etc.)
+- `planVersionId`, `projectId`: Track specific resources
+- `duration`: Identify slow operations
+- `openai.totalTokens`, `openai.latencyMs`: Track AI API usage
+
+**Viewing Logs:**
+
+```bash
+# Follow all logs
+npm run dev  # Development (pretty-printed)
+
+# Production logs (JSON)
+docker logs -f tiktok-ai-agent | jq .
+
+# Filter by operation
+docker logs tiktok-ai-agent | jq 'select(.operation == "regenerate-hooks")'
+
+# Find slow operations (>2s)
+docker logs tiktok-ai-agent | jq 'select(.duration > 2000)'
+
+# Trace a specific request
+docker logs tiktok-ai-agent | jq 'select(.requestId == "abc-123")'
+```
+
 ### Metrics to Track
 
 | Metric | Target | Alert Threshold | How to Check |
