@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { getRuns, patchRun } from '../api/client';
 import type { Run } from '../api/types';
 import { getErrorMessage } from '../utils/errors';
+import { AnalyticsSkeleton } from '../components/SkeletonLoaders';
 
 export default function Analytics() {
   const [runs, setRuns] = useState<Run[]>([]);
@@ -43,8 +44,12 @@ export default function Analytics() {
 
   if (loading) {
     return (
-      <div className="max-w-4xl mx-auto">
-        <p style={{ color: 'var(--color-text-muted)' }}>Loading runs...</p>
+      <div className="max-w-5xl mx-auto">
+        <h1 className="text-2xl font-bold mb-2">Analytics</h1>
+        <p className="text-gray-400 text-sm mb-6">
+          Edit views, likes, retention, posted date, and scheduled publish date for each run.
+        </p>
+        <AnalyticsSkeleton />
       </div>
     );
   }

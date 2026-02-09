@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { getRunsUpcoming } from '../api/client';
 import type { Run } from '../api/types';
 import { getErrorMessage } from '../utils/errors';
+import { CalendarSkeleton } from '../components/SkeletonLoaders';
 
 function defaultFrom(): string {
   const d = new Date();
@@ -112,14 +113,15 @@ export default function Calendar() {
           type="button"
           onClick={exportCsv}
           disabled={loading || runs.length === 0}
-          className="btn btn-secondary"
+          className="btn btn-secondary disabled:opacity-50 disabled:cursor-not-allowed"
+          aria-label="Export calendar as CSV"
         >
           Export CSV
         </button>
       </div>
 
       {loading ? (
-        <p style={{ color: 'var(--color-text-muted)' }}>Loading…</p>
+        <CalendarSkeleton />
       ) : (
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
@@ -138,6 +140,7 @@ export default function Calendar() {
                       to={`/run/${r.id}`}
                       className="hover:underline"
                       style={{ color: 'var(--color-primary)' }}
+                      aria-label={`View run for ${topic(r)}`}
                     >
                       {topic(r) || '—'}
                     </Link>
@@ -150,6 +153,7 @@ export default function Calendar() {
                       to={`/run/${r.id}`}
                       className="hover:underline text-xs"
                       style={{ color: 'var(--color-primary)' }}
+                      aria-label={`View run ${r.id.slice(0, 8)}`}
                     >
                       {r.id.slice(0, 8)}…
                     </Link>
