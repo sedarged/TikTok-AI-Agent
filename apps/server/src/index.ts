@@ -17,10 +17,12 @@ import { topicSuggestionsRoutes } from './routes/topicSuggestions.js';
 import { scriptTemplatesRoutes } from './routes/scriptTemplates.js';
 import { testRoutes } from './routes/test.js';
 import { requireAuthForWrites } from './middleware/auth.js';
+import { requestIdMiddleware } from './middleware/requestId.js';
 import { ensureConnection } from './db/client.js';
 import { resetStuckRuns } from './services/render/renderPipeline.js';
 import { logError, logWarn, logInfo, logDebug } from './utils/logger.js';
 import { safeJsonParse } from './utils/safeJsonParse.js';
+import { initSentry, setupSentryExpress } from './utils/sentry.js';
 
 function getAppVersion(): string {
   if (env.APP_VERSION) {
@@ -51,6 +53,12 @@ function getAppVersion(): string {
 
 export function createApp() {
   const app = express();
+
+  // Initialize Sentry before any other middleware
+  initSentry();
+
+  // Request ID middleware - must be early so all logs/errors get correlation ID
+  app.use(requestIdMiddleware);
 
   // Middleware - CORS configuration
   // In production, configure specific allowed origins via ALLOWED_ORIGINS env var
@@ -178,6 +186,9 @@ export function createApp() {
       timestamp: new Date().toISOString(),
     });
   });
+
+  // Setup Sentry error handling (must be before other error handlers)
+  setupSentryExpress(app);
 
   // Error handler
   app.use(

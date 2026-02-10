@@ -1017,6 +1017,94 @@ export default tseslint.config(
 }
 ```
 
+---
+
+## Logging Patterns
+
+### Structured Logging
+
+All logging should use the structured logging utilities from `apps/server/src/utils/logger.ts`:
+
+**Basic Logging:**
+
+```typescript
+import { logInfo, logError, logWarn, logDebug } from '../utils/logger.js';
+
+// Info logs
+logInfo('Server started', { port: 3001, environment: 'production' });
+
+// Error logs with context
+try {
+  await dangerousOperation();
+} catch (error) {
+  logError('Operation failed', error, { userId, operationId });
+}
+
+// Warning logs
+logWarn('Rate limit approaching', { currentRate: 95, limit: 100 });
+
+// Debug logs (only in development/debug mode)
+logDebug('Processing batch', { batchSize: 50, queueDepth: 200 });
+```
+
+**Operation Logging:**
+
+For operations that span multiple steps or make external API calls, use operation logging:
+
+```typescript
+import { logOperationStart, logOperationError } from '../utils/logger.js';
+
+async function regenerateHooks(req, res) {
+  const startTime = Date.now();
+  const requestId = req.requestId; // From requestIdMiddleware
+
+  try {
+    // Log operation start
+    const logComplete = logOperationStart({
+      requestId,
+      operation: 'regenerate-hooks',
+      planVersionId: req.params.planVersionId,
+      projectId: project.id,
+    });
+
+    // Perform operation
+    const hooks = await generateHooks(project);
+
+    // Log successful completion (with duration)
+    logComplete();
+
+    return res.json({ hooks });
+  } catch (error) {
+    // Log operation failure with context
+    logOperationError(
+      {
+        requestId,
+        operation: 'regenerate-hooks',
+        planVersionId: req.params.planVersionId,
+      },
+      error,
+      startTime
+    );
+    throw error;
+  }
+}
+```
+
+**Request Correlation:**
+
+Every HTTP request gets a unique `requestId` from the `requestIdMiddleware`. Use it to correlate all logs for a single request.
+
+**Log Levels:**
+
+- `error`: Critical errors requiring immediate attention
+- `warn`: Non-critical issues that should be investigated
+- `info`: Normal operation logs (default)
+- `debug`: Detailed debugging information
+
+Configure via `LOG_LEVEL` environment variable.
+
+---
+
 ### TypeScript Best Practices
 
 **1. Always validate input with Zod:**

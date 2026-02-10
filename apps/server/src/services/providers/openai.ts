@@ -61,13 +61,23 @@ interface WhisperWord {
   end: number;
 }
 
+// OpenAI usage stats returned with responses
+export interface OpenAIUsageStats {
+  model: string;
+  promptTokens: number;
+  completionTokens: number;
+  totalTokens: number;
+  latencyMs: number;
+}
+
 // Call OpenAI chat completion (with p-retry on 429/timeout)
 export async function callOpenAI(
   prompt: string,
   responseFormat: 'json' | 'text' = 'text',
   model: string = 'gpt-4o-mini'
-): Promise<string> {
+): Promise<{ content: string; usage: OpenAIUsageStats }> {
   const client = getClient();
+  const startTime = Date.now();
 
   const response = await pRetry(
     async () => {
@@ -94,7 +104,17 @@ export async function callOpenAI(
     { ...RETRY_OPTIONS, shouldRetry }
   );
 
-  return response.choices[0]?.message?.content || '';
+  const latencyMs = Date.now() - startTime;
+  const content = response.choices[0]?.message?.content || '';
+  const usage: OpenAIUsageStats = {
+    model,
+    promptTokens: response.usage?.prompt_tokens || 0,
+    completionTokens: response.usage?.completion_tokens || 0,
+    totalTokens: response.usage?.total_tokens || 0,
+    latencyMs,
+  };
+
+  return { content, usage };
 }
 
 export interface GenerateImageResult {

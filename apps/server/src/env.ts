@@ -96,6 +96,7 @@ export const env = {
   APP_VERSION: process.env.APP_VERSION || '',
   LOG_LEVEL: process.env.LOG_LEVEL || 'info',
   API_KEY: process.env.API_KEY || '',
+  SENTRY_DSN: process.env.SENTRY_DSN || '',
   ALLOWED_ORIGINS:
     process.env.ALLOWED_ORIGINS?.split(',')
       .map((o) => o.trim())

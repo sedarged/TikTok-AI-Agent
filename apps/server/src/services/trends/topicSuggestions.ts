@@ -51,7 +51,7 @@ export async function getTopicSuggestions(
 
   const prompt = `You are a TikTok content strategist. For the niche "${nicheName}", suggest exactly ${limit} short-form video topic ideas with high viral potential. Each topic should be one short phrase or sentence (under 15 words). Return ONLY a valid JSON object with a "topics" array of strings, no other text. Example: {"topics": ["Topic 1", "Topic 2", "Topic 3"]}`;
 
-  const raw = await callOpenAI(prompt, 'json', 'gpt-4o-mini');
+  const { content: raw } = await callOpenAI(prompt, 'json', 'gpt-4o-mini');
   const trimmed = raw.trim();
 
   const parsed = safeJsonParse<unknown>(trimmed, null, { source: 'topicSuggestions' });

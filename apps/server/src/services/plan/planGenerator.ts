@@ -215,7 +215,7 @@ Return ONLY a JSON object with a "hooks" array containing exactly 5 hook strings
 {"hooks": ["hook1", "hook2", "hook3", "hook4", "hook5"]}`;
 
   try {
-    const response = await callOpenAI(prompt, 'json');
+    const { content: response } = await callOpenAI(prompt, 'json');
 
     const hooks = safeJsonParse<unknown>(response, null, { source: 'generateHooks' });
     if (!hooks) {
@@ -275,7 +275,7 @@ Create a concise outline with:
 Keep it brief but clear. Return just the outline text, no JSON.`;
 
   try {
-    const response = await callOpenAI(prompt, 'text');
+    const { content: response } = await callOpenAI(prompt, 'text');
     return response.trim();
   } catch (error) {
     logError('Error generating outline with AI:', error);
@@ -351,7 +351,7 @@ Requirements:
 - First scene: ${HOOK_FIRST_3_SECONDS} Keep first scene under 5 seconds.`;
 
   try {
-    const response = await callOpenAI(prompt, 'json');
+    const { content: response } = await callOpenAI(prompt, 'json');
 
     const scenes = safeJsonParse<unknown>(response, null, { source: 'generateScenes' });
     if (!scenes) {
@@ -440,7 +440,7 @@ Return JSON object with an "updates" array containing updated narration for each
 Keep scene count the same. Make the script flow naturally.`;
 
   try {
-    const response = await callOpenAI(prompt, 'json');
+    const { content: response } = await callOpenAI(prompt, 'json');
 
     const updates = safeJsonParse<unknown>(response, null, { source: 'regenerateScript' });
     if (!updates) {
@@ -515,7 +515,7 @@ Return JSON:
 }`;
 
   try {
-    const response = await callOpenAI(prompt, 'json');
+    const { content: response } = await callOpenAI(prompt, 'json');
 
     const result = safeJsonParse<{
       narrationText?: string;
