@@ -76,7 +76,12 @@ function startHeartbeat(runId: string): void {
       try {
         if (!res.writableEnded) res.write(message);
         else connections.delete(res);
-      } catch {
+      } catch (writeErr) {
+        // Client disconnected mid-heartbeat; clean up the dead connection
+        logDebug('SSE heartbeat write failed, removing stale connection', {
+          runId,
+          error: writeErr instanceof Error ? writeErr.message : String(writeErr),
+        });
         connections.delete(res);
       }
     }
@@ -624,11 +629,9 @@ runRoutes.get('/:runId/export', async (req, res) => {
 
     const artifacts = parsedArtifacts ?? {};
 
-    const tiktokCaption = artifacts.tiktokCaption as string | undefined;
-    const tiktokHashtags = Array.isArray(artifacts.tiktokHashtags)
-      ? (artifacts.tiktokHashtags as string[])
-      : [];
-    const tiktokTitle = artifacts.tiktokTitle as string | undefined;
+    const tiktokCaption = artifacts.tiktokCaption;
+    const tiktokHashtags = Array.isArray(artifacts.tiktokHashtags) ? artifacts.tiktokHashtags : [];
+    const tiktokTitle = artifacts.tiktokTitle;
 
     const exportData = {
       project: {
