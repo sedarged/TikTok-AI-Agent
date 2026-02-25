@@ -87,7 +87,12 @@ describe('Topic Suggestions Caching', () => {
     try {
       result = JSON.parse(entry.resultJson) as { topics: string[] };
     } catch (error) {
-      throw new Error(`Failed to parse cached topic suggestions JSON: ${(error as Error).message}`);
+      throw new Error(
+        `Failed to parse cached topic suggestions JSON: ${(error as Error).message}`,
+        {
+          cause: error,
+        }
+      );
     }
     expect(result.topics).toHaveLength(7);
     expect(Array.isArray(result.topics)).toBe(true);

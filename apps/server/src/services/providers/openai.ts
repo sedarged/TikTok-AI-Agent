@@ -281,7 +281,7 @@ export async function transcribeAudio(audioPath: string): Promise<TranscribeAudi
   );
 
   const words = (transcription as { words?: WhisperWord[] }).words;
-  let estimatedCostUsd = 0;
+  let estimatedCostUsd: number;
   try {
     const durationSec = await getMediaDuration(audioPath);
     estimatedCostUsd = (durationSec / 60) * COST.whisperPerMinute;

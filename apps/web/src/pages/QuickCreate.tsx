@@ -539,7 +539,7 @@ export default function QuickCreate({ status }: QuickCreateProps) {
 
         {!status?.providers.openai && (
           <p className="text-center text-sm" style={{ color: 'var(--color-text-muted)' }}>
-            Tryb szablonu (bez API)
+            Template mode (no API key configured)
           </p>
         )}
 

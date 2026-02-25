@@ -83,7 +83,7 @@ export async function getFFmpegPath(): Promise<string> {
       return ffmpegPath;
     } catch (error) {
       logError('FFMPEG_PATH is set but not usable', error);
-      throw new Error('FFMPEG_PATH is set but ffmpeg could not be executed.');
+      throw new Error('FFMPEG_PATH is set but ffmpeg could not be executed.', { cause: error });
     }
   }
 
@@ -94,7 +94,9 @@ export async function getFFmpegPath(): Promise<string> {
     return ffmpegPath;
   } catch (error) {
     logError('FFmpeg not found. Install system ffmpeg or set FFMPEG_PATH.', error);
-    throw new Error('FFmpeg not found. Install system ffmpeg or set FFMPEG_PATH.');
+    throw new Error('FFmpeg not found. Install system ffmpeg or set FFMPEG_PATH.', {
+      cause: error,
+    });
   }
 }
 
@@ -110,7 +112,7 @@ export async function getFFprobePath(): Promise<string> {
       return ffprobePath;
     } catch (error) {
       logError('FFPROBE_PATH is set but not usable', error);
-      throw new Error('FFPROBE_PATH is set but ffprobe could not be executed.');
+      throw new Error('FFPROBE_PATH is set but ffprobe could not be executed.', { cause: error });
     }
   }
 
@@ -124,9 +126,11 @@ export async function getFFprobePath(): Promise<string> {
     // Ensure ffmpegPath is resolved before checking for adjacent ffprobe
     try {
       await getFFmpegPath();
-    } catch {
+    } catch (ffmpegErr) {
       // If ffmpeg is not available, we can't check for adjacent ffprobe
-      throw new Error('FFprobe not found. Install system ffprobe or set FFPROBE_PATH.');
+      throw new Error('FFprobe not found. Install system ffprobe or set FFPROBE_PATH.', {
+        cause: ffmpegErr,
+      });
     }
 
     if (ffmpegPath && fs.existsSync(ffmpegPath)) {
@@ -147,7 +151,9 @@ export async function getFFprobePath(): Promise<string> {
         }
       }
     }
-    throw new Error('FFprobe not found. Install system ffprobe or set FFPROBE_PATH.');
+    throw new Error('FFprobe not found. Install system ffprobe or set FFPROBE_PATH.', {
+      cause: error,
+    });
   }
 }
 
