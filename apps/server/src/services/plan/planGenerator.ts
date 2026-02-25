@@ -27,11 +27,26 @@ const HOOK_FIRST_3_SECONDS =
   'The first scene must contain the hook within the first 3 seconds; first sentence = attention grabber.';
 
 /**
+ * Escape XML special characters so user content cannot break the <user_content>
+ * boundary or inject additional tags.
+ */
+function escapeForXml(text: string): string {
+  // Normalize newlines and escape XML special characters
+  const normalized = text.replace(/\r\n?/g, '\n');
+  return normalized
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&apos;');
+}
+
+/**
  * Wrap user-supplied text in XML tags to reduce prompt injection risk.
  * The LLM sees clear boundaries between instructions and user content.
  */
 function userContent(text: string): string {
-  return `<user_content>${text}</user_content>`;
+  return `<user_content>${escapeForXml(text)}</user_content>`;
 }
 
 /**

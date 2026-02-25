@@ -630,7 +630,9 @@ runRoutes.get('/:runId/export', async (req, res) => {
     const artifacts = parsedArtifacts ?? {};
 
     const tiktokCaption = artifacts.tiktokCaption;
-    const tiktokHashtags = Array.isArray(artifacts.tiktokHashtags) ? artifacts.tiktokHashtags : [];
+    const tiktokHashtags = Array.isArray(artifacts.tiktokHashtags)
+      ? artifacts.tiktokHashtags.filter((h): h is string => typeof h === 'string')
+      : [];
     const tiktokTitle = artifacts.tiktokTitle;
 
     const exportData = {
