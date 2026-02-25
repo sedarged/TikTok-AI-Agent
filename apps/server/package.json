@@ -25,7 +25,7 @@
   "dependencies": {
     "@prisma/adapter-better-sqlite3": "^7.3.0",
     "@prisma/client": "^7.3.0",
-    "@sentry/node": "^10.38.0",
+    "@sentry/node": "^10.40.0",
     "better-sqlite3": "^12.6.2",
     "cors": "^2.8.5",
     "dotenv": "^17.3.1",
