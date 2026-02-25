@@ -29,12 +29,19 @@ const HOOK_FIRST_3_SECONDS =
 /**
  * Escape XML special characters so user content cannot break the <user_content>
  * boundary or inject additional tags.
+ *
+ * CRITICAL: Ampersand (&) must be replaced FIRST to avoid double-escaping.
+ * If we replaced '<' first, then '&', the sequence "<" would become "&amp;lt;"
+ * instead of "&lt;". By replacing & first, we ensure all special characters
+ * are escaped exactly once.
+ *
+ * @internal - Exported for testing purposes only
  */
-function escapeForXml(text: string): string {
+export function escapeForXml(text: string): string {
   // Normalize newlines and escape XML special characters
   const normalized = text.replace(/\r\n?/g, '\n');
   return normalized
-    .replace(/&/g, '&amp;')
+    .replace(/&/g, '&amp;') // MUST be first - prevents double-escaping
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;')
