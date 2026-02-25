@@ -89,58 +89,73 @@ const activeRuns = new Map<string, boolean>();
 // Queue: max 1 render at a time; runIds waiting to start
 const renderQueue: string[] = [];
 let currentRunningRunId: string | null = null;
+let queueProcessing = false; // Mutex to prevent concurrent processNextInQueue calls
 
 async function processNextInQueue(): Promise<void> {
-  // Guard against concurrent processing: only one render at a time
-  if (currentRunningRunId !== null) return;
-  if (renderQueue.length === 0) return;
-  const runId = renderQueue.shift()!;
+  // Prevent concurrent invocations with a mutex
+  if (queueProcessing) return;
+  queueProcessing = true;
+
   try {
-    const run = await prisma.run.findUnique({
-      where: { id: runId },
-      include: {
-        planVersion: {
-          include: {
-            scenes: { orderBy: { idx: 'asc' } },
-            project: true,
+    // Guard against concurrent processing: only one render at a time
+    if (currentRunningRunId !== null) return;
+    if (renderQueue.length === 0) return;
+    const runId = renderQueue.shift()!;
+    try {
+      const run = await prisma.run.findUnique({
+        where: { id: runId },
+        include: {
+          planVersion: {
+            include: {
+              scenes: { orderBy: { idx: 'asc' } },
+              project: true,
+            },
           },
         },
-      },
-    });
-    if (!run || run.status !== 'queued') {
-      // Skip canceled/invalid runs and process the next one in queue
+      });
+      if (!run || run.status !== 'queued') {
+        // Skip canceled/invalid runs and process the next one in queue
+        queueProcessing = false; // Release mutex before recursion
+        processNextInQueue().catch((nextErr) => {
+          logError('Failed to process next in queue (after skipping invalid run):', nextErr);
+        });
+        return;
+      }
+      currentRunningRunId = runId;
+      try {
+        await prisma.project.update({
+          where: { id: run.projectId },
+          data: { status: 'RENDERING' },
+        });
+      } catch (updateErr) {
+        // If the project update fails, unblock the queue so subsequent runs can proceed
+        currentRunningRunId = null;
+        queueProcessing = false; // Release mutex before recursion
+        logError('Failed to set project status to RENDERING, releasing queue lock:', updateErr);
+        processNextInQueue().catch((nextErr) => {
+          logError('Failed to process next in queue (after update error):', nextErr);
+        });
+        return;
+      }
+      activeRuns.set(runId, true);
+      // Release mutex before starting pipeline (pipeline runs in background)
+      queueProcessing = false;
+      executePipeline(run, run.planVersion as PlanWithDetails).catch((err) => {
+        logError('Pipeline execution failed (from queue):', err);
+        handlePipelineError(runId, err);
+      });
+    } catch (err) {
+      // currentRunningRunId was never set at this point (set only after findUnique succeeds
+      // and run is valid), so no need to clear it here
+      queueProcessing = false; // Release mutex before recursion
+      logError('Failed to process next in queue:', err);
       processNextInQueue().catch((nextErr) => {
-        logError('Failed to process next in queue (after skipping invalid run):', nextErr);
+        logError('Failed to process next in queue (from error handler):', nextErr);
       });
-      return;
     }
-    currentRunningRunId = runId;
-    try {
-      await prisma.project.update({
-        where: { id: run.projectId },
-        data: { status: 'RENDERING' },
-      });
-    } catch (updateErr) {
-      // If the project update fails, unblock the queue so subsequent runs can proceed
-      currentRunningRunId = null;
-      logError('Failed to set project status to RENDERING, releasing queue lock:', updateErr);
-      processNextInQueue().catch((nextErr) => {
-        logError('Failed to process next in queue (after update error):', nextErr);
-      });
-      return;
-    }
-    activeRuns.set(runId, true);
-    executePipeline(run, run.planVersion as PlanWithDetails).catch((err) => {
-      logError('Pipeline execution failed (from queue):', err);
-      handlePipelineError(runId, err);
-    });
-  } catch (err) {
-    // currentRunningRunId was never set at this point (set only after findUnique succeeds
-    // and run is valid), so no need to clear it here
-    logError('Failed to process next in queue:', err);
-    processNextInQueue().catch((nextErr) => {
-      logError('Failed to process next in queue (from error handler):', nextErr);
-    });
+  } finally {
+    // Ensure mutex is always released even if an unexpected error occurs
+    queueProcessing = false;
   }
 }
 
