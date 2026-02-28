@@ -5,6 +5,29 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.2.0](https://github.com/sedarged/TikTok-AI-Agent/compare/v1.1.1...v1.2.0) (2026-02-28)
+
+
+### Features
+
+* add comprehensive XML escaping tests and improve documentation ([d00c8ee](https://github.com/sedarged/TikTok-AI-Agent/commit/d00c8ee3609a9898100600744febcc2e0418cb6e))
+* full frontend E2E screenshot tour — all 8 routes verified + deep audit (0 vulnerabilities) ([abcd552](https://github.com/sedarged/TikTok-AI-Agent/commit/abcd5529ec8628d38675734a1c61e43a6b11b937))
+
+
+### Bug Fixes
+
+* add rollup &gt;=4.59.0 override to resolve CVE GHSA-mw96-cpmx-2vgc (0 vulnerabilities) ([8902fdd](https://github.com/sedarged/TikTok-AI-Agent/commit/8902fdde93f0e0ab61db2481e1a4e445aa9ae05d))
+* deep audit — lint, types, tests, security, deps, render queue ([c222987](https://github.com/sedarged/TikTok-AI-Agent/commit/c22298743e2f1c28c10217c9ea919e1a15001a6e))
+* deep audit — lint, types, tests, security, deps, render queue ([69c2a3f](https://github.com/sedarged/TikTok-AI-Agent/commit/69c2a3f96f72251b6b647d5186166a9418e4a94e))
+* merge main into branch to resolve PR conflicts ([a9c72c1](https://github.com/sedarged/TikTok-AI-Agent/commit/a9c72c1a13e96a0437fe40eb08dcebd5285af0e9))
+* remove rollup from dependencies (overrides-only — code review fix) ([18d8582](https://github.com/sedarged/TikTok-AI-Agent/commit/18d8582b76a48d40994a1b15175dc5e6dfc83543))
+* resolve merge conflict between PR [#187](https://github.com/sedarged/TikTok-AI-Agent/issues/187) and main ([003d52c](https://github.com/sedarged/TikTok-AI-Agent/commit/003d52c6b105dcd5ef06eae385ad91843f963dc4))
+* review pass — unhandled rejections, retry logic, rate limit, SSE logging ([e53077f](https://github.com/sedarged/TikTok-AI-Agent/commit/e53077f06300b69f3688e665533183a65c5fb0fd))
+* XML escaping, hashtag type safety, and queue mutex for processNextInQueue ([001077f](https://github.com/sedarged/TikTok-AI-Agent/commit/001077fe6f41c3a2462edf3f99cebff13ead8f36))
+* XML escaping, hashtag type safety, and queue mutex for processNextInQueue ([bf5b95e](https://github.com/sedarged/TikTok-AI-Agent/commit/bf5b95e852603ab44bbcfc00300bb7396aba9768))
+* XML escaping, hashtag type validation, queue mutex ([7365bfc](https://github.com/sedarged/TikTok-AI-Agent/commit/7365bfcb74e4e4ec84d3415bae0f03e450881c74))
+* XML escaping, hashtag type validation, queue race condition ([805e439](https://github.com/sedarged/TikTok-AI-Agent/commit/805e43907ce511b32d1e9cd6681ca898411c6f16))
+
 ## [1.1.1](https://github.com/sedarged/TikTok-AI-Agent/compare/v1.1.0...v1.1.1) (2026-02-04)
 
 
