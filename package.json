@@ -38,8 +38,7 @@
     "prepare": "husky"
   },
   "dependencies": {
-    "concurrently": "^9.2.1",
-    "rollup": "^4.59.0"
+    "concurrently": "^9.2.1"
   },
   "overrides": {
     "hono": "^4.11.7",
