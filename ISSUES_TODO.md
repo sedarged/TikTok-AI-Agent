@@ -44,10 +44,10 @@ Nothing should be skipped. Every sub-area below must be verified with evidence (
 | Layer | Includes |
 |---|---|
 | **Server** | `apps/server/src/routes/`, `apps/server/src/services/`, `apps/server/src/utils/`, `apps/server/prisma/` |
-| **Web** | `apps/web/src/pages/`, `components/`, `api/client.ts` |
-| **Tooling** | `scripts/`, GitHub Actions workflows (`.github/workflows/`) |
-| **Docs** | `ISSUES_TODO.md`, `docs/`, root `*.md` files |
-| **Config** | `eslint.config.mjs`, `playwright.config.mjs`, `tsconfig`, `.env.example` |
+| **Web** | `apps/web/src/pages/`, `apps/web/src/components/`, `apps/web/src/api/client.ts` |
+| **Tooling** | `scripts/`, `.github/workflows/` |
+| **Docs** | `ISSUES_TODO.md`, `docs/`, `*.md` in repository root |
+| **Config** | `eslint.config.mjs`, `playwright.config.mjs`, `tsconfig.json`, `apps/server/tsconfig.json`, `apps/web/tsconfig.json`, `.env.example` |
 
 ---
 
@@ -1586,4 +1586,3 @@ No broken links created by deletions. Remaining markdown files checked:
 2. Create GitHub issues using the templates above
 3. Assign owners and set milestones
 4. Begin implementation starting with P0/P1 issues
-
