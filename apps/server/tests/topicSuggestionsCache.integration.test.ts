@@ -24,7 +24,16 @@ describe('Topic Suggestions Caching', () => {
         const match = prompt.match(/exactly (\d+)/);
         const limit = match ? parseInt(match[1], 10) : 10;
         const topics = Array.from({ length: limit }, (_, i) => `Mock Topic ${callCount}-${i + 1}`);
-        return JSON.stringify(topics);
+        return {
+          content: JSON.stringify(topics),
+          usage: {
+            model: 'gpt-4o-mini',
+            promptTokens: 0,
+            completionTokens: 0,
+            totalTokens: 0,
+            latencyMs: 0,
+          },
+        };
       });
   });
 
@@ -124,9 +133,18 @@ describe('Topic Suggestions Caching', () => {
 
     // Mock callOpenAI to return wrapper object format (OpenAI json_object mode)
     callOpenAISpy = vi.spyOn(openaiModule, 'callOpenAI').mockImplementation(async () => {
-      return JSON.stringify({
-        topics: ['Wrapped Topic 1', 'Wrapped Topic 2', 'Wrapped Topic 3'],
-      });
+      return {
+        content: JSON.stringify({
+          topics: ['Wrapped Topic 1', 'Wrapped Topic 2', 'Wrapped Topic 3'],
+        }),
+        usage: {
+          model: 'gpt-4o-mini',
+          promptTokens: 0,
+          completionTokens: 0,
+          totalTokens: 0,
+          latencyMs: 0,
+        },
+      };
     });
 
     const result = await getTopicSuggestions('facts', 3);
