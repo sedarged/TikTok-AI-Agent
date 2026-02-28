@@ -6,6 +6,170 @@
 
 ---
 
+## Part 0: Meta Audit Issue (Umbrella / Top-Level)
+
+This section contains the master umbrella issue that coordinates all audit and remediation work across the project. It should be created as a GitHub issue first, and all individual issues in Part 2 linked to it.
+
+---
+
+### Issue 0: Comprehensive Project Audit and Remediation (Umbrella)
+
+**Title:** 🔍 Comprehensive Project Audit & Remediation – AI-Assisted Code, Security, Reliability, Performance & Testing
+
+**Labels:** `AUDIT`, `bug`, `testing`
+
+**Priority:** P0 (Umbrella – coordinates all P0–P3 sub-issues)
+
+**Type:** audit / meta
+
+---
+
+#### Purpose
+
+This is the **top-level umbrella issue** coordinating a full, no-shortcuts audit and remediation of the entire TikTok-AI-Agent codebase. Because this project was substantially built with AI assistance, it carries specific risks that a human-authored codebase would not:
+
+- **AI hallucinations** – Invented APIs, non-existent library methods, or plausible-looking but subtly wrong logic.
+- **Confident wrong assumptions** – AI fills gaps with "reasonable" defaults that may be semantically incorrect.
+- **Blind spot accumulation** – Each AI session lacks memory of prior sessions, so errors compound invisibly.
+- **Test coverage theatre** – Tests written by AI often test only the happy path, assert on mocks rather than real behaviour, or miss edge cases entirely.
+
+Nothing should be skipped. Every sub-area below must be verified with evidence (file path + line numbers), not assumed to be correct.
+
+**Audit Backlog Reference:** [`ISSUES_TODO.md`](ISSUES_TODO.md) – Part 2 contains individual ready-to-file issues (P0–P3) that were identified during an earlier audit pass. This umbrella issue coordinates all of them and any new findings.
+
+---
+
+#### Scope
+
+| Layer | Includes |
+|---|---|
+| **Server** | `apps/server/src/routes/`, `services/`, `utils/`, `prisma/` |
+| **Web** | `apps/web/src/pages/`, `components/`, `api/client.ts` |
+| **Tooling** | `scripts/`, GitHub Actions workflows (`.github/workflows/`) |
+| **Docs** | `ISSUES_TODO.md`, `docs/`, root `*.md` files |
+| **Config** | `eslint.config.mjs`, `playwright.config.mjs`, `tsconfig`, `.env.example` |
+
+---
+
+#### Action Plan / Checklist
+
+##### 1. AI-Generated Defect Audit (Hallucinations & Misleading Assumptions)
+- [ ] Audit every route handler for invented or misused library APIs (e.g. Prisma, Zod, Express)
+- [ ] Verify all OpenAI SDK calls match the actual API (model names, parameter names, response shapes)
+- [ ] Confirm all Prisma `include`/`select` shapes match the actual schema
+- [ ] Review all JSON parsing sites – every `JSON.parse()` must be wrapped in try-catch
+- [ ] Verify TypeScript type assertions (`as`, `!`) are not hiding runtime type mismatches
+- [ ] Check all environment variable reads for missing defaults or undocumented variables
+
+##### 2. Security
+- [ ] Fix path traversal weakness in artifact download (`run.ts` L450–466) – replace `startsWith()` with `path.relative()` check (Issue #1)
+- [ ] Tighten Content Security Policy – remove `unsafe-inline` from script-src (Issue #2)
+- [ ] Gate test/dry-run configuration endpoint behind `NODE_ENV !== 'production'` or auth middleware (Issue #3)
+- [ ] Audit all UUID path parameters for `z.string().uuid()` validation
+- [ ] Audit all file-serving endpoints for MIME-type sniffing risks
+- [ ] Verify `ALLOWED_ORIGINS` CORS configuration is enforced in production builds
+
+##### 3. Input Validation Gaps
+- [ ] Add bounds validation to analytics fields (`viewsCount`, `likesCount`, etc.) (Issue #10)
+- [ ] Add narration-content validation to autofit endpoint (Issue #11)
+- [ ] Validate scene lock status in bulk plan update (Issue #8)
+- [ ] Add existence/validity checks to project duplication endpoint (Issue #9)
+- [ ] Audit every Zod schema for missing `.strict()` – extra fields must be rejected
+- [ ] Verify all list-query endpoints validate pagination params (page ≥ 1, perPage ≤ 100)
+
+##### 4. Database / Data-Integrity
+- [ ] Wrap project duplication, batch creation, and automate flow in `prisma.$transaction()` (Issue #5)
+- [ ] Add missing database indexes (`Scene.planVersionId`, `Run.status`, `Cache.key`, etc.) (Issue #4)
+- [ ] Replace all N+1 scene-creation and scene-deletion loops with `createMany()`/`deleteMany()` (Issue #6)
+- [ ] Audit soft-delete patterns – ensure deleted records are excluded from all queries
+- [ ] Verify cascading deletes in Prisma schema match intended behaviour
+
+##### 5. Caching & Cost Controls
+- [ ] Cache topic suggestions (15–30 min TTL) to reduce redundant OpenAI API calls (Issue #7)
+- [ ] Add per-project and per-run cost caps that abort generation when exceeded
+- [ ] Verify image-generation calls use the cheapest appropriate model/size for the quality needed
+- [ ] Confirm TTS requests are not duplicated on retry (idempotency)
+
+##### 6. Observability & Logging
+- [ ] Implement structured error tracking (Sentry or equivalent) on server and client (Issue #18)
+- [ ] Add request-ID tracing header so server logs can be correlated with client events
+- [ ] Ensure all unhandled promise rejections are captured and logged (not silently swallowed)
+- [ ] Add SSE keep-alive / heartbeat to prevent proxy timeouts on long renders
+- [ ] Verify Winston log level respects `LOG_LEVEL` env var; no debug logs in production
+
+##### 7. Frontend Reliability
+- [ ] Add top-level React `ErrorBoundary` to `App.tsx` (Issue #14 / P0)
+- [ ] Add per-page `ErrorBoundary` around each route so one broken page does not crash the whole app
+- [ ] Add loading states and skeleton loaders to all list views (Issue #19)
+- [ ] Prevent double-submit on all async buttons (disable during in-flight request)
+- [ ] Verify SSE `EventSource` has a reconnect / error handler on every consuming page
+
+##### 8. Accessibility
+- [ ] Add `aria-label` / `role` attributes to all icon-only buttons (Issue #16)
+- [ ] Implement keyboard navigation for all modal/dropdown components (Issue #17)
+- [ ] Ensure all form inputs have associated `<label>` elements
+- [ ] Run axe or Lighthouse accessibility audit and fix all critical violations
+
+##### 9. Test Hardening
+- [ ] Identify and fix all tests that assert on mock call counts rather than observable state
+- [ ] Ensure integration tests use actual SQLite DB (not just in-memory mocks) for DB-touch paths
+- [ ] Add test coverage for all security-relevant code paths (path traversal, UUID validation, auth gates)
+- [ ] Add regression test for every P0/P1 bug fixed in this audit
+- [ ] Verify `APP_TEST_MODE=1` mocks match the real OpenAI response shapes (no hallucinated stubs)
+- [ ] Confirm CI runs all test jobs (`backend-tests`, `render-dry-run`, `e2e`) on every PR
+
+##### 10. Documentation & Accuracy
+- [ ] Cross-check all doc-referenced file paths still exist (broken links)
+- [ ] Verify every code snippet in docs compiles/runs against current API
+- [ ] Remove or update any documentation that was AI-generated and not verified against the real implementation
+
+---
+
+#### Acceptance Criteria
+
+This issue is **DONE** when:
+
+1. **Audit log exists** – A markdown file (`AUDIT_LOG.md`) or linked PR descriptions document every finding with:
+   - File path + line numbers
+   - Description of the defect or risk
+   - Fix applied or follow-up issue created (with link)
+2. **All P0 findings fixed** – No critical bugs, security vulnerabilities, or data-integrity risks remain open.
+3. **P1–P3 findings tracked** – Every finding that is not fixed has a dedicated GitHub issue created (using Part 2 templates in this file) and labelled with appropriate priority.
+4. **CI is green** – All GitHub Actions jobs pass on `main`: `lint-typecheck-build`, `backend-tests`, `render-dry-run`, `backend-tests-windows`, `e2e`.
+5. **No new regressions** – Existing passing tests continue to pass after all fixes.
+6. **Checklist above ≥ 90% checked** – At minimum all security, validation, and test-hardening items are resolved.
+
+---
+
+#### Related Issues (from Part 2 of this file)
+
+| Issue | Title | Priority |
+|---|---|---|
+| #1 | Path traversal in artifact download | P1 |
+| #2 | Weak Content Security Policy | P3 |
+| #3 | Test routes missing auth | P2 |
+| #4 | Missing DB indexes | P1 |
+| #5 | Missing DB transactions | P1 |
+| #6 | N+1 query patterns | P1 |
+| #7 | Topic suggestions – no caching | P2 |
+| #8 | Scene lock not checked in bulk update | P1 |
+| #9 | Project duplicate missing validation | P1 |
+| #10 | Analytics fields missing bounds validation | P2 |
+| #11 | Autofit missing content validation | P2 |
+| #14 | Missing React ErrorBoundary | P0 |
+| #16 | Icon buttons missing aria-label | P2 |
+| #17 | Modal keyboard navigation | P2 |
+| #18 | Missing APM / observability | P2 |
+| #19 | Missing loading states / skeleton loaders | P2 |
+
+---
+
+**Suggested Labels:** `AUDIT`, `bug`, `testing`  
+**Target Branch:** `main`  
+**Audit Backlog:** [`ISSUES_TODO.md`](ISSUES_TODO.md) – Part 2
+
+---
+
 ## Part 1: Cleanup Summary
 
 ### What Was Updated
