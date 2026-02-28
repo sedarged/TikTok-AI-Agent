@@ -54,6 +54,7 @@
     "@playwright/test": "^1.58.2",
     "cross-env": "^10.1.0",
     "eslint": "^9.0.0",
+    "eslint": "^10.0.1",
     "eslint-config-prettier": "^10.0.1",
     "husky": "^9.1.7",
     "lint-staged": "^16.2.7",
