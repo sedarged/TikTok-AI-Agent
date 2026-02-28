@@ -22,3 +22,9 @@ label-rules:
   
   - label: 'documentation'
     keywords: ['docs', 'documentation', 'readme', 'guide', 'example', 'tutorial']
+
+  - label: 'AUDIT'
+    keywords: ['audit', 'hallucination', 'remediation', 'finding', 'ai-generated defect', 'security audit', 'code review']
+
+  - label: 'testing'
+    keywords: ['test', 'tests', 'testing', 'coverage', 'regression', 'unit test', 'integration test', 'e2e', 'playwright', 'vitest']

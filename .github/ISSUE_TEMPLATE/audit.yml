@@ -1,0 +1,93 @@
+name: Audit Finding
+description: Report a finding from a code/security/quality audit
+title: "[AUDIT]: "
+labels: ["AUDIT", "needs-triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Use this template to file individual findings discovered during an audit pass.
+        Link every finding to the umbrella audit issue so progress is tracked centrally.
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Audit Area
+      description: Which area of the codebase does this finding belong to?
+      options:
+        - Security
+        - Input Validation
+        - Database / Data-Integrity
+        - Performance / N+1
+        - Caching / Cost Controls
+        - Observability / Logging
+        - Frontend Reliability
+        - Accessibility
+        - Test Hardening
+        - AI-Generated Defect (Hallucination / Wrong Assumption)
+        - Documentation Accuracy
+        - Other
+    validations:
+      required: true
+
+  - type: dropdown
+    id: priority
+    attributes:
+      label: Priority
+      options:
+        - P0 (Critical – security breach / data loss / crash)
+        - P1 (High – significant bug or reliability risk)
+        - P2 (Medium – validation gap / UX / cost)
+    validations:
+      required: true
+
+  - type: textarea
+    id: description
+    attributes:
+      label: Finding Description
+      description: Describe the defect, risk, or gap discovered.
+      placeholder: What is wrong and why does it matter?
+    validations:
+      required: true
+
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Evidence (File + Line Numbers)
+      description: |
+        Provide exact file paths and line numbers. Use format: `path/to/file.ts:L42-L55`.
+      placeholder: |
+        - `apps/server/src/routes/run.ts:L450-L466` – uses startsWith() which is bypassable
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Steps to Reproduce / Verify
+      placeholder: |
+        1. Start the server
+        2. Call endpoint X without authentication
+        3. Observe Y behaviour
+    validations:
+      required: false
+
+  - type: textarea
+    id: acceptance-criteria
+    attributes:
+      label: Acceptance Criteria
+      placeholder: |
+        - [ ] Replace foo() with bar()
+        - [ ] Add regression test
+        - [ ] CI passes
+    validations:
+      required: false
+
+  - type: input
+    id: umbrella-issue
+    attributes:
+      label: Umbrella Issue
+      description: Link to the parent audit umbrella issue (e.g. #123).
+      placeholder: "#123"
+    validations:
+      required: false
