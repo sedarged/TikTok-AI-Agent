@@ -24,7 +24,7 @@ export type ProjectStatus =
   | 'FAILED';
 
 // Run status
-export type RunStatus = 'queued' | 'running' | 'done' | 'failed' | 'canceled';
+export type RunStatus = 'queued' | 'running' | 'done' | 'failed' | 'canceled' | 'qa_failed';
 
 // Tempo
 export type Tempo = 'slow' | 'normal' | 'fast';

@@ -47,9 +47,9 @@ async function fetchApi<T>(endpoint: string, options: FetchApiOptions = {}): Pro
   } catch (err) {
     if (timeoutId) clearTimeout(timeoutId);
     if (err instanceof Error) {
-      if (err.name === 'AbortError') throw new Error('Request timeout');
+      if (err.name === 'AbortError') throw new Error('Request timeout', { cause: err });
       if (err.message === 'Failed to fetch')
-        throw new Error('Network error. Check your connection.');
+        throw new Error('Network error. Check your connection.', { cause: err });
     }
     throw err;
   }

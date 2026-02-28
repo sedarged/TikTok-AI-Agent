@@ -1,4 +1,4 @@
-import OpenAI from 'openai';
+import OpenAI, { APIError } from 'openai';
 import { logError, logDebug, logWarn } from '../../utils/logger.js';
 import { safeJsonParse } from '../../utils/safeJsonParse.js';
 import pRetry, { type RetryContext } from 'p-retry';
@@ -27,12 +27,20 @@ const RETRY_OPTIONS = {
 };
 
 function shouldRetry(err: unknown): boolean {
+  // Use the SDK's typed APIError for precise status-code detection
+  if (err instanceof APIError) {
+    if (err.status === 429) return true; // rate limited
+    if (err.status === 503 || err.status === 529) return true; // overloaded
+    // Treat SDK-level network errors as retryable
+    if (err.status == null) return true;
+    return false;
+  }
   if (err instanceof Error) {
     const msg = err.message.toLowerCase();
-    if (msg.includes('429') || msg.includes('rate limit')) return true;
     if (msg.includes('timeout') || msg.includes('etimedout') || msg.includes('econnaborted'))
       return true;
-    if ((err as { status?: number }).status === 429) return true;
+    // Fallback string check for non-SDK errors (e.g., wrapped fetch errors)
+    if (msg.includes('429') || msg.includes('rate limit')) return true;
   }
   return false;
 }
@@ -281,7 +289,7 @@ export async function transcribeAudio(audioPath: string): Promise<TranscribeAudi
   );
 
   const words = (transcription as { words?: WhisperWord[] }).words;
-  let estimatedCostUsd = 0;
+  let estimatedCostUsd: number;
   try {
     const durationSec = await getMediaDuration(audioPath);
     estimatedCostUsd = (durationSec / 60) * COST.whisperPerMinute;

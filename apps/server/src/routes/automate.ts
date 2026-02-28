@@ -1,11 +1,18 @@
 import { Router } from 'express';
+import rateLimit from 'express-rate-limit';
 import { z } from 'zod';
 import { prisma } from '../db/client.js';
 import { generatePlanData, savePlanData, type PlanData } from '../services/plan/planGenerator.js';
 import { validatePlan } from '../services/plan/planValidator.js';
 import { getNichePack } from '../services/nichePacks.js';
 import { startRenderPipeline } from '../services/render/renderPipeline.js';
-import { isOpenAIConfigured, isRenderDryRun, isTestMode } from '../env.js';
+import {
+  isOpenAIConfigured,
+  isRenderDryRun,
+  isTestMode,
+  isNodeTest,
+  isDevelopment,
+} from '../env.js';
 import { checkFFmpegAvailable } from '../services/ffmpeg/ffmpegUtils.js';
 import { v4 as uuid } from 'uuid';
 import { logError, logInfo } from '../utils/logger.js';
@@ -14,7 +21,24 @@ import { logError, logInfo } from '../utils/logger.js';
 const PLAN_LOOKUP_MAX_ATTEMPTS = 3;
 const PLAN_LOOKUP_RETRY_DELAY_MS = 500;
 
+// Per-hour rate limiter to prevent excessive OpenAI and render costs on the automate endpoint
+const automateLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000, // 1 hour
+  max: isNodeTest() || isDevelopment() ? 1000 : 20, // 20 full automations per hour in production
+  message: {
+    error: 'Too many automate requests',
+    message: 'You can only submit 20 automate requests per hour. Please try again later.',
+    code: 'AUTOMATE_RATE_LIMIT_EXCEEDED',
+  },
+  standardHeaders: true,
+  legacyHeaders: false,
+  skip: (_req) => isTestMode(), // Skip rate limiting in APP_TEST_MODE
+});
+
 export const automateRoutes = Router();
+
+// Apply automate-specific rate limiter (expensive: triggers OpenAI + full render pipeline)
+automateRoutes.use(automateLimiter);
 
 const automateSchema = z
   .object({

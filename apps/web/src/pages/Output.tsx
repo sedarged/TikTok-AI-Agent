@@ -100,12 +100,17 @@ export default function Output({ status }: OutputProps) {
           setLogs((prev) => [...prev, event.log!]);
         } else if (event.type === 'done') {
           setRun((prev) => (prev ? { ...prev, status: 'done', progress: 100 } : null));
-          getRun(runId).then(setRun);
+          // Refresh full run state; ignore errors — the optimistic update above already reflects final status
+          getRun(runId)
+            .then(setRun)
+            .catch(() => undefined);
         } else if (event.type === 'failed') {
           setRun((prev) => (prev ? { ...prev, status: 'failed' } : null));
         } else if (event.type === 'state' && event.status === 'qa_failed') {
           setRun((prev) => (prev ? { ...prev, status: 'qa_failed', progress: 100 } : null));
-          getRun(runId).then(setRun);
+          getRun(runId)
+            .then(setRun)
+            .catch(() => undefined);
         } else if (event.type === 'state') {
           if (event.status) setRun((prev) => (prev ? { ...prev, status: event.status! } : null));
           if (event.progress !== undefined)

@@ -112,12 +112,11 @@ export function optionalAuth(req: Request, res: Response, next: NextFunction): v
   // If Authorization header is present, validate it
   const authHeader = req.headers.authorization;
   if (authHeader) {
-    // Use requireAuth logic
-    requireAuth(req, res, next);
-  } else {
-    // No auth header provided, but that's OK for optional auth
-    next();
+    // Delegate to requireAuth — it calls next() on success or sends 401 on failure
+    return requireAuth(req, res, next);
   }
+  // No auth header provided; allow request (optional auth by design)
+  next();
 }
 
 /**

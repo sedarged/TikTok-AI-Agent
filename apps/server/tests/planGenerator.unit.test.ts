@@ -334,6 +334,16 @@ describe('planGenerator - Template Mode (no OpenAI)', () => {
   });
 });
 
+// Helper: wrap string content in the shape callOpenAI actually returns
+const mockUsage = {
+  model: 'gpt-4o-mini',
+  promptTokens: 0,
+  completionTokens: 0,
+  totalTokens: 0,
+  latencyMs: 0,
+};
+const mockAI = (content: string) => ({ content, usage: mockUsage });
+
 describe('planGenerator - AI Mode (with OpenAI mocked)', () => {
   let callOpenAISpy: ReturnType<typeof vi.spyOn>;
 
@@ -355,17 +365,21 @@ describe('planGenerator - AI Mode (with OpenAI mocked)', () => {
     it('generates plan using AI responses', async () => {
       // Mock hooks response
       callOpenAISpy.mockResolvedValueOnce(
-        JSON.stringify([
-          'AI hook 1 about testing',
-          'AI hook 2 about testing',
-          'AI hook 3 about testing',
-          'AI hook 4 about testing',
-          'AI hook 5 about testing',
-        ])
+        mockAI(
+          JSON.stringify([
+            'AI hook 1 about testing',
+            'AI hook 2 about testing',
+            'AI hook 3 about testing',
+            'AI hook 4 about testing',
+            'AI hook 5 about testing',
+          ])
+        )
       );
 
       // Mock outline response
-      callOpenAISpy.mockResolvedValueOnce('AI generated outline\n1. Point one\n2. Point two');
+      callOpenAISpy.mockResolvedValueOnce(
+        mockAI('AI generated outline\n1. Point one\n2. Point two')
+      );
 
       // Mock scenes response
       const mockScenes = Array.from({ length: 6 }, (_, i) => ({
@@ -375,7 +389,7 @@ describe('planGenerator - AI Mode (with OpenAI mocked)', () => {
         visualPrompt: `AI visual prompt ${i}`,
         durationTargetSec: 10,
       }));
-      callOpenAISpy.mockResolvedValueOnce(JSON.stringify(mockScenes));
+      callOpenAISpy.mockResolvedValueOnce(mockAI(JSON.stringify(mockScenes)));
 
       const project = await createTestProject({ targetLengthSec: 60 });
       const plan = await generatePlan(project);
@@ -400,7 +414,7 @@ describe('planGenerator - AI Mode (with OpenAI mocked)', () => {
 
     it('falls back to template when AI returns invalid JSON', async () => {
       // Mock invalid JSON response for hooks
-      callOpenAISpy.mockResolvedValueOnce('Invalid JSON response');
+      callOpenAISpy.mockResolvedValueOnce(mockAI('Invalid JSON response'));
 
       const project = await createTestProject();
       const hooks = await regenerateHooks(project);
@@ -412,7 +426,7 @@ describe('planGenerator - AI Mode (with OpenAI mocked)', () => {
 
     it('falls back to template when AI returns wrong number of hooks', async () => {
       // Mock response with only 3 hooks instead of 5
-      callOpenAISpy.mockResolvedValueOnce(JSON.stringify(['hook 1', 'hook 2', 'hook 3']));
+      callOpenAISpy.mockResolvedValueOnce(mockAI(JSON.stringify(['hook 1', 'hook 2', 'hook 3'])));
 
       const project = await createTestProject();
       const hooks = await regenerateHooks(project);
@@ -452,7 +466,7 @@ describe('planGenerator - AI Mode (with OpenAI mocked)', () => {
         idx: i,
         narrationText: `Updated AI narration ${i}`,
       }));
-      callOpenAISpy.mockResolvedValueOnce(JSON.stringify(updates));
+      callOpenAISpy.mockResolvedValueOnce(mockAI(JSON.stringify(updates)));
 
       const hook = 'Test hook';
       const outline = 'Test outline';
@@ -484,7 +498,7 @@ describe('planGenerator - AI Mode (with OpenAI mocked)', () => {
         idx: i,
         narrationText: `Updated AI narration ${i}`,
       }));
-      callOpenAISpy.mockResolvedValueOnce(JSON.stringify(updates));
+      callOpenAISpy.mockResolvedValueOnce(mockAI(JSON.stringify(updates)));
 
       const result = await regenerateScript(project, 'hook', 'outline', scenes);
 
@@ -507,11 +521,13 @@ describe('planGenerator - AI Mode (with OpenAI mocked)', () => {
       vi.spyOn(envModule, 'isOpenAIConfigured').mockReturnValue(true);
 
       callOpenAISpy.mockResolvedValueOnce(
-        JSON.stringify({
-          narrationText: 'New AI narration',
-          onScreenText: 'NEW TEXT',
-          visualPrompt: 'New AI visual',
-        })
+        mockAI(
+          JSON.stringify({
+            narrationText: 'New AI narration',
+            onScreenText: 'NEW TEXT',
+            visualPrompt: 'New AI visual',
+          })
+        )
       );
 
       const scene = scenes[1]; // Middle scene
@@ -543,11 +559,13 @@ describe('planGenerator - AI Mode (with OpenAI mocked)', () => {
       vi.spyOn(envModule, 'isOpenAIConfigured').mockReturnValue(true);
 
       callOpenAISpy.mockResolvedValueOnce(
-        JSON.stringify({
-          narrationText: 'New first scene',
-          onScreenText: 'FIRST',
-          visualPrompt: 'First visual',
-        })
+        mockAI(
+          JSON.stringify({
+            narrationText: 'New first scene',
+            onScreenText: 'FIRST',
+            visualPrompt: 'First visual',
+          })
+        )
       );
 
       const scene = scenes[0];
@@ -570,11 +588,13 @@ describe('planGenerator - AI Mode (with OpenAI mocked)', () => {
       vi.spyOn(envModule, 'isOpenAIConfigured').mockReturnValue(true);
 
       callOpenAISpy.mockResolvedValueOnce(
-        JSON.stringify({
-          narrationText: 'New last scene',
-          onScreenText: 'LAST',
-          visualPrompt: 'Last visual',
-        })
+        mockAI(
+          JSON.stringify({
+            narrationText: 'New last scene',
+            onScreenText: 'LAST',
+            visualPrompt: 'Last visual',
+          })
+        )
       );
 
       const lastScene = scenes[scenes.length - 1];
@@ -587,15 +607,17 @@ describe('planGenerator - AI Mode (with OpenAI mocked)', () => {
     it('handles OpenAI json_object wrapper format for hooks', async () => {
       // Mock wrapper object format (OpenAI json_object mode)
       callOpenAISpy.mockResolvedValueOnce(
-        JSON.stringify({
-          hooks: [
-            'Wrapper hook 1',
-            'Wrapper hook 2',
-            'Wrapper hook 3',
-            'Wrapper hook 4',
-            'Wrapper hook 5',
-          ],
-        })
+        mockAI(
+          JSON.stringify({
+            hooks: [
+              'Wrapper hook 1',
+              'Wrapper hook 2',
+              'Wrapper hook 3',
+              'Wrapper hook 4',
+              'Wrapper hook 5',
+            ],
+          })
+        )
       );
 
       const project = await createTestProject();
@@ -611,9 +633,9 @@ describe('planGenerator - AI Mode (with OpenAI mocked)', () => {
 
       // Need to generate full plan - mock in order: hooks, outline, scenes
       callOpenAISpy.mockResolvedValueOnce(
-        JSON.stringify(['Hook 1', 'Hook 2', 'Hook 3', 'Hook 4', 'Hook 5'])
+        mockAI(JSON.stringify(['Hook 1', 'Hook 2', 'Hook 3', 'Hook 4', 'Hook 5']))
       );
-      callOpenAISpy.mockResolvedValueOnce('Test outline');
+      callOpenAISpy.mockResolvedValueOnce(mockAI('Test outline'));
 
       // Mock wrapper object format for scenes
       const mockScenes = Array.from({ length: 4 }, (_, i) => ({
@@ -624,9 +646,11 @@ describe('planGenerator - AI Mode (with OpenAI mocked)', () => {
         durationTargetSec: 10,
       }));
       callOpenAISpy.mockResolvedValueOnce(
-        JSON.stringify({
-          scenes: mockScenes,
-        })
+        mockAI(
+          JSON.stringify({
+            scenes: mockScenes,
+          })
+        )
       );
 
       const plan = await generatePlan(project);
@@ -657,9 +681,11 @@ describe('planGenerator - AI Mode (with OpenAI mocked)', () => {
         narrationText: `Wrapper updated narration ${i}`,
       }));
       callOpenAISpy.mockResolvedValueOnce(
-        JSON.stringify({
-          updates: updates,
-        })
+        mockAI(
+          JSON.stringify({
+            updates: updates,
+          })
+        )
       );
 
       const result = await regenerateScript(project, 'hook', 'outline', scenes);
@@ -672,20 +698,22 @@ describe('planGenerator - AI Mode (with OpenAI mocked)', () => {
     it('validates hook strings and filters invalid values', async () => {
       // Mock response with mixed valid/invalid hooks
       callOpenAISpy.mockResolvedValueOnce(
-        JSON.stringify({
-          hooks: [
-            'Valid hook 1',
-            '',
-            'Valid hook 2',
-            123,
-            'Valid hook 3',
-            null,
-            'Valid hook 4',
-            '   ',
-            'Valid hook 5',
-            'Valid hook 6',
-          ],
-        })
+        mockAI(
+          JSON.stringify({
+            hooks: [
+              'Valid hook 1',
+              '',
+              'Valid hook 2',
+              123,
+              'Valid hook 3',
+              null,
+              'Valid hook 4',
+              '   ',
+              'Valid hook 5',
+              'Valid hook 6',
+            ],
+          })
+        )
       );
 
       const project = await createTestProject();

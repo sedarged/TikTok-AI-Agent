@@ -27,6 +27,36 @@ const HOOK_FIRST_3_SECONDS =
   'The first scene must contain the hook within the first 3 seconds; first sentence = attention grabber.';
 
 /**
+ * Escape XML special characters so user content cannot break the <user_content>
+ * boundary or inject additional tags.
+ *
+ * CRITICAL: Ampersand (&) must be replaced FIRST to avoid double-escaping.
+ * If we replaced '<' first, then '&', the sequence "<" would become "&amp;lt;"
+ * instead of "&lt;". By replacing & first, we ensure all special characters
+ * are escaped exactly once.
+ *
+ * @internal - Exported for testing purposes only
+ */
+export function escapeForXml(text: string): string {
+  // Normalize newlines and escape XML special characters
+  const normalized = text.replace(/\r\n?/g, '\n');
+  return normalized
+    .replace(/&/g, '&amp;') // MUST be first - prevents double-escaping
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&apos;');
+}
+
+/**
+ * Wrap user-supplied text in XML tags to reduce prompt injection risk.
+ * The LLM sees clear boundaries between instructions and user content.
+ */
+function userContent(text: string): string {
+  return `<user_content>${escapeForXml(text)}</user_content>`;
+}
+
+/**
  * Helper to unwrap an array from either raw array or {field: array} wrapper object.
  * Handles both legacy array format (tests) and OpenAI json_object format.
  */
@@ -195,7 +225,7 @@ async function generateHooks(project: Project, pack: NichePack): Promise<string[
     return generateTemplateHooks(project.topic, pack);
   }
 
-  const prompt = `Generate exactly 5 different hook options for a TikTok video about: "${project.topic}"
+  const prompt = `Generate exactly 5 different hook options for a TikTok video about: ${userContent(project.topic)}
 
 Niche: ${pack.name}
 Language: ${project.language}
@@ -256,13 +286,13 @@ async function generateOutline(
 
   const structureLine = structureHint ? `\nUse this structure: ${structureHint}\n` : '';
   const seoKeywordsLine = project.seoKeywords?.trim()
-    ? `\nInclude these keywords naturally: ${project.seoKeywords.trim()}.\n`
+    ? `\nInclude these keywords naturally: ${userContent(project.seoKeywords.trim())}.\n`
     : '';
 
   const prompt = `Create a video outline for a TikTok video.
 
-Topic: "${project.topic}"
-Hook: "${hook}"
+Topic: ${userContent(project.topic)}
+Hook: ${userContent(hook)}
 Niche: ${pack.name}
 Target length: ${project.targetLengthSec} seconds
 Tempo: ${project.tempo}
@@ -301,13 +331,13 @@ async function generateScenes(
 
   const structureLine = structureHint ? `\nUse this structure: ${structureHint}\n` : '';
   const seoKeywordsLine = project.seoKeywords?.trim()
-    ? `\nInclude these keywords naturally: ${project.seoKeywords.trim()}.\n`
+    ? `\nInclude these keywords naturally: ${userContent(project.seoKeywords.trim())}.\n`
     : '';
 
   const prompt = `Generate ${sceneCount} scenes for a TikTok video.
 
-Topic: "${project.topic}"
-Hook: "${hook}"
+Topic: ${userContent(project.topic)}
+Hook: ${userContent(hook)}
 Outline: ${outline}
 Niche: ${pack.name}
 Style: ${pack.styleBiblePrompt}
@@ -419,15 +449,15 @@ export async function regenerateScript(
 
   const prompt = `Rewrite the narration for each scene to create a cohesive, engaging script.
 
-Topic: "${project.topic}"
-Hook: "${hook}"
+Topic: ${userContent(project.topic)}
+Hook: ${userContent(hook)}
 Outline: ${outline}
 Niche: ${pack.name}
 Target length: ${project.targetLengthSec} seconds
 Tempo: ${project.tempo}
 
 Current scenes:
-${scenes.map((s) => `Scene ${s.idx + 1}: "${s.narrationText}"`).join('\n')}
+${scenes.map((s) => `Scene ${s.idx + 1}: ${userContent(s.narrationText)}`).join('\n')}
 
 Return JSON object with an "updates" array containing updated narration for each scene:
 {
@@ -493,14 +523,14 @@ export async function regenerateScene(
 
   const prompt = `Regenerate this single scene for a TikTok video.
 
-Topic: "${project.topic}"
+Topic: ${userContent(project.topic)}
 Niche: ${pack.name}
 Style: ${pack.styleBiblePrompt}
 Scene index: ${scene.idx + 1} of ${allScenes.length}
 Duration: ${scene.durationTargetSec} seconds
 
-${prevScene ? `Previous scene narration: "${prevScene.narrationText}"` : 'This is the first scene.'}
-${nextScene ? `Next scene narration: "${nextScene.narrationText}"` : 'This is the last scene.'}
+${prevScene ? `Previous scene narration: ${userContent(prevScene.narrationText)}` : 'This is the first scene.'}
+${nextScene ? `Next scene narration: ${userContent(nextScene.narrationText)}` : 'This is the last scene.'}
 
 Generate a new version of this scene that:
 - Fits naturally between the previous and next scenes
