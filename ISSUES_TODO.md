@@ -43,7 +43,7 @@ Nothing should be skipped. Every sub-area below must be verified with evidence (
 
 | Layer | Includes |
 |---|---|
-| **Server** | `apps/server/src/routes/`, `services/`, `utils/`, `prisma/` |
+| **Server** | `apps/server/src/routes/`, `apps/server/src/services/`, `apps/server/src/utils/`, `apps/server/prisma/` |
 | **Web** | `apps/web/src/pages/`, `components/`, `api/client.ts` |
 | **Tooling** | `scripts/`, GitHub Actions workflows (`.github/workflows/`) |
 | **Docs** | `ISSUES_TODO.md`, `docs/`, root `*.md` files |

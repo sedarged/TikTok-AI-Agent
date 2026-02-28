@@ -31,14 +31,13 @@ body:
       required: true
 
   - type: dropdown
-    id: severity
+    id: priority
     attributes:
-      label: Severity
+      label: Priority
       options:
         - P0 (Critical – security breach / data loss / crash)
         - P1 (High – significant bug or reliability risk)
         - P2 (Medium – validation gap / UX / cost)
-        - P3 (Low – minor enhancement / cosmetic)
     validations:
       required: true
 
@@ -88,7 +87,7 @@ body:
     id: umbrella-issue
     attributes:
       label: Umbrella Issue
-      description: Link to the parent audit umbrella issue (e.g. #42).
-      placeholder: "#0 (umbrella audit issue)"
+      description: Link to the parent audit umbrella issue (e.g. #123).
+      placeholder: "#123"
     validations:
       required: false
