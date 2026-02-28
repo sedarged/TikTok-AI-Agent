@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.3.0](https://github.com/sedarged/TikTok-AI-Agent/compare/v1.2.0...v1.3.0) (2026-02-28)
+
+
+### Features
+
+* add comprehensive meta-audit umbrella issue and audit infrastructure ([644cdf7](https://github.com/sedarged/TikTok-AI-Agent/commit/644cdf795624a47a6760b3ebec59df269fd2a7fe))
+
+
+### Bug Fixes
+
+* address review feedback on audit template priority and scope paths ([4dba021](https://github.com/sedarged/TikTok-AI-Agent/commit/4dba021df471dc9e7665174cf5e2aec1f76c6ff5))
+
 ## [1.2.0](https://github.com/sedarged/TikTok-AI-Agent/compare/v1.1.1...v1.2.0) (2026-02-28)
 
 
